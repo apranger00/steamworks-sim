@@ -39,11 +39,16 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `shooter.minRange / maxRange` | 2.5 / 25 | Feet from the goal centre |
 | `shooter.entryAngle` | 55 | How steeply shots drop into the goal |
 | `shooter.aimError / speedError` | 0.6 / 1.2 | Accuracy: degrees and percent, 1 sigma |
-| `shooter.capacity` | 0 | FUEL carried; 0 = unlimited (testing) |
+| `shooter.capacity` | 0 | FUEL the robot holds (shooter and dump share it); 0 = unlimited (testing) |
 | `lowGoalDump.enabled / rate / height / speed / width` | true / 10 / 22 / 5.83 / 14 | Dumping out of the front into the low goal |
 | `gear.enabled / slotOffset` | true / 0 | Front gear slot; offset to the left of the centre line |
 | `gear.maxDistance / maxLateral / maxAngle` | 4 / 3.5 / 15 | How precisely you must line up on a peg |
-| `gear.capacity` | 0 | GEARS carried; 0 = unlimited |
+| `gear.capacity` | 0 | GEARS the robot holds; 0 = unlimited |
+| `preload.fuel / gears` | 10 / 1 | On board at the start of a match (2017 limits; capped by capacity). Whatever an alliance's robots don't preload stays at its loading station |
+| `intake.fuelFromChute` | true | Open-top hopper: FUEL falling from a loading-station chute onto the robot goes in |
+| `intake.hopperDepth` | 12 | in above the robot's top that counts as inside the hopper |
+| `intake.gearFromChute` | true | The front gear slot takes a GEAR sliding out of a chute (robot facing the station, slot lined up with the chute) |
+| `intake.fuelFromFloor / gearFromFloor` | false / false | Front intake picks pieces up off the carpet while driving |
 | `climber.enabled / rate` | true / 12 | Winch speed in in/s |
 | `climber.setback / reachForward / reachLateral` | 3 / 10 / 12 | Where the rope is gripped and how close it must be to latch |
 | `model.file` | "" | e.g. `model.glb`; empty = generated blockout |

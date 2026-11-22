@@ -61,6 +61,9 @@ namespace SteamworksSim.Game
         RopeSystem ropes;
         FieldAnimator animator;
         HopperSystem hoppers;
+        GearPool gearPool;
+        LoadingStations loading;
+        public LoadingStations Loading => loading;
         public MatchRules Rules => rules;
         public RobotMechanisms PlayerMechanisms => playerMech;
         TankDrive playerDrive;
@@ -117,6 +120,10 @@ namespace SteamworksSim.Game
             ropes = gameObject.AddComponent<RopeSystem>();
             animator = gameObject.AddComponent<FieldAnimator>();
             hoppers = gameObject.AddComponent<HopperSystem>();
+            gearPool = gameObject.AddComponent<GearPool>();
+            loading = gameObject.AddComponent<LoadingStations>();
+            // every FUEL a boiler counts goes on to the other alliance's loading station
+            rules.FuelCounted += al => loading.AddFuel(al == "red" ? "blue" : "red", 1);
             hud = gameObject.AddComponent<MatchHud>();
             hud.Init(this);
             menus = gameObject.AddComponent<GameMenus>();
@@ -135,6 +142,10 @@ namespace SteamworksSim.Game
             ropes.Init(RopesFile.Load(), targets, Mats.Get("rope"));
             animator.Init(field, targets, Mats);
             hoppers.Init(field, targets, fuel);
+            gearPool.Init(Mats.Get("gear"));
+            loading.Init(targets, fuel, gearPool);
+            fuel.Catch = (p, v) => { foreach (var m in Mechs()) if (m.TryCatchFuel(p, v)) return true; return false; };
+            gearPool.Catch = p => { foreach (var m in Mechs()) if (m.TryCatchGear(p)) return true; return false; };
             GameSettings.Apply();
             if (skipMenus) { SpawnPlayer(); StartMatchFromSelect(); }
             else ShowMainMenu();
@@ -211,11 +222,14 @@ namespace SteamworksSim.Game
             Score.Clear();
             rules.Reset();
             fuel.Clear();
+            gearPool.Clear();
             hoppers.Refill();
             ropes.StowAll(); // the PILOTS drop them with 30 s left
             resultsAt = -1f;
             ResetPlayer();
             if (defender != null) PlaceDefender();
+            foreach (var m in Mechs()) m.Reload();
+            loading.Reset(Mechs()); // lane stock plus the preloads the robots didn't take
             Clock.Start();
         }
 
@@ -279,6 +293,7 @@ namespace SteamworksSim.Game
             if (fuel != null) fuel.Clear();
             if (ropes != null) ropes.HangAll();
             if (hoppers != null) hoppers.Refill();
+            if (gearPool != null) gearPool.Clear();
             rules?.Reset();
             Clock.Stop();
             if (sounds != null) sounds.StopAll();
@@ -347,6 +362,7 @@ namespace SteamworksSim.Game
             playerDrive = player.GetComponent<TankDrive>();
             playerMech = player.AddComponent<RobotMechanisms>();
             playerMech.Init(current, alliance, 1, "Your robot", fuel, ropes, () => rules, targets);
+            playerMech.Reload();
             if (cameraRig != null) cameraRig.robot = player.transform;
             ResetPlayer();
         }
@@ -397,6 +413,7 @@ namespace SteamworksSim.Game
             defender.GetComponent<TankDrive>().idle = true;
             defenderMech = defender.AddComponent<RobotMechanisms>();
             defenderMech.Init(def, other, 2, "Defender", fuel, ropes, () => rules, targets);
+            defenderMech.participates = false; // a parked practice dummy: no preload, no loading station
             PlaceDefender();
             Say("Defender added: parked sideways, brakes on");
         }
@@ -479,6 +496,9 @@ namespace SteamworksSim.Game
                 playerMech.dumpHeld = driving && input.dump;
                 if (driving && reader.PlaceGear) playerMech.PlaceGear();
                 if (driving && reader.Climb) playerMech.ToggleClimb();
+                // loading station: in your RETRIEVAL ZONE, L1 / F for FUEL and R1 / G for a GEAR from the nearest chute
+                if (driving && reader.ChuteFuel) loading.RequestFuel(playerMech);
+                if (driving && reader.ChuteGear) loading.RequestGear(playerMech);
             }
             if (menus.Rebinding) return;
 
@@ -523,7 +543,7 @@ namespace SteamworksSim.Game
                 label = new GUIStyle(GUI.skin.label) { fontSize = 13, richText = true };
                 big = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, richText = true };
             }
-            float w = 330f, h = 175f, x = Screen.width - w - 16f, y = Screen.height - h - 16f;
+            float w = 360f, h = 215f, x = Screen.width - w - 16f, y = Screen.height - h - 16f;
             GUI.Box(new Rect(x, y, w, h), GUIContent.none, box);
             GUILayout.BeginArea(new Rect(x + 12f, y + 8f, w - 24f, h - 16f));
             float speedFt = playerDrive != null ? playerDrive.Speed / 0.3048f : 0f;
@@ -533,7 +553,12 @@ namespace SteamworksSim.Game
             GUILayout.Label($"{current.name}  <color=#8e99a3>({alliance}, {StationName[station]})</color>", label);
             GUILayout.Label($"Position {spec.x:0}, {spec.y:0} in   Heading {heading:0}°", label);
             if (playerMech != null)
+            {
                 GUILayout.Label($"Shooter: {playerMech.ShooterStatus}", label);
+                GUILayout.Label($"Carrying: {playerMech.LoadStatus}", label);
+                var st = loading.Of(alliance);
+                if (st != null) GUILayout.Label($"Loading station: {st.fuel} FUEL, {st.gears} GEARS{(loading.InZone(playerMech) ? "  (in zone)" : "")}", label);
+            }
             GUILayout.Label($"Camera {cameraRig?.mode}{(cameraRig != null && cameraRig.chaseReversed && cameraRig.mode == RobotCameraRig.Mode.Chase ? " (front)" : "")}   Input {reader.LastSource}", label);
             if (!string.IsNullOrEmpty(message) && Time.unscaledTime - messageTime < 2.5f)
                 GUILayout.Label($"<color=#ffffff>{message}</color>", label);

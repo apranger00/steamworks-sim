@@ -210,9 +210,14 @@ namespace SteamworksSim.Field
             int i = 0;
             foreach (var p in cols.prisms)
             {
-                var ring = MeshGen.Ring(p.pts);
                 var mb = new MeshBuilder();
-                MeshGen.Loft(mb, ring, p.z0, ring, p.z1, true, true);
+                if (p.pts0 != null && p.pts0.Length >= 6 && p.pts1 != null && p.pts1.Length == p.pts0.Length)
+                    MeshGen.Loft(mb, MeshGen.Ring(p.pts0), p.z0, MeshGen.Ring(p.pts1), p.z1, true, true); // sloped (boiler roof, airship walls)
+                else
+                {
+                    var ring = MeshGen.Ring(p.pts);
+                    MeshGen.Loft(mb, ring, p.z0, ring, p.z1, true, true);
+                }
                 var go = new GameObject($"{i++:000} {p.name}");
                 go.layer = colliderLayer;
                 go.transform.SetParent(root, false);

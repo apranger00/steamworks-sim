@@ -33,6 +33,8 @@ namespace SteamworksSim.Robots
         public DumpSpec lowGoalDump = new DumpSpec();
         public GearSpec gear = new GearSpec();
         public ClimberSpec climber = new ClimberSpec();
+        public PreloadSpec preload = new PreloadSpec();
+        public IntakeSpec intake = new IntakeSpec();
         public ModelSpec model = new ModelSpec();
 
         // Filled in by RobotLibrary
@@ -77,7 +79,7 @@ namespace SteamworksSim.Robots
         public float entryAngle = 55f;      // deg below horizontal at the goal opening
         public float aimError = 0.6f;       // deg, 1 sigma, yaw and pitch
         public float speedError = 1.2f;     // percent, 1 sigma
-        public int capacity = 0;            // FUEL carried; 0 = unlimited (testing)
+        public int capacity = 0;            // FUEL the robot holds (shooter and dump share it); 0 = unlimited (testing)
     }
 
     [Serializable]
@@ -98,7 +100,21 @@ namespace SteamworksSim.Robots
         public float maxDistance = 4f;      // in between peg tip and the front bumper face
         public float maxLateral = 3.5f;     // in off centre
         public float maxAngle = 15f;        // deg off square
-        public int capacity = 0;            // GEARS carried; 0 = unlimited (testing)
+        public int capacity = 0;            // GEARS the robot holds; 0 = unlimited (testing)
+    }
+
+    /// <summary>Game pieces in the robot at the start of a match (2017 limits: 10 FUEL, 1 GEAR; capped by capacity).</summary>
+    [Serializable] public class PreloadSpec { public int fuel = 10; public int gears = 1; }
+
+    /// <summary>How the robot takes game pieces in.</summary>
+    [Serializable]
+    public class IntakeSpec
+    {
+        public bool fuelFromChute = true;   // FUEL dropped from a loading-station chute lands in an open-top hopper
+        public float hopperDepth = 12f;     // in above the robot's top that counts as inside the hopper
+        public bool gearFromChute = true;   // the front gear slot takes a GEAR sliding out of a chute
+        public bool fuelFromFloor = false;  // front intake picks FUEL up off the carpet
+        public bool gearFromFloor = false;  // front intake picks GEARS up off the carpet
     }
 
     [Serializable]

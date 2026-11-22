@@ -38,11 +38,11 @@ namespace SteamworksSim.UI
             onBack = back; onTestSound = testSound; soundStatus = status;
             Root = Ui.Stretch(Ui.Rect("Options", parent));
 
-            var panel = Ui.Anchor(Ui.Rect("Panel", Root), new Vector2(0.5f, 0.5f), new Vector2(1180f, 960f));
+            var panel = Ui.Anchor(Ui.Rect("Panel", Root), new Vector2(0.5f, 0.5f), new Vector2(1180f, 1040f));
             panel.gameObject.AddComponent<Image>().color = Ui.Backdrop;
 
             var col = Ui.Column(panel, "Content", 1100f, 10f);
-            Ui.Anchor(col, new Vector2(0.5f, 1f), new Vector2(1100f, 0f), new Vector2(0f, -28f));
+            Ui.Anchor(col, new Vector2(0.5f, 1f), new Vector2(1100f, 0f), new Vector2(0f, -20f));
             Ui.Label(col, "Options", 44, Ui.Gold, TextAnchor.MiddleCenter, FontStyle.Bold, 64f);
 
             var tabRow = Ui.Row(col, 56f, 10f);
@@ -114,18 +114,18 @@ namespace SteamworksSim.UI
             foreach (var e in GameControls.Entries)
             {
                 var entry = e;
-                var row = Ui.Row(c, 36f, 12f);
-                Ui.SetWidth(Ui.Label(row, entry.label, 20, Ui.TextColor), 200f, 1f);
+                var row = Ui.Row(c, 32f, 12f);
+                Ui.SetWidth(Ui.Label(row, entry.label, 19, Ui.TextColor), 200f, 1f);
                 var br = new BindingRow { entry = entry };
                 Text kbLabel = null;
-                var kb = Ui.Button(row, "", () => StartRebind(entry, false, kbLabel), 36f, 19);
+                var kb = Ui.Button(row, "", () => StartRebind(entry, false, kbLabel), 32f, 18);
                 kbLabel = Ui.LabelOf(kb);
                 Ui.SetWidth(kb, 300f);
                 br.keyboard = kbLabel;
                 if (entry.gamepadIndex >= 0)
                 {
                     Text padLabel = null;
-                    var pad = Ui.Button(row, "", () => StartRebind(entry, true, padLabel), 36f, 19);
+                    var pad = Ui.Button(row, "", () => StartRebind(entry, true, padLabel), 32f, 18);
                     padLabel = Ui.LabelOf(pad);
                     Ui.SetWidth(pad, 300f);
                     br.gamepad = padLabel;

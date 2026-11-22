@@ -215,10 +215,13 @@ export function layout() {
     const face = [bc[0] + n2[0] * (half + 0.15), bc[1] + n2[1] * (half + 0.15)];
     push(box(`${OWN} LOW EFFICIENCY GOAL`, 'hole', [face[0], face[1], B.lowGoal.z + B.lowGoal.h / 2],
       [0.3, B.lowGoal.w, B.lowGoal.h], Math.atan2(n2[1], n2[0]) / D2R));
-    // Boiler net: tight behind the high goal (12 in behind the boiler centre, just clear of the funnel),
-    // from the roof up, so long misses drop back onto the boiler instead of out of the field
-    const back = [bc[0] - n2[0] * 12, bc[1] - n2[1] * 12];
-    push(box(`${OWN} BOILER net`, 'net', [back[0], back[1], (B.roofH + 152) / 2], [0.5, 64, 152 - B.roofH], Math.atan2(n2[1], n2[0]) / D2R));
+    // Boiler net: hung on the two side faces and the back face of the boiler, from the top of the body
+    // up, so misses drop onto the sloped roof and roll back over it onto the field
+    for (const k of [1, 2, 3]) {
+      const a = Math.atan2(n2[1], n2[0]) + k * Math.PI / 2, nn = [Math.cos(a), Math.sin(a)];
+      const p = [bc[0] + nn[0] * (half + 0.4), bc[1] + nn[1] * (half + 0.4)];
+      push(box(`${OWN} BOILER net`, 'net', [p[0], p[1], (B.bodyH + 152) / 2], [0.5, B.size + 1, 152 - B.bodyH], a / D2R));
+    }
 
     // Airship ------------------------------------------------------------------
     const A = DIM.airship;
@@ -330,6 +333,24 @@ export function layout() {
   return { items, fuel, gears };
 }
 
+// Return loading stations, by the alliance that uses them (red's is in the +X corner, at the blue end).
+// face: the panel's ends (a, b); inward: unit normal into the field; chutes: opening centres on the face;
+// zoneDepth: the RETRIEVAL ZONE reaches this far from the face (far edge of the tape, manual 3.2).
+export function loadingStations() {
+  const L = DIM.loadStation, out = {};
+  for (const [al, s] of [['red', 1], ['blue', -1]]) {
+    const a = [s * L.a[0], L.a[1]], b = [s * L.b[0], L.b[1]];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), dir = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    const pad = (len - 75.5) / 2;
+    let inward = [-dir[1], dir[0]];
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    if (inward[0] * mid[0] + inward[1] * mid[1] > 0) inward = [-inward[0], -inward[1]];
+    const chutes = L.openings.map((o) => { const t = pad + (o[0] + o[1]) / 2; return [a[0] + dir[0] * t, a[1] + dir[1] * t]; });
+    out[al] = { a, b, inward, chutes, chuteHalfW: (L.openings[0][1] - L.openings[0][0]) / 2, chuteZ0: L.openZ[0], chuteZ1: L.openZ[1], zoneDepth: 42 };
+  }
+  return out;
+}
+
 // Hopper pairs and their push panels (for the game: pushing a panel dumps both containers' FUEL)
 export function hoppers() {
   const H = DIM.hopper, out = [];
@@ -354,7 +375,7 @@ export const FIELD_OUTLINE = [
   [288.7, -162.4], [292.3, -160.5], [322, -130.8], [326, -124],
   [326, 124.5], [254, 162.4], [-254, 162.4], [-326, 124.5],
 ];
-const OUTLINE_H = [78.4, 97, 97, 20.2, 97, 97, 78.4, 78.4, 78.4, 20.2, 78.4, 78.4];
+const OUTLINE_H = [78.4, 54, 54, 20.2, 54, 54, 78.4, 78.4, 78.4, 20.2, 78.4, 78.4]; // boiler edges: body height (54)
 
 function obb(c, sx, sy, rotZ) {
   const a = rotZ * D2R, ca = Math.cos(a), sa = Math.sin(a);
@@ -382,9 +403,11 @@ export function colliders(lay = layout()) {
     if (it.type === 'box' && !it.tilt) {
       add(it.name, obb(it.c, it.size[0], it.size[1], it.rotZ), it.c[2] - it.size[2] / 2, it.c[2] + it.size[2] / 2);
     } else if (it.type === 'loft') {
-      // prisms exactly; frustums (boiler roof, airship walls) approximated by their mid ring
+      // prisms exactly; frustums (boiler roof, airship walls) approximated by their mid ring here, with
+      // the exact bottom and top rings kept for engines that can collide with a convex frustum (Unity)
       const ring = it.ring0.map((p, k) => [(p[0] + it.ring1[k][0]) / 2, (p[1] + it.ring1[k][1]) / 2]);
-      add(it.name, ring, it.z0, it.z1);
+      const frustum = it.ring0.some((p, k) => Math.hypot(p[0] - it.ring1[k][0], p[1] - it.ring1[k][1]) > 1e-6);
+      out.push({ name: it.name, pts: ring, z0: it.z0, z1: it.z1, ...(frustum ? { pts0: it.ring0, pts1: it.ring1 } : {}) });
     } else if (it.type === 'cyl') {
       const [p0, p1] = [it.p0, it.p1], r = Math.max(it.r0, it.r1);
       if (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) < 1e-6) {

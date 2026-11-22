@@ -8,7 +8,10 @@ namespace SteamworksSim.Game
     /// <summary>
     /// A robot's scoring mechanisms, as its robot.json describes them (prototype mechanisms.js and physics.js):
     /// turret shooter that aims at the alliance's high goal, low-goal dump out of the front, gear slot onto a
-    /// lift peg, rope climber. Infinite FUEL and GEARS for testing (no intake yet).
+    /// lift peg, rope climber. It carries what robot.json allows (shooter.capacity FUEL, gear.capacity GEARS; 0 =
+    /// unlimited for testing), starts with its preload, and takes pieces in as its intake allows: FUEL falling
+    /// into its open-top hopper from a chute, a GEAR sliding out of a chute into the front slot, and (if enabled)
+    /// pieces off the floor.
     /// </summary>
     public class RobotMechanisms : MonoBehaviour
     {
@@ -19,6 +22,18 @@ namespace SteamworksSim.Game
 
         /// <summary>Set by the match: robots only work during AUTO and TELEOP.</summary>
         public bool enabledByMatch;
+        /// <summary>Takes part in the match (preloads from its alliance's stock). False for the parked defender.</summary>
+        public bool participates = true;
+
+        public int Fuel { get; private set; }
+        public int Gears { get; private set; }
+        public int FuelCapacity => def.shooter != null ? def.shooter.capacity : 0;   // 0 = unlimited
+        public int GearCapacity => def.gear != null ? def.gear.capacity : 0;
+        bool HasFuel => FuelCapacity <= 0 || Fuel > 0;
+        bool HasGear => GearCapacity <= 0 || Gears > 0;
+        public int PreloadedFuel => def.preload == null ? 0 : (FuelCapacity > 0 ? Mathf.Min(def.preload.fuel, FuelCapacity) : def.preload.fuel);
+        public int PreloadedGears => def.preload == null ? 0 : (GearCapacity > 0 ? Mathf.Min(def.preload.gears, GearCapacity) : def.preload.gears);
+        public string LoadStatus => $"{(FuelCapacity > 0 ? $"{Fuel} / {FuelCapacity}" : "unlimited")} FUEL, {(GearCapacity > 0 ? $"{Gears} / {GearCapacity}" : "unlimited")} GEAR";
         public bool shootHeld, dumpHeld;
 
         public enum ClimbPhase { None, Attach, Up, Hold, Down }
@@ -40,6 +55,7 @@ namespace SteamworksSim.Game
         Collider body;
         Transform turret, heldGear;
         float shootT, dumpT, gearCooldown, climbTopZ;
+        RigidbodyConstraints savedConstraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         readonly System.Random rnd = new System.Random(2017);
 
         const float In = Units.Inch;
@@ -60,8 +76,10 @@ namespace SteamworksSim.Game
         Func<MatchRules> getRules;
 
         // ---------------------------------------------------------------- pose helpers (spec frame)
-        public Vector2 Center { get { var s = Units.ToSpec(transform.position); return new Vector2(s.x, s.y); } }
-        public Vector2 Forward { get { var f = transform.forward; return new Vector2(f.x, f.z).normalized; } }
+        // physics pose (not the interpolated transform), so per-tick logic never lags a step behind
+        Vector3 Pose => rb != null ? rb.position : transform.position;
+        public Vector2 Center { get { var s = Units.ToSpec(Pose); return new Vector2(s.x, s.y); } }
+        public Vector2 Forward { get { var f = (rb != null ? rb.rotation : transform.rotation) * Vector3.forward; return new Vector2(f.x, f.z).normalized; } }
         Vector2 Left { get { var f = Forward; return new Vector2(-f.y, f.x); } }
         Vector2 SpecVelocity { get { var v = rb != null ? rb.linearVelocity : Vector3.zero; return new Vector2(v.x, v.z) / In; } }
         public float TopZ => Lift + Height;
@@ -124,11 +142,15 @@ namespace SteamworksSim.Game
         }
 
         // ---------------------------------------------------------------- reset
+        /// <summary>Start of a match: just the preload on board.</summary>
+        public void Reload() { Fuel = PreloadedFuel; Gears = PreloadedGears; }
+
+        /// <summary>Off the rope and back on the carpet (the load stays as it is).</summary>
         public void ResetState()
         {
             Climb = ClimbPhase.None; ClimbRope = null; Lift = 0f;
             shootT = dumpT = 0f; gearCooldown = 0f;
-            if (rb != null) { rb.isKinematic = false; }
+            if (rb != null) { rb.isKinematic = false; if (Climb == ClimbPhase.None) rb.constraints = savedConstraints; }
             if (drive != null) drive.enabled = true;
             var p = transform.position; p.y = 0f; transform.position = p;
             if (rb != null) rb.position = p;
@@ -140,7 +162,7 @@ namespace SteamworksSim.Game
             float dt = Time.fixedDeltaTime;
             rules = getRules != null ? getRules() : null;
             if (gearCooldown > 0f) gearCooldown -= dt;
-            if (heldGear != null) heldGear.gameObject.SetActive(gearCooldown <= 0f && Climb == ClimbPhase.None);
+            if (heldGear != null) heldGear.gameObject.SetActive(gearCooldown <= 0f && Climb == ClimbPhase.None && HasGear);
 
             UpdateShooterStatus(out var shot);
             if (Climb != ClimbPhase.None) { ClimbStep(dt); UpdateClimbStatus(); return; }
@@ -148,8 +170,8 @@ namespace SteamworksSim.Game
             UpdateClimbStatus();
 
             bool on = enabledByMatch;
-            Fire(ref shootT, on && shootHeld && shot != null, def.shooter != null ? def.shooter.rate : 0f, dt, () => FireHigh());
-            Fire(ref dumpT, on && dumpHeld && def.lowGoalDump != null && def.lowGoalDump.enabled, def.lowGoalDump != null ? def.lowGoalDump.rate : 0f, dt, () => { DumpLow(); return true; });
+            Fire(ref shootT, on && shootHeld && shot != null && HasFuel, def.shooter != null ? def.shooter.rate : 0f, dt, () => HasFuel && FireHigh());
+            Fire(ref dumpT, on && dumpHeld && def.lowGoalDump != null && def.lowGoalDump.enabled && HasFuel, def.lowGoalDump != null ? def.lowGoalDump.rate : 0f, dt, () => { if (!HasFuel) return false; DumpLow(); return true; });
         }
 
         static void Fire(ref float timer, bool held, float rate, float dt, Func<bool> shoot)
@@ -227,6 +249,7 @@ namespace SteamworksSim.Game
             float vh = sp * Mathf.Cos(pitch);
             var rv = SpecVelocity; // shooting on the move is not compensated: a driver skill
             fuel.Spawn(s.p0, new Vector3(vh * Mathf.Cos(yaw) + rv.x, vh * Mathf.Sin(yaw) + rv.y, sp * Mathf.Sin(pitch)), body);
+            if (FuelCapacity > 0) Fuel--;
             return true;
         }
 
@@ -238,6 +261,7 @@ namespace SteamworksSim.Game
             var p = c + f * fwd + l * lat;
             var rv = SpecVelocity;
             fuel.Spawn(new Vector3(p.x, p.y, D.height + Lift), new Vector3(f.x * D.speed * 12f + rv.x, f.y * D.speed * 12f + rv.y, 0f), body);
+            if (FuelCapacity > 0) Fuel--;
         }
 
         // ---------------------------------------------------------------- gear slot
@@ -280,12 +304,44 @@ namespace SteamworksSim.Game
         /// <summary>Place GEAR (E / A): onto the lift peg the front slot is lined up with.</summary>
         public void PlaceGear()
         {
-            if (!enabledByMatch || Climb != ClimbPhase.None || def.gear == null || !def.gear.enabled || gearCooldown > 0f) return;
+            if (!enabledByMatch || Climb != ClimbPhase.None || def.gear == null || !def.gear.enabled || gearCooldown > 0f || !HasGear) return;
             int i = GearAlign(out bool ok, out float dist, out float lat, out float angle);
             if (i < 0 || !ok) { Toast?.Invoke("Not lined up with a peg: drive the front slot onto it"); return; }
             if (rules == null) return;
-            if (rules.DeliverGear(alliance, i, out var msg)) gearCooldown = 0.6f;
+            if (rules.DeliverGear(alliance, i, out var msg)) { gearCooldown = 0.6f; if (GearCapacity > 0) Gears--; }
             Toast?.Invoke(msg);
+        }
+
+        // ---------------------------------------------------------------- intake
+        /// <summary>A FUEL at spec position p moving at v (in/s): true if this robot takes it.</summary>
+        public bool TryCatchFuel(Vector3 p, Vector3 v)
+        {
+            if (def.intake == null || (FuelCapacity > 0 && Fuel >= FuelCapacity) || Climb != ClimbPhase.None) return false;
+            var d = new Vector2(p.x, p.y) - Center;
+            float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left);
+            bool caught = false;
+            // open-top hopper: a ball coming down over the robot
+            if (def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= HalfL && Mathf.Abs(ly) <= HalfW
+                && p.z >= TopZ && p.z <= TopZ + def.intake.hopperDepth) caught = true;
+            // floor intake across the front bumper
+            if (!caught && def.intake.fuelFromFloor && enabledByMatch && p.z <= FuelPool.RadiusIn + 2f
+                && lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f) caught = true;
+            if (caught && FuelCapacity > 0) Fuel++;
+            return caught;
+        }
+
+        /// <summary>A GEAR centred at spec position p: true if this robot takes it.</summary>
+        public bool TryCatchGear(Vector3 p)
+        {
+            if (def.intake == null || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
+            if (GearCapacity > 0 && Gears >= GearCapacity) return false;
+            var d = new Vector2(p.x, p.y) - Center;
+            float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left) - def.gear.slotOffset;
+            bool atSlot = lx >= HalfL - 8f && lx <= HalfL + 8f && Mathf.Abs(ly) <= 8f;
+            bool caught = atSlot && ((def.intake.gearFromChute && p.z >= 6f && p.z <= 40f)
+                                     || (def.intake.gearFromFloor && enabledByMatch && p.z < 6f));
+            if (caught && GearCapacity > 0) Gears++;
+            return caught;
         }
 
         // ---------------------------------------------------------------- climber (physics.js _climbStep)
@@ -325,6 +381,8 @@ namespace SteamworksSim.Game
             Climb = ClimbPhase.Attach;
             drive.enabled = false;
             rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
+            savedConstraints = rb.constraints;
+            rb.constraints = RigidbodyConstraints.FreezeRotation; // the robot must be free to rise (Y was frozen)
             rb.isKinematic = true;
             Toast?.Invoke($"Latched: climbing to TOUCHPAD {R.touchpad + 1}");
         }
@@ -356,6 +414,7 @@ namespace SteamworksSim.Game
             {
                 Climb = ClimbPhase.None; ClimbRope = null;
                 rb.isKinematic = false;
+                rb.constraints = savedConstraints;
                 rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
                 drive.enabled = true;
             }

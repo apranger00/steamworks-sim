@@ -21,6 +21,8 @@ namespace SteamworksSim.Game
 
         /// <summary>(alliance, goal) for a ball entering a goal; return true to take the ball off the field.</summary>
         public Func<string, Goal, bool> GoalEntered;
+        /// <summary>(spec position, spec velocity) of a ball: return true if a robot takes it in.</summary>
+        public Func<Vector3, Vector3, bool> Catch;
         public int Count => active.Count;
 
         class Ball
@@ -127,6 +129,13 @@ namespace SteamworksSim.Game
 
                 if (targets != null && BehindBoiler(b, cur, dt, out var back)) { Return(b, back); continue; }
 
+                // into a robot's hopper or intake (not while it is still leaving the robot that launched it)
+                if (Catch != null && b.ignored == null && Catch(cur, b.rb.linearVelocity / Units.Inch))
+                {
+                    Release(b); active.RemoveAt(i); free.Add(b);
+                    continue;
+                }
+
                 // rolling resistance on the carpet
                 if (!b.rb.IsSleeping() && p.y <= RadiusIn * Units.Inch + 0.004f)
                 {
@@ -147,8 +156,9 @@ namespace SteamworksSim.Game
 
         // ---------------------------------------------------------------- boiler pocket
         /// <summary>
-        /// Behind a boiler's field-facing face (outside the field), near the boiler, and either below the
-        /// boiler's top (it fell behind) or sitting still on top of it for half a second.
+        /// Behind a boiler's field-facing face (outside the field), near the boiler, and either below the top of
+        /// the boiler body (it fell off the back or sides) or caught still on the boiler for half a second
+        /// (e.g. between the roof and the net). Balls rolling over the roof are left to roll back onto the field.
         /// </summary>
         bool BehindBoiler(Ball b, Vector3 p, float dt, out LowGoalSpec boiler)
         {
@@ -159,7 +169,7 @@ namespace SteamworksSim.Game
                 float lat = (p.x - lg.face[0]) * lg.u[0] + (p.y - lg.face[1]) * lg.u[1];
                 if (d > -RadiusIn || d < -90f || Mathf.Abs(lat) > 70f) continue;
                 boiler = lg;
-                if (p.z < 90f) return true;                       // dropped behind the boiler
+                if (p.z < 50f) return true;                       // dropped behind the boiler
                 float speed = b.rb.linearVelocity.magnitude / Units.Inch;
                 b.slow = speed < 10f ? b.slow + dt : 0f;
                 return b.slow > 0.5f;                             // stuck on the boiler's top

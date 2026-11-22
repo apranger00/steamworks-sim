@@ -99,6 +99,8 @@ namespace SteamworksSim.Game
 
         /// <summary>(alliance, rotor index 0-3) when a ROTOR starts turning.</summary>
         public event Action<string, int> RotorStarted;
+        /// <summary>(alliance) for every FUEL its boiler counts: the ball goes on to the other alliance's loading station.</summary>
+        public event Action<string> FuelCounted;
         /// <summary>(alliance) when an alliance's pressure reaches 40 kPa.</summary>
         public event Action<string> PressureReached;
         /// <summary>(alliance or null, text): what happened, for logs.</summary>
@@ -210,6 +212,7 @@ namespace SteamworksSim.Game
                 A.procAcc[g] -= per;
                 A.queue[g]--;
                 A.fuel[p, g]++;
+                FuelCounted?.Invoke(A.name);
                 A.ninths += Ninths[p, g];
                 if (period == Period.Auto) A.ninthsAuto += Ninths[p, g];
                 if (!A.pressureFlag && A.ninths >= PressureThreshold * 9)

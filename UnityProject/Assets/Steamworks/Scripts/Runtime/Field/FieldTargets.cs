@@ -13,6 +13,7 @@ namespace SteamworksSim.Field
         public int version;
         public AllianceTargets red, blue;
         public HopperSpec[] hoppers;
+        public LoadingSet loading;
         public AllianceTargets Of(string alliance) => alliance == "blue" ? blue : red;
 
         /// <summary>Index of the hopper pair whose containers hold this (staged FUEL) position, or -1.</summary>
@@ -60,6 +61,20 @@ namespace SteamworksSim.Field
     [Serializable] public class LiftSpec { public string name; public float[] u, tip; public float z; }
 
     [Serializable] public class TouchpadSpec { public float[] c; public float z; }
+
+    [Serializable] public class LoadingSet { public LoadingSpec red, blue; }
+
+    /// <summary>
+    /// A return LOADING STATION, by the alliance that uses it: face ends a and b, inward = unit normal into the
+    /// field, chutes = the two slot centres (x0, y0, x1, y1), slot half width and height range, and how far the
+    /// RETRIEVAL ZONE reaches from the face.
+    /// </summary>
+    [Serializable]
+    public class LoadingSpec
+    {
+        public float[] a, b, inward, chutes;
+        public float chuteHalfW, chuteZ0, chuteZ1, zoneDepth;
+    }
 
     /// <summary>A pair of HOPPER containers outside the guardrail and the push panel between them.</summary>
     [Serializable]
