@@ -495,6 +495,7 @@ namespace SteamworksSim.Game
             {
                 playerMech.shootHeld = driving && input.shoot;
                 playerMech.dumpHeld = driving && input.dump;
+                playerMech.intakeHeld = driving && input.intake;
                 if (driving && reader.PlaceGear) playerMech.PlaceGear();
                 if (driving && reader.Climb) playerMech.ToggleClimb();
                 // loading station: in your RETRIEVAL ZONE, L1 / F for FUEL and R1 / G for a GEAR from the nearest chute

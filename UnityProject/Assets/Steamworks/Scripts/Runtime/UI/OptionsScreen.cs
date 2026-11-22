@@ -114,18 +114,18 @@ namespace SteamworksSim.UI
             foreach (var e in GameControls.Entries)
             {
                 var entry = e;
-                var row = Ui.Row(c, 32f, 12f);
+                var row = Ui.Row(c, 30f, 12f);
                 Ui.SetWidth(Ui.Label(row, entry.label, 19, Ui.TextColor), 200f, 1f);
                 var br = new BindingRow { entry = entry };
                 Text kbLabel = null;
-                var kb = Ui.Button(row, "", () => StartRebind(entry, false, kbLabel), 32f, 18);
+                var kb = Ui.Button(row, "", () => StartRebind(entry, false, kbLabel), 30f, 18);
                 kbLabel = Ui.LabelOf(kb);
                 Ui.SetWidth(kb, 300f);
                 br.keyboard = kbLabel;
                 if (entry.gamepadIndex >= 0)
                 {
                     Text padLabel = null;
-                    var pad = Ui.Button(row, "", () => StartRebind(entry, true, padLabel), 32f, 18);
+                    var pad = Ui.Button(row, "", () => StartRebind(entry, true, padLabel), 30f, 18);
                     padLabel = Ui.LabelOf(pad);
                     Ui.SetWidth(pad, 300f);
                     br.gamepad = padLabel;

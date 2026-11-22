@@ -13,6 +13,7 @@ namespace SteamworksSim.Robots
         public float left, right; // -1..1 per side, used when tank is true
         public bool shoot;       // held (step 3)
         public bool dump;        // held (step 3)
+        public bool intake;      // held: run the floor intake
         public bool placeGear;   // pressed this tick (step 3)
         public bool climb;       // pressed this tick (step 3)
 

@@ -20,7 +20,7 @@ namespace SteamworksSim.InputHandling
         public static InputActionAsset Asset { get; private set; }
         public static InputAction Throttle, Turn, LeftStick, RightStick;
         public static InputAction Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause;
-        public static InputAction Shoot, Dump, PlaceGear, Climb, ChuteFuel, ChuteGear;
+        public static InputAction Shoot, Intake, Dump, PlaceGear, Climb, ChuteFuel, ChuteGear;
 
         /// <summary>One line in the Controls menu.</summary>
         public class Entry
@@ -52,13 +52,14 @@ namespace SteamworksSim.InputHandling
             RightStick = map.AddAction("Right stick", InputActionType.Value, "<Gamepad>/rightStick", expectedControlLayout: "Vector2");
 
             Shoot = Button(map, "Shoot (high goal)", "<Keyboard>/space", "<Gamepad>/rightTrigger");
-            Dump = Button(map, "Dump (low goal)", "<Keyboard>/q", "<Gamepad>/leftTrigger");
+            Intake = Button(map, "Intake FUEL (hold)", "<Keyboard>/q", "<Gamepad>/leftTrigger");
+            Dump = Button(map, "Dump (low goal)", "<Keyboard>/z", "<Gamepad>/buttonNorth");
             PlaceGear = Button(map, "Place GEAR", "<Keyboard>/e", "<Gamepad>/buttonSouth");
             Climb = Button(map, "Climb / let go", "<Keyboard>/t", "<Gamepad>/buttonWest");
             ChuteFuel = Button(map, "Loading station: FUEL", "<Keyboard>/f", "<Gamepad>/leftShoulder");
             ChuteGear = Button(map, "Loading station: GEAR", "<Keyboard>/g", "<Gamepad>/rightShoulder");
             Precision = Button(map, "Precision", "<Keyboard>/shift", "<Gamepad>/rightStickPress");
-            NextCamera = Button(map, "Next camera", "<Keyboard>/c", "<Gamepad>/buttonNorth");
+            NextCamera = Button(map, "Next camera", "<Keyboard>/c", "<Gamepad>/dpad/up");
             FlipChase = Button(map, "Flip chase camera", "<Keyboard>/v", "<Gamepad>/leftStickPress");
             ResetRobot = Button(map, "Reset robot", "<Keyboard>/r", "<Gamepad>/dpad/down");
             RestartMatch = Button(map, "Restart match", "<Keyboard>/enter", "<Gamepad>/start");
@@ -69,7 +70,7 @@ namespace SteamworksSim.InputHandling
             Entries.Add(new Entry { label = "Drive backward", action = Throttle, keyboardIndex = 1, driveDirection = 1 });
             Entries.Add(new Entry { label = "Turn left", action = Turn, keyboardIndex = 2, driveDirection = 2 });
             Entries.Add(new Entry { label = "Turn right", action = Turn, keyboardIndex = 1, driveDirection = 3 });
-            foreach (var a in new[] { Shoot, Dump, PlaceGear, Climb, ChuteFuel, ChuteGear, Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause })
+            foreach (var a in new[] { Shoot, Intake, Dump, PlaceGear, Climb, ChuteFuel, ChuteGear, Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause })
                 Entries.Add(new Entry { label = a == Precision ? "Precision (slow) driving" : a.name, action = a, keyboardIndex = 0, gamepadIndex = 1 });
 
             string json = PlayerPrefs.GetString(PrefsKey, "");

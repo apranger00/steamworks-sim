@@ -8,11 +8,11 @@ namespace SteamworksSim.InputHandling
     /// <summary>
     /// Turns the player's keyboard and gamepad into a RobotInput (driving) plus one-shot actions.
     /// Bindings live in GameControls (rebindable in Options > Controls). Defaults:
-    ///   Scoring: Space / RT shoot (hold), Q / LT dump (hold), E / A place GEAR, T / X climb or let go,
+    ///   Scoring: Space / RT shoot (hold), Q / LT intake (hold), Z / Y dump (hold), E / A place GEAR, T / X climb or let go,
     ///            F / LB FUEL from the loading station, G / RB GEAR from the loading station. R3 (hold) precision.
     ///   Keyboard: W/S (or arrows) drive, A/D turn, Shift precision, C camera, V flip chase, R reset robot,
     ///             Enter restart match, Esc pause. Practice keys: B defender, F5 reload robot files.
-    ///   Gamepad:  sticks per the chosen layout, LB precision, Y camera, L3 flip chase, D-pad down reset robot,
+    ///   Gamepad:  sticks per the chosen layout, R3 precision, D-pad up camera, L3 flip chase, D-pad down reset robot,
     ///             Start restart match, Select (View / Back) pause, B back out of menus.
     /// </summary>
     public class PlayerInputReader
@@ -77,6 +77,7 @@ namespace SteamworksSim.InputHandling
 
             input.shoot = GameControls.Shoot.IsPressed();
             input.dump = GameControls.Dump.IsPressed();
+            input.intake = GameControls.Intake.IsPressed();
             PlaceGear = input.placeGear = GameControls.PlaceGear.WasPressedThisFrame();
             Climb = input.climb = GameControls.Climb.WasPressedThisFrame();
             ChuteFuel = GameControls.ChuteFuel.WasPressedThisFrame();
