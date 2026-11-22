@@ -143,7 +143,7 @@ namespace SteamworksSim.Game
             animator.Init(field, targets, Mats);
             hoppers.Init(field, targets, fuel);
             gearPool.Init(Mats.Get("gear"));
-            loading.Init(targets, fuel, gearPool);
+            loading.Init(targets, fuel, gearPool, Mats);
             fuel.Catch = (p, v) => { foreach (var m in Mechs()) if (m.TryCatchFuel(p, v)) return true; return false; };
             gearPool.Catch = p => { foreach (var m in Mechs()) if (m.TryCatchGear(p)) return true; return false; };
             GameSettings.Apply();
@@ -294,6 +294,7 @@ namespace SteamworksSim.Game
             if (ropes != null) ropes.HangAll();
             if (hoppers != null) hoppers.Refill();
             if (gearPool != null) gearPool.Clear();
+            if (loading != null) loading.Reset(Mechs()); // lanes stocked for the next match
             rules?.Reset();
             Clock.Stop();
             if (sounds != null) sounds.StopAll();

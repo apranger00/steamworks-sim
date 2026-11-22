@@ -29,6 +29,11 @@ namespace SteamworksSim.Field
         public int colliderLayer = 0;
         [Tooltip("Build ROTORS and TOUCHPADS as separate objects so the match can spin and light them.")]
         public bool separateAnimatedParts = true;
+        [Tooltip("Leave the loading lanes' GEAR stacks and FUEL bin out: the game draws them from the stations' live stock.")]
+        public bool loadingLanesAtRuntime = true;
+
+        /// <summary>Behind an alliance wall (|X| > 326 in): a loading lane.</summary>
+        static bool InLoadingLane(float x) => Mathf.Abs(x) > 326f;
 
         public const string AnimatedName = "Animated";
 
@@ -90,6 +95,7 @@ namespace SteamworksSim.Field
             {
                 if (it.mat == "rope") continue; // ropes are simulated objects, not static geometry
                 if (it.group == "pieces" && !includeStagedPieces) continue;
+                if (loadingLanesAtRuntime && it.name != null && it.name.Contains("LOADING LANE")) continue;
                 string group = string.IsNullOrEmpty(it.group) ? "field" : it.group;
                 Vector3 pivot = default;
                 string animKey = separateAnimatedParts ? AnimatedKey(it, ref touchpadCount, out pivot) : null;
@@ -126,6 +132,7 @@ namespace SteamworksSim.Field
                 var tg = separateAnimatedParts ? TargetsFile.Load() : null;
                 for (int i = 0; i + 2 < data.fuel.Length; i += 3)
                 {
+                    if (loadingLanesAtRuntime && InLoadingLane(data.fuel[i])) continue;
                     // FUEL in a HOPPER pair is its own part, hidden when the pair is dumped onto the field
                     int hop = tg != null ? tg.HopperAt(data.fuel[i], data.fuel[i + 1]) : -1;
                     var mb = hop >= 0 ? A($"HOPPER {hop} fuel", Vector3.zero, "fuel") : fuel;
@@ -135,6 +142,7 @@ namespace SteamworksSim.Field
                 foreach (var g in data.gears)
                 {
                     if (!string.IsNullOrEmpty(g.reserve) && !reserveGear) continue;
+                    if (loadingLanesAtRuntime && string.IsNullOrEmpty(g.reserve) && InLoadingLane(g.c[0])) continue;
                     var ring = MeshGen.GearOutline(new Vector2(g.c[0], g.c[1]), 11f, 10, g.rotZ);
                     MeshGen.Loft(gears, ring, g.c[2] - 1f, ring, g.c[2] + 1f, true, true);
                 }
