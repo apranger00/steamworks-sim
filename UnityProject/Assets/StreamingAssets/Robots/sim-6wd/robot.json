@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "id": "sim-6wd",
-  "name": "Sim 6WD (reference robot)",
+  "name": "Rookie Bot",
   "author": "Steamworks Sim",
   "team": 0,
-  "description": "The tuned test robot from the browser prototype: 6-wheel tank drive, turret shooter, low-goal dump, front gear slot and rope climber.",
+  "description": "The test robot from the browser prototype: 6-wheel tank drive, turret shooter, low-goal dump, front gear slot and rope climber.",
   "version": "1.0",
 
   "frame":   { "length": 32, "width": 28, "height": 24 },

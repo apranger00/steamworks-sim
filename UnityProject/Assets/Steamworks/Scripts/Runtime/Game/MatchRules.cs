@@ -99,6 +99,8 @@ namespace SteamworksSim.Game
 
         /// <summary>(alliance, rotor index 0-3) when a ROTOR starts turning.</summary>
         public event Action<string, int> RotorStarted;
+        /// <summary>(alliance) when an alliance's pressure reaches 40 kPa.</summary>
+        public event Action<string> PressureReached;
         /// <summary>(alliance or null, text): what happened, for logs.</summary>
         public event Action<string, string> Log;
 
@@ -213,6 +215,7 @@ namespace SteamworksSim.Game
                 if (!A.pressureFlag && A.ninths >= PressureThreshold * 9)
                 {
                     A.pressureFlag = true;
+                    PressureReached?.Invoke(A.name);
                     if (playoffs) { A.bonusPressure = BonusPressure; Say(A.name, $"40 kPa reached: +{BonusPressure} (playoff bonus)"); }
                     else Say(A.name, "40 kPa reached: +1 Ranking Point");
                 }
@@ -351,7 +354,8 @@ namespace SteamworksSim.Game
                 s.teleopFuel = TotalPressure(A) - AutoPressure(A);
                 s.teleopRotors = A.rotorPts[1];
                 s.takeoff = A.takeoff;
-                s.bonus = A.bonusPressure + A.bonusRotors;
+                s.bonusPressure = A.bonusPressure;
+                s.bonusRotors = A.bonusRotors;
                 s.kPa = (float)A.KPa;
                 s.rotorsTurning = A.RotorsTurning;
             }
