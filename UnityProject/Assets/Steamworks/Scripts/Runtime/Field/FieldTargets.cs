@@ -12,7 +12,22 @@ namespace SteamworksSim.Field
     {
         public int version;
         public AllianceTargets red, blue;
+        public HopperSpec[] hoppers;
         public AllianceTargets Of(string alliance) => alliance == "blue" ? blue : red;
+
+        /// <summary>Index of the hopper pair whose containers hold this (staged FUEL) position, or -1.</summary>
+        public int HopperAt(float x, float y)
+        {
+            if (hoppers == null) return -1;
+            for (int k = 0; k < hoppers.Length; k++)
+            {
+                var h = hoppers[k];
+                if (Mathf.Sign(y) != h.side || Mathf.Abs(y) < Mathf.Abs(h.yIn) - 1f || Mathf.Abs(y) > Mathf.Abs(h.yOut) + 1f) continue;
+                var c = h.containers;
+                if ((x >= c[0] - 1f && x <= c[1] + 1f) || (x >= c[2] - 1f && x <= c[3] + 1f)) return k;
+            }
+            return -1;
+        }
 
         static TargetsFile cached;
         public static TargetsFile Load()
@@ -45,6 +60,17 @@ namespace SteamworksSim.Field
     [Serializable] public class LiftSpec { public string name; public float[] u, tip; public float z; }
 
     [Serializable] public class TouchpadSpec { public float[] c; public float z; }
+
+    /// <summary>A pair of HOPPER containers outside the guardrail and the push panel between them.</summary>
+    [Serializable]
+    public class HopperSpec
+    {
+        public float[] panel;       // panel centre x, y (its field-side face is about 0.25 in further in)
+        public float panelHalfW;
+        public int side;            // +1 scoring-table side, -1 far side
+        public float[] containers;  // x0, x1 of the first container, x0, x1 of the second
+        public float yIn, yOut, floorZ, fieldHalfY, railH;
+    }
 
     [Serializable]
     public class RopesFile

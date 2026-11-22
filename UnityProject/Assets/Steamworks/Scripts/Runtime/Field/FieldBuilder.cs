@@ -123,8 +123,14 @@ namespace SteamworksSim.Field
             if (includeStagedPieces)
             {
                 var fuel = B("pieces", "fuel");
+                var tg = separateAnimatedParts ? TargetsFile.Load() : null;
                 for (int i = 0; i + 2 < data.fuel.Length; i += 3)
-                    MeshGen.Sphere(fuel, new Vector3(data.fuel[i], data.fuel[i + 1], data.fuel[i + 2]), data.fuelRadius, 10, 7);
+                {
+                    // FUEL in a HOPPER pair is its own part, hidden when the pair is dumped onto the field
+                    int hop = tg != null ? tg.HopperAt(data.fuel[i], data.fuel[i + 1]) : -1;
+                    var mb = hop >= 0 ? A($"HOPPER {hop} fuel", Vector3.zero, "fuel") : fuel;
+                    MeshGen.Sphere(mb, new Vector3(data.fuel[i], data.fuel[i + 1], data.fuel[i + 2]), data.fuelRadius, 10, 7);
+                }
                 var gears = B("pieces", "gear");
                 foreach (var g in data.gears)
                 {

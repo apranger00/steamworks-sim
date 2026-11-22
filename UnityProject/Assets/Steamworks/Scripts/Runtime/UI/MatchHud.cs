@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace SteamworksSim.UI
 {
-    /// <summary>Match timer, period banners and control hints (scores join in step 3).</summary>
+    /// <summary>Match timer, alliance scores with pressure / ROTORS / BONUS lights, the countdown, banners and hints.</summary>
     public class MatchHud : MonoBehaviour
     {
         SimBootstrap sim;
@@ -16,7 +16,7 @@ namespace SteamworksSim.UI
         Text countdownNumber;
         float bannerAt = -100f, hintRefresh, toastAt = -100f;
         Text toast;
-        class ScoreBox { public Text total, kpa; public Image[] rotors; public GameObject rp; }
+        class ScoreBox { public Text total, kpa, kpaBonusText, rotorBonusText; public Image[] rotors; public Image kpaBonus, rotorBonus; }
         ScoreBox redBox, blueBox;
 
         public void Init(SimBootstrap owner)
@@ -34,8 +34,8 @@ namespace SteamworksSim.UI
             time = Ui.Title(box, "", 66, Ui.TextColor);
             Ui.Anchor(time.rectTransform, new Vector2(0.5f, 0f), new Vector2(340f, 80f), new Vector2(0f, 4f));
 
-            redBox = BuildScore(canvas.transform, -1, new Color(0.78f, 0.12f, 0.14f, 0.92f));
-            blueBox = BuildScore(canvas.transform, 1, new Color(0.08f, 0.33f, 0.7f, 0.92f));
+            redBox = BuildScore(canvas.transform, -1, new Color(0.78f, 0.12f, 0.16f, 0.95f));
+            blueBox = BuildScore(canvas.transform, 1, new Color(0.08f, 0.34f, 0.72f, 0.95f));
             toast = Ui.Label(canvas.transform, "", 26, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
             Ui.Anchor(toast.rectTransform, new Vector2(0.5f, 1f), new Vector2(1200f, 40f), new Vector2(0f, -146f));
             toast.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(2f, -2f);
@@ -81,41 +81,69 @@ namespace SteamworksSim.UI
         /// <summary>A short message under the timer (rotor active, gear placed, ...).</summary>
         public void Toast(string text, Color color) { toast.text = text; toast.color = color; toastAt = Time.unscaledTime; }
 
-        // Alliance score next to the timer: total, pressure (x / 40 kPa until 40 is reached, then a BONUS badge)
-        // and four ROTOR dots.
+        // Left to right: red scoring info, red score, timer, blue score, blue scoring info. The info panel stacks
+        // pressure over the four ROTOR dots, each row with a BONUS light on the outer edge (40 kPa: +20,
+        // four ROTORS: +100).
         static ScoreBox BuildScore(Transform parent, int side, Color color)
         {
             var b = new ScoreBox();
-            var box = Ui.Anchor(Ui.Rect(side < 0 ? "Red score" : "Blue score", parent), new Vector2(0.5f, 1f), new Vector2(250f, 116f), new Vector2(side * 305f, -14f));
+            string al = side < 0 ? "Red" : "Blue";
+            var box = Ui.Anchor(Ui.Rect(al + " score", parent), new Vector2(0.5f, 1f), new Vector2(200f, 116f), new Vector2(side * 278f, -14f));
             Ui.Round(box.gameObject.AddComponent<Image>(), 16f).color = color;
-            b.total = Ui.Title(box, "0", 58, Ui.TextColor);
-            Ui.Anchor(b.total.rectTransform, new Vector2(0.5f, 1f), new Vector2(250f, 66f), new Vector2(0f, -4f));
-            b.kpa = Ui.Label(box, "0 / 40 kPa", 19, Ui.TextColor, TextAnchor.MiddleLeft, FontStyle.Bold);
-            Ui.Anchor(b.kpa.rectTransform, new Vector2(0f, 0f), new Vector2(150f, 34f), new Vector2(14f, 8f));
-            var rp = Ui.Rect("RP", box);
-            Ui.Anchor(rp, new Vector2(0f, 0f), new Vector2(66f, 24f), new Vector2(92f, 13f));
-            Ui.Round(rp.gameObject.AddComponent<Image>(), 12f).color = new Color(1f, 0.87f, 0.1f);
-            var rpText = Ui.Label(rp, "BONUS", 15, Ui.Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Ui.Stretch(rpText.rectTransform);
-            b.rp = rp.gameObject; b.rp.SetActive(false);
+            b.total = Ui.Title(box, "0", 72, Ui.TextColor);
+            Ui.Stretch(b.total.rectTransform, 4f);
+
+            var info = Ui.Anchor(Ui.Rect(al + " scoring info", parent), new Vector2(0.5f, 1f), new Vector2(330f, 116f), new Vector2(side * 551f, -14f));
+            Ui.Round(info.gameObject.AddComponent<Image>(), 16f).color = new Color(color.r * 0.78f, color.g * 0.78f, color.b * 0.78f, 0.92f);
+            var outer = new Vector2(side < 0 ? 0f : 1f, 0.5f);
+            float dir = side < 0 ? 1f : -1f; // inward from the outer edge
+
+            b.kpaBonus = Pill(info, outer, new Vector2(dir * 16f, 26f), out b.kpaBonusText);
+            b.rotorBonus = Pill(info, outer, new Vector2(dir * 16f, -26f), out b.rotorBonusText);
+
+            b.kpa = Ui.Label(info, "0 / 40 kPa", 30, Ui.TextColor, side < 0 ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight, FontStyle.Bold);
+            Ui.Anchor(b.kpa.rectTransform, outer, new Vector2(210f, 44f), new Vector2(dir * 114f, 26f));
+            b.kpa.horizontalOverflow = HorizontalWrapMode.Overflow;
+
             b.rotors = new Image[4];
             for (int k = 0; k < 4; k++)
             {
-                var dot = Ui.Rect("Rotor " + (k + 1), box);
-                Ui.Anchor(dot, new Vector2(1f, 0f), new Vector2(16f, 16f), new Vector2(-14f - (3 - k) * 21f, 17f));
+                var dot = Ui.Rect("Rotor " + (k + 1), info);
+                // mirrored: both panels fill from the outer edge toward the score
+                Ui.Anchor(dot, outer, new Vector2(24f, 24f), new Vector2(dir * (114f + k * 34f), -26f));
                 b.rotors[k] = dot.gameObject.AddComponent<Image>();
                 b.rotors[k].sprite = Ui.Disc;
             }
             return b;
         }
 
+        static Image Pill(RectTransform parent, Vector2 at, Vector2 offset, out Text label)
+        {
+            var r = Ui.Anchor(Ui.Rect("BONUS", parent), at, new Vector2(84f, 32f), offset);
+            var img = Ui.Round(r.gameObject.AddComponent<Image>(), 9f);
+            label = Ui.Label(r, "BONUS", 17, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Stretch(label.rectTransform);
+            return img;
+        }
+
+        static readonly Color BonusOn = new Color(1f, 0.82f, 0.18f, 1f), BonusOff = new Color(1f, 1f, 1f, 0.12f);
+        static readonly Color BonusTextOn = new Color(0.29f, 0.23f, 0f, 1f), BonusTextOff = new Color(1f, 1f, 1f, 0.45f);
+
+        static void SetBonus(Image pill, Text label, bool on)
+        {
+            pill.color = on ? BonusOn : BonusOff;
+            label.color = on ? BonusTextOn : BonusTextOff;
+        }
+
         static void FillScore(ScoreBox b, Game.AllianceScore a)
         {
             b.total.text = a.Total.ToString();
-            bool rp = a.PressureRp;
-            b.kpa.text = rp ? $"{Mathf.FloorToInt(a.kPa)} kPa" : $"{Mathf.FloorToInt(a.kPa)} / 40 kPa";
-            if (b.rp.activeSelf != rp) b.rp.SetActive(rp);
-            for (int k = 0; k < 4; k++) b.rotors[k].color = k < a.rotorsTurning ? new Color(1f, 0.85f, 0.15f) : new Color(1f, 1f, 1f, 0.25f);
+            bool kpaBonus = a.bonusPressure > 0 || a.kPa >= 40f;
+            int kpa = Mathf.FloorToInt(a.kPa);
+            b.kpa.text = kpaBonus ? $"{kpa} kPa" : $"{kpa} / 40 kPa";
+            SetBonus(b.kpaBonus, b.kpaBonusText, kpaBonus);
+            SetBonus(b.rotorBonus, b.rotorBonusText, a.bonusRotors > 0 || a.rotorsTurning >= 4);
+            for (int k = 0; k < 4; k++) b.rotors[k].color = k < a.rotorsTurning ? BonusOn : new Color(1f, 1f, 1f, 0.25f);
         }
 
         void Update()

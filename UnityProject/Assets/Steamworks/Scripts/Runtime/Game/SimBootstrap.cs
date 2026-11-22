@@ -60,6 +60,7 @@ namespace SteamworksSim.Game
         FuelPool fuel;
         RopeSystem ropes;
         FieldAnimator animator;
+        HopperSystem hoppers;
         public MatchRules Rules => rules;
         public RobotMechanisms PlayerMechanisms => playerMech;
         TankDrive playerDrive;
@@ -115,6 +116,7 @@ namespace SteamworksSim.Game
                 (Clock.Phase == MatchPhase.Auto || Clock.Phase == MatchPhase.AutoPause || Clock.Phase == MatchPhase.Teleop) && rules.FuelLoaded(al, goal);
             ropes = gameObject.AddComponent<RopeSystem>();
             animator = gameObject.AddComponent<FieldAnimator>();
+            hoppers = gameObject.AddComponent<HopperSystem>();
             hud = gameObject.AddComponent<MatchHud>();
             hud.Init(this);
             menus = gameObject.AddComponent<GameMenus>();
@@ -132,6 +134,7 @@ namespace SteamworksSim.Game
             fuel.Init(targets, Mats.Get("fuel"));
             ropes.Init(RopesFile.Load(), targets, Mats.Get("rope"));
             animator.Init(field, targets, Mats);
+            hoppers.Init(field, targets, fuel);
             GameSettings.Apply();
             if (skipMenus) { SpawnPlayer(); StartMatchFromSelect(); }
             else ShowMainMenu();
@@ -208,6 +211,7 @@ namespace SteamworksSim.Game
             Score.Clear();
             rules.Reset();
             fuel.Clear();
+            hoppers.Refill();
             ropes.StowAll(); // the PILOTS drop them with 30 s left
             resultsAt = -1f;
             ResetPlayer();
@@ -274,6 +278,7 @@ namespace SteamworksSim.Game
             SetFrozen(false);
             if (fuel != null) fuel.Clear();
             if (ropes != null) ropes.HangAll();
+            if (hoppers != null) hoppers.Refill();
             rules?.Reset();
             Clock.Stop();
             if (sounds != null) sounds.StopAll();
@@ -420,6 +425,7 @@ namespace SteamworksSim.Game
             bool on = State == AppState.Playing && Clock.Running;
             if (playerMech != null) playerMech.enabledByMatch = on;
             if (defenderMech != null) defenderMech.enabledByMatch = false; // parked
+            hoppers.Step(dt, Mechs(), on); // pushing a HOPPER panel pours its 100 FUEL onto the field
             ropes.SetBodies(Bodies());
             animator.Sync(rules, dt, ClimbTop);
         }
