@@ -120,9 +120,10 @@ namespace SteamworksSim.UI
         // ---------------------------------------------------------------- main menu
         void BuildWallpaper()
         {
-            // Title wallpaper (Resources/UI/TitleWallpaper), scaled to cover the screen
+            // Title wallpaper (Resources/UI/TitleWallpaper), whole picture in view; the rest of the screen is
+            // filled with the beige of the picture's own border
             var r = Ui.Stretch(Ui.Rect("Wallpaper", canvas.transform));
-            r.gameObject.AddComponent<Image>().color = new Color(0.08f, 0.06f, 0.05f, 1f); // behind a narrower picture
+            r.gameObject.AddComponent<Image>().color = new Color(0.867f, 0.694f, 0.569f, 1f);
             var pic = Ui.Rect("Picture", r);
             pic.anchorMin = pic.anchorMax = pic.pivot = new Vector2(0.5f, 0.5f);
             wallpaper = r.gameObject;
@@ -133,7 +134,7 @@ namespace SteamworksSim.UI
             {
                 picture.texture = tex;
                 var fit = pic.gameObject.AddComponent<AspectRatioFitter>();
-                fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
                 fit.aspectRatio = tex.width / (float)tex.height;
             }
             else
@@ -158,9 +159,9 @@ namespace SteamworksSim.UI
         {
             var page = NewPage(MenuPage.Main, "Main menu");
             var col = TitleCard(page, "Main", 600f);
-            Ui.Title(col, "STEAMWORKS SIM", 76, Ui.Ink, TextAnchor.MiddleCenter, 96f);
-            Ui.Label(col, "FIRST STEAMWORKS (2017) robot simulator", 21, new Color(0.38f, 0.4f, 0.44f), TextAnchor.MiddleCenter, FontStyle.Normal, 30f);
-            Ui.Spacer(col, 18f);
+            var title = Ui.Title(col, "STEAMWORKS SIM", 54, Ui.Ink, TextAnchor.MiddleCenter, 70f);
+            title.horizontalOverflow = HorizontalWrapMode.Overflow; // one line, never wrapped
+            Ui.Spacer(col, 10f);
             firstSelect[MenuPage.Main] = Ui.Button(col, "SINGLEPLAYER", () => sim.EnterRobotSelect(), 64f, 32, true, true);
             Ui.Button(col, "MULTIPLAYER", () => Show(MenuPage.Multiplayer), 64f, 32, true, true);
             Ui.Button(col, "OPTIONS", () => OpenOptions(MenuPage.Main), 64f, 32, true, true);

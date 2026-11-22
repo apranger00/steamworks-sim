@@ -8,6 +8,7 @@ namespace SteamworksSim.InputHandling
     /// <summary>
     /// Turns the player's keyboard and gamepad into a RobotInput (driving) plus one-shot actions.
     /// Bindings live in GameControls (rebindable in Options > Controls). Defaults:
+    ///   Scoring: Space / RT shoot (hold), Q / LT dump (hold), E / A place GEAR, T / X climb or let go.
     ///   Keyboard: W/S (or arrows) drive, A/D turn, Shift precision, C camera, V flip chase, R reset robot,
     ///             Enter restart match, Esc pause. Practice keys: B defender, F5 reload robot files.
     ///   Gamepad:  sticks per the chosen layout, LB precision, Y camera, L3 flip chase, D-pad down reset robot,
@@ -19,6 +20,7 @@ namespace SteamworksSim.InputHandling
         public Source LastSource { get; private set; } = Source.Keyboard;
 
         public bool NextCamera, FlipChase, ResetRobot, RestartMatch, Pause, Cancel, ToggleDefender, ReloadRobots;
+        public bool PlaceGear, Climb; // pressed this frame
 
         const float Deadband = 0.08f, KeyboardTurn = 0.65f, PrecisionScale = 0.4f;
 
@@ -72,6 +74,10 @@ namespace SteamworksSim.InputHandling
             input.left = Mathf.Clamp(input.left, -1f, 1f) * scale;
             input.right = Mathf.Clamp(input.right, -1f, 1f) * scale;
 
+            input.shoot = GameControls.Shoot.IsPressed();
+            input.dump = GameControls.Dump.IsPressed();
+            PlaceGear = input.placeGear = GameControls.PlaceGear.WasPressedThisFrame();
+            Climb = input.climb = GameControls.Climb.WasPressedThisFrame();
             NextCamera = GameControls.NextCamera.WasPressedThisFrame();
             FlipChase = GameControls.FlipChase.WasPressedThisFrame();
             ResetRobot = GameControls.ResetRobot.WasPressedThisFrame();

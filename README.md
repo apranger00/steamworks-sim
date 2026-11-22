@@ -31,7 +31,9 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 **Steamworks > Set Up Drive Test** adds a `Sim` object and the camera rig to the open scene (and, once the scene is saved, adds it to the build list). Press Play: the game opens on the main menu with the field behind it.
 
 - **Singleplayer** opens robot selection (robot, alliance, start position; your robot waits on its start line). **Start match** runs a 3-2-1 countdown, 15 s AUTO, a 3 s pause (timer 0:03 to 0:00), then 2:15 TELEOP; robots are disabled during the countdown and the pause. Both periods are driver-controlled.
-- At 0:00 the **final score** slides in over the field: totals, AUTO / TELEOP breakdown (mobility, fuel, rotors, takeoff, penalty), robots on each alliance, ranking points and the winner. AUTO mobility is scored now; fuel, rotors and takeoff arrive with game pieces (step 3).
+- At 0:00 the **final score** slides in over the field: totals, AUTO / TELEOP breakdown (mobility, fuel, rotors, takeoff, penalty), robots on each alliance, ranking points and the winner. Everything scores: AUTO mobility, FUEL (boiler counts 5 per second per goal; high 1 kPa per ball in AUTO, 1 per 3 in TELEOP; low a third of that), GEARS (PILOTS lift, install and crank: ROTOR 1 needs 1 GEAR, then 2, 4, 6), and takeoff (TOUCHPAD held at least 1 s at 0:00). The ROPES drop with 30 s left.
+
+The default robot (`sim-6wd`) carries unlimited FUEL and GEARS for testing (no intake yet). The drive info panel shows whether the shooter is in range, whether the gear slot is lined up with a peg, and whether a rope is in reach. **Steamworks > Run Scoring Self-Test** checks the scoring rules against the prototype's tests (results in the Console).
 - **Multiplayer** is a placeholder until online play is built.
 - **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
 - The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
@@ -41,6 +43,10 @@ Default controls (rebindable):
 | Action | Keyboard | Gamepad |
 |---|---|---|
 | Drive / turn | W S / A D (or arrows) | Split arcade: left stick Y, right stick X |
+| **Shoot** at your high goal (hold; the turret aims itself) | Space | RT |
+| **Dump** into the low goal (hold, front of the robot against the boiler) | Q | LT |
+| **Place GEAR** on the lift peg your front slot is lined up with | E | A |
+| **Climb** your rope (front bumper against it) / let go | T | X |
 | Precision (40%) | Shift | LB |
 | Next camera (chase, driver, free) | C | Y |
 | Flip chase camera (behind / in front) | V | L3 |
@@ -59,7 +65,7 @@ The field cues (cavalry charge at the start, buzzer at the end of AUTO, resume s
 
 ### Title screen and fonts
 
-The title screen wallpaper is `UnityProject/Assets/Steamworks/Resources/UI/TitleWallpaper.jpg` (replace it with a larger image of the same name for a sharper background). Fonts load from `Resources/Fonts`: drop a licensed **Brim Narrow** or **Haymaker** file in as `Title.ttf` / `Title.otf` for menus and headings; until then Anton is used. Body text is Fira Sans. Both defaults are under the SIL Open Font License (texts included).
+The title screen wallpaper is `UnityProject/Assets/Steamworks/Resources/UI/TitleWallpaper.jpg` (replace it with a larger image of the same name for a sharper background). Fonts load from `Resources/Fonts`: drop a licensed **Brim Narrow** or **Haymaker** file in as `Title.ttf` / `Title.otf` for menus and headings; until then Anton is used. `Title.*` is git-ignored: personal-use font licences don't allow sharing the file, so each person keeps their own copy. Body text is Fira Sans. Both defaults are under the SIL Open Font License (texts included).
 
 ## Coordinate frames
 
@@ -70,7 +76,7 @@ All data files use the **spec frame**: inches, origin at field centre on the car
 - [x] Step 1: field built in Unity from the prototype's data, with static colliders and a CAD overlay
 - [x] Step 2: drivable robot from a robot mod file, tank drive, chase / driver / free cameras, gamepad
 - [x] Step 2.5: main menu, robot selection, options (rebinding, audio, graphics), pause menu, match clock with field sounds
-- [ ] Step 3: FUEL and GEARS on PhysX, goal sensors, shooter, gear placement, climbing, match timing and scoring (port of `prototype/web/game.js` with its tests)
+- [x] Step 3 (testing robot): shooter, low-goal dump, gear placement, climbing, FUEL on PhysX, goal sensors, ROPES, ROTORS / TOUCHPADS, full scoring and live score HUD
 - [ ] Step 4: online multiplayer (Netcode for GameObjects + Multiplayer Services), HUD, sounds
 
 ## Prototype tests

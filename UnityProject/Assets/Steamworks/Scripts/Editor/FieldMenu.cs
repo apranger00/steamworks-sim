@@ -90,6 +90,14 @@ namespace SteamworksSim.EditorTools
             Debug.Log("[Steamworks] Game scene ready. Save the scene (Ctrl+S), run this menu once more to add it to the build list, then press Play.");
         }
 
+        [MenuItem("Steamworks/Run Scoring Self-Test", priority = 40)]
+        public static void RunScoringSelfTest()
+        {
+            string report = MatchRulesSelfTest.Run(out int passed, out int failed);
+            string head = $"[Steamworks] Scoring self-test: {passed} passed, {failed} failed (ported from prototype/tests/game.mjs)\n";
+            if (failed == 0) Debug.Log(head + report); else Debug.LogError(head + report);
+        }
+
         [MenuItem("Steamworks/Rebuild Field Preview", priority = 1)]
         public static void Rebuild()
         {

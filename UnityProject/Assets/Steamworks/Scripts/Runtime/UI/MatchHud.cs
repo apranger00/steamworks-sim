@@ -14,7 +14,10 @@ namespace SteamworksSim.UI
         Image timerBg, countdownFill;
         RectTransform countdownRoot;
         Text countdownNumber;
-        float bannerAt = -100f, hintRefresh;
+        float bannerAt = -100f, hintRefresh, toastAt = -100f;
+        Text toast;
+        class ScoreBox { public Text total, kpa; public Image[] rotors; public GameObject rp; }
+        ScoreBox redBox, blueBox;
 
         public void Init(SimBootstrap owner)
         {
@@ -30,6 +33,12 @@ namespace SteamworksSim.UI
             Ui.Anchor(period.rectTransform, new Vector2(0.5f, 1f), new Vector2(340f, 30f), new Vector2(0f, -8f));
             time = Ui.Title(box, "", 66, Ui.TextColor);
             Ui.Anchor(time.rectTransform, new Vector2(0.5f, 0f), new Vector2(340f, 80f), new Vector2(0f, 4f));
+
+            redBox = BuildScore(canvas.transform, -1, new Color(0.78f, 0.12f, 0.14f, 0.92f));
+            blueBox = BuildScore(canvas.transform, 1, new Color(0.08f, 0.33f, 0.7f, 0.92f));
+            toast = Ui.Label(canvas.transform, "", 26, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Anchor(toast.rectTransform, new Vector2(0.5f, 1f), new Vector2(1200f, 40f), new Vector2(0f, -146f));
+            toast.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(2f, -2f);
 
             banner = Ui.Title(canvas.transform, "", 64, Ui.Gold);
             Ui.Anchor(banner.rectTransform, new Vector2(0.5f, 0.72f), new Vector2(1400f, 90f));
@@ -69,6 +78,46 @@ namespace SteamworksSim.UI
 
         public void ClearBanner() { bannerAt = -100f; }
 
+        /// <summary>A short message under the timer (rotor active, gear placed, ...).</summary>
+        public void Toast(string text, Color color) { toast.text = text; toast.color = color; toastAt = Time.unscaledTime; }
+
+        // Alliance score next to the timer: total, pressure (x / 40 kPa until the ranking point, then an RP badge)
+        // and four ROTOR dots.
+        static ScoreBox BuildScore(Transform parent, int side, Color color)
+        {
+            var b = new ScoreBox();
+            var box = Ui.Anchor(Ui.Rect(side < 0 ? "Red score" : "Blue score", parent), new Vector2(0.5f, 1f), new Vector2(250f, 116f), new Vector2(side * 305f, -14f));
+            Ui.Round(box.gameObject.AddComponent<Image>(), 16f).color = color;
+            b.total = Ui.Title(box, "0", 58, Ui.TextColor);
+            Ui.Anchor(b.total.rectTransform, new Vector2(0.5f, 1f), new Vector2(250f, 66f), new Vector2(0f, -4f));
+            b.kpa = Ui.Label(box, "0 / 40 kPa", 19, Ui.TextColor, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Ui.Anchor(b.kpa.rectTransform, new Vector2(0f, 0f), new Vector2(150f, 34f), new Vector2(14f, 8f));
+            var rp = Ui.Rect("RP", box);
+            Ui.Anchor(rp, new Vector2(0f, 0f), new Vector2(42f, 24f), new Vector2(104f, 13f));
+            Ui.Round(rp.gameObject.AddComponent<Image>(), 12f).color = new Color(1f, 0.87f, 0.1f);
+            var rpText = Ui.Label(rp, "RP", 15, Ui.Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Stretch(rpText.rectTransform);
+            b.rp = rp.gameObject; b.rp.SetActive(false);
+            b.rotors = new Image[4];
+            for (int k = 0; k < 4; k++)
+            {
+                var dot = Ui.Rect("Rotor " + (k + 1), box);
+                Ui.Anchor(dot, new Vector2(1f, 0f), new Vector2(16f, 16f), new Vector2(-14f - (3 - k) * 21f, 17f));
+                b.rotors[k] = dot.gameObject.AddComponent<Image>();
+                b.rotors[k].sprite = Ui.Disc;
+            }
+            return b;
+        }
+
+        static void FillScore(ScoreBox b, Game.AllianceScore a)
+        {
+            b.total.text = a.Total.ToString();
+            bool rp = a.PressureRp;
+            b.kpa.text = rp ? $"{Mathf.FloorToInt(a.kPa)} kPa" : $"{Mathf.FloorToInt(a.kPa)} / 40 kPa";
+            if (b.rp.activeSelf != rp) b.rp.SetActive(rp);
+            for (int k = 0; k < 4; k++) b.rotors[k].color = k < a.rotorsTurning ? new Color(1f, 0.85f, 0.15f) : new Color(1f, 1f, 1f, 0.25f);
+        }
+
         void Update()
         {
             if (root == null || !root.activeSelf) return;
@@ -101,6 +150,10 @@ namespace SteamworksSim.UI
                 countdownNumber.rectTransform.localScale = Vector3.one * (1f + 0.45f * pop * pop);
                 var nc = countdownNumber.color; nc.a = 1f - pop * 0.6f; countdownNumber.color = nc;
             }
+
+            FillScore(redBox, sim.Score.red);
+            FillScore(blueBox, sim.Score.blue);
+            var tc = toast.color; tc.a = Mathf.Clamp01(1f - (Time.unscaledTime - toastAt - 2.2f) / 0.5f); toast.color = tc;
 
             float age = Time.unscaledTime - bannerAt;
             var bc = banner.color; bc.a = Mathf.Clamp01(1f - (age - 1.6f) / 0.6f);
