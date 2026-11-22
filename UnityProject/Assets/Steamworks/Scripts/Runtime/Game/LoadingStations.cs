@@ -7,7 +7,9 @@ namespace SteamworksSim.Game
     /// <summary>
     /// Return LOADING STATIONS (manual 3.11.3): two chutes each, fed by the alliance's human players. A robot with
     /// any part of its bumpers in its RETRIEVAL ZONE asks for a game piece (L1 / F: FUEL, R1 / G: GEAR) and the
-    /// chute nearest the robot drops it: 20 FUEL at a time (or whatever is left), one GEAR at a time.
+    /// chute nearest the robot drops it: 20 FUEL at a time (or whatever is left), one GEAR at a time. A GEAR goes
+    /// straight into the robot only if it can take one and is lined up close to the chute (GearReach,
+    /// GearOverlap); otherwise it slides out onto the carpet.
     ///
     /// Stock (manual 4.1): each LOADING LANE starts with 20 FUEL and 18 GEARS, plus every preload its three teams
     /// don't put in a robot (10 FUEL and 1 GEAR per team). GEARS are never restocked; FUEL is: every FUEL a boiler
@@ -16,6 +18,9 @@ namespace SteamworksSim.Game
     public class LoadingStations : MonoBehaviour
     {
         public const int LaneFuel = 20, LaneGears = 18, TeamsPerAlliance = 3, PreloadFuel = 10, PreloadGears = 1, FuelPerDrop = 20;
+        /// <summary>For every robot: to take a GEAR straight from a chute its front must be within this many inches of
+        /// the chute, and its front must cover at least this fraction of the chute's width, left to right.</summary>
+        public const float GearReach = 8f, GearOverlap = 0.5f;
         const float FuelPerSecond = 12f, GearCooldown = 0.6f;
 
         public class Station
@@ -102,9 +107,10 @@ namespace SteamworksSim.Game
             s.gears--; s.gearWait[c] = GearCooldown;
             var L = s.spec;
             var inward = new Vector2(L.inward[0], L.inward[1]);
-            var chute = new Vector2(L.chutes[2 * c], L.chutes[2 * c + 1]) + inward * 6.5f; // gear radius + 1 in, just out of the slot
+            var chute = new Vector2(L.chutes[2 * c], L.chutes[2 * c + 1]);
+            if (r.TakeGearFromChute(L, chute, GearReach, GearOverlap)) return true; // straight into the gear slot
+            // GEARS fit through the 7.5 in slot lying flat: it slides out of the opening onto the carpet
             float yaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg;
-            // GEARS fit through the 7.5 in slot lying flat and slide out into the field
             gearPool.Spawn(new Vector3(chute.x, chute.y, L.chuteZ0 + 1.5f), new Vector3(inward.x, inward.y, 0f) * 35f, yaw);
             return true;
         }

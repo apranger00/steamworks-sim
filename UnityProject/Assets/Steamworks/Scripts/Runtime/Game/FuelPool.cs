@@ -39,6 +39,7 @@ namespace SteamworksSim.Game
         readonly List<Ball> active = new List<Ball>(), free = new List<Ball>();
         TargetsFile targets;
         Material material;
+        public Material BallMaterial => material;
         Mesh sphere;
         PhysicsMaterial physics;
         Transform root;

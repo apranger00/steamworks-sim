@@ -78,6 +78,10 @@ namespace SteamworksSim.Robots
             return root;
         }
 
+        /// <summary>Inside of the open-top hopper (in): the frame less 2 in each side.</summary>
+        public static float HopperLength(RobotDefinition d) => d.frame.length - 4f;
+        public static float HopperWidth(RobotDefinition d) => d.frame.width - 4f;
+
         static Transform Part(Transform parent, Mesh mesh, Material mat, Vector3 center, Vector3 size, string name)
         {
             var go = new GameObject(name);
@@ -112,8 +116,25 @@ namespace SteamworksSim.Robots
             // Frame, belly pan, superstructure
             Part(t, cubeMesh, alu, V(0, 0, 3.5f), V(fl, fw, 2f), "Frame");
             Part(t, cubeMesh, dark, V(0, 0, 2.6f), V(fl - 4f, fw - 6f, 0.25f), "Belly pan");
-            float towerH = Mathf.Max(2f, H - 4.5f - 1.5f);
-            Part(t, cubeMesh, dark, V(-3f, 0, 4.5f + towerH / 2f), V(Mathf.Max(4f, fl - 10f), Mathf.Max(4f, fw - 8f), towerH), "Superstructure");
+            if (d.intake != null && d.intake.fuelFromChute)
+            {
+                // Open-top FUEL hopper filling the frame: clear walls and an aluminium rim, so you can see the FUEL inside
+                var clear = mats.Get("polyHopper");
+                float hl = HopperLength(d), hw = HopperWidth(d), z0 = 4.5f, hh = H - z0;
+                Part(t, cubeMesh, clear, V(hl / 2f, 0, z0 + hh / 2f), V(0.25f, hw, hh), "Hopper wall front");
+                Part(t, cubeMesh, clear, V(-hl / 2f, 0, z0 + hh / 2f), V(0.25f, hw, hh), "Hopper wall back");
+                Part(t, cubeMesh, clear, V(0, hw / 2f, z0 + hh / 2f), V(hl, 0.25f, hh), "Hopper wall left");
+                Part(t, cubeMesh, clear, V(0, -hw / 2f, z0 + hh / 2f), V(hl, 0.25f, hh), "Hopper wall right");
+                Part(t, cubeMesh, alu, V(hl / 2f, 0, H - 0.5f), V(1f, hw + 1f, 1f), "Hopper rim");
+                Part(t, cubeMesh, alu, V(-hl / 2f, 0, H - 0.5f), V(1f, hw + 1f, 1f), "Hopper rim");
+                Part(t, cubeMesh, alu, V(0, hw / 2f, H - 0.5f), V(hl + 1f, 1f, 1f), "Hopper rim");
+                Part(t, cubeMesh, alu, V(0, -hw / 2f, H - 0.5f), V(hl + 1f, 1f, 1f), "Hopper rim");
+            }
+            else
+            {
+                float towerH = Mathf.Max(2f, H - 4.5f - 1.5f);
+                Part(t, cubeMesh, dark, V(-3f, 0, 4.5f + towerH / 2f), V(Mathf.Max(4f, fl - 10f), Mathf.Max(4f, fw - 8f), towerH), "Superstructure");
+            }
             // Yellow bar across the front so you can always tell which way the robot faces
             Part(t, cubeMesh, yellow, V(fl / 2f - 3f, 0, 9f), V(4f, fw - 2f, 3f), "Front marker");
             if (d.shooter != null && d.shooter.enabled)
