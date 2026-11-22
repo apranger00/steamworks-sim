@@ -42,6 +42,38 @@ namespace SteamworksSim.UI
         /// <summary>A soft-edged filled circle (generated once).</summary>
         public static Sprite Disc => disc != null ? disc : disc = Circle("Disc", -1f);
 
+        static Sprite rotor;
+        /// <summary>A three-bladed ROTOR (hub plus blades at 120 degrees), generated once.</summary>
+        public static Sprite Rotor => rotor != null ? rotor : rotor = MakeRotor();
+
+        static Sprite MakeRotor()
+        {
+            const int n = 128;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[n * n];
+            float edge = 2.5f / n;
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    var p = new Vector2((x + 0.5f) / n * 2f - 1f, (y + 0.5f) / n * 2f - 1f);
+                    float d = p.magnitude - 0.27f; // hub
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float ang = (90f + 120f * k) * Mathf.Deg2Rad;
+                        var tip = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * 0.8f;
+                        float t = Mathf.Clamp01(Vector2.Dot(p, tip) / tip.sqrMagnitude);
+                        d = Mathf.Min(d, (p - tip * t).magnitude - 0.15f); // capsule blade
+                    }
+                    float a = Mathf.Clamp01(0.5f - d / edge);
+                    px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            var sp = Sprite.Create(tex, new Rect(0f, 0f, n, n), new Vector2(0.5f, 0.5f), 100f);
+            sp.name = "Rotor";
+            return sp;
+        }
+
         static Sprite Circle(string name, float inner)
         {
             const int n = 256;

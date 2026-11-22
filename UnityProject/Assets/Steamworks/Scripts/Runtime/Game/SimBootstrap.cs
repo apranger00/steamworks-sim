@@ -141,7 +141,7 @@ namespace SteamworksSim.Game
             fuel.Init(targets, Mats.Get("fuel"));
             ropes.Init(RopesFile.Load(), targets, Mats.Get("rope"));
             animator.Init(field, targets, Mats);
-            hoppers.Init(field, targets, fuel);
+            hoppers.Init(field, targets, fuel, Mats);
             gearPool.Init(Mats.Get("gear"));
             loading.Init(targets, fuel, gearPool, Mats);
             fuel.Catch = (p, v) => { foreach (var m in Mechs()) if (m.TryCatchFuel(p, v)) return true; return false; };
@@ -495,6 +495,7 @@ namespace SteamworksSim.Game
             {
                 playerMech.shootHeld = driving && input.shoot;
                 playerMech.dumpHeld = driving && input.dump;
+                playerMech.intakeHeld = driving && input.intake;
                 if (driving && reader.PlaceGear) playerMech.PlaceGear();
                 if (driving && reader.Climb) playerMech.ToggleClimb();
                 // loading station: in your RETRIEVAL ZONE, L1 / F for FUEL and R1 / G for a GEAR from the nearest chute

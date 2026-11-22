@@ -34,7 +34,7 @@ namespace SteamworksSim.Game
         public int PreloadedFuel => def.preload == null ? 0 : (FuelCapacity > 0 ? Mathf.Min(def.preload.fuel, FuelCapacity) : def.preload.fuel);
         public int PreloadedGears => def.preload == null ? 0 : (GearCapacity > 0 ? Mathf.Min(def.preload.gears, GearCapacity) : def.preload.gears);
         public string LoadStatus => $"{(FuelCapacity > 0 ? $"{Fuel} / {FuelCapacity}" : "unlimited")} FUEL, {(GearCapacity > 0 ? $"{Gears} / {GearCapacity}" : "unlimited")} GEAR";
-        public bool shootHeld, dumpHeld;
+        public bool shootHeld, dumpHeld, intakeHeld;
 
         public enum ClimbPhase { None, Attach, Up, Hold, Down }
         public ClimbPhase Climb { get; private set; }
@@ -394,7 +394,7 @@ namespace SteamworksSim.Game
             if (def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= hl && Mathf.Abs(ly) <= hw
                 && p.z >= Lift + RobotFactory.HopperFloor(def) && p.z <= TopZ + 1f) caught = true;
             // floor intake across the front bumper
-            if (!caught && def.intake.fuelFromFloor && enabledByMatch && p.z <= FuelPool.RadiusIn + 2f
+            if (!caught && def.intake.fuelFromFloor && enabledByMatch && intakeHeld && p.z <= FuelPool.RadiusIn + 2f
                 && lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f) caught = true;
             if (caught && FuelCapacity > 0) Fuel++;
             return caught;
@@ -403,7 +403,7 @@ namespace SteamworksSim.Game
         /// <summary>A loose GEAR on the carpet centred at spec position p: true if this robot's floor intake takes it.</summary>
         public bool TryCatchGear(Vector3 p)
         {
-            if (def.intake == null || !def.intake.gearFromFloor || !enabledByMatch || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
+            if (def.intake == null || !def.intake.gearFromFloor || !enabledByMatch || !intakeHeld || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
             if (GearCapacity > 0 && Gears >= GearCapacity) return false;
             var d = new Vector2(p.x, p.y) - Center;
             float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left) - def.gear.slotOffset;

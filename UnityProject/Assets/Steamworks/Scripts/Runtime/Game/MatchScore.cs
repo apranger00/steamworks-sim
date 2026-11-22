@@ -23,6 +23,7 @@ namespace SteamworksSim.Game
         public int bonus => bonusPressure + bonusRotors;
 
         public float kPa;           // pressure accumulated
+        public int ninths;          // pressure in ninths of a kPa (the HUD's progress dots show ninths % 9)
         public int rotorsTurning;   // 0..4
         public readonly List<string> robots = new List<string>();
 
@@ -36,7 +37,7 @@ namespace SteamworksSim.Game
         public void Clear()
         {
             mobility = autoFuel = autoRotors = teleopFuel = teleopRotors = takeoff = penalty = bonusPressure = bonusRotors = 0;
-            kPa = 0f; rotorsTurning = 0;
+            kPa = 0f; ninths = 0; rotorsTurning = 0;
             robots.Clear();
         }
     }

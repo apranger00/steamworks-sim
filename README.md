@@ -37,7 +37,7 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 
 A GEAR goes straight into a robot only if the robot can take one, faces the station, has its front within 8 in of the chute, and covers at least half the chute's width (left to right) with its front. Otherwise, or if the robot already has a GEAR, it drops onto the carpet. These rules are the same for every robot.
 
-The default robot (Rookie Bot, folder `sim-6wd`) starts with 10 FUEL and 1 GEAR and holds 50 FUEL and 1 GEAR. Its top is an open hopper with clear walls: FUEL falling onto it (from a chute or a field hopper) drops in, its front intake picks FUEL up off the carpet, and you can see how full it is by the loose pile of FUEL inside. The hopper is sized so 50 FUEL fill it to the rim; once it's full, more FUEL rolls off the top of the pile and over the sides. The turret sits in the back right corner. It can't pick GEARS up off the floor. The drive info panel shows whether the shooter is in range. **Steamworks > Run Scoring Self-Test** checks the scoring rules against the prototype's tests (results in the Console).
+The default robot (Rookie Bot, folder `sim-6wd`) starts with 10 FUEL and 1 GEAR and holds 50 FUEL and 1 GEAR. Its top is an open hopper with clear walls: FUEL falling onto it (from a chute or a field hopper) drops in, its front intake picks FUEL up off the carpet while you hold Intake, and you can see how full it is by the loose pile of FUEL inside. The hopper is sized so 50 FUEL fill it to the rim; once it's full, more FUEL rolls off the top of the pile and over the sides. The turret sits in the back right corner. It can't pick GEARS up off the floor. The drive info panel shows whether the shooter is in range. **Steamworks > Run Scoring Self-Test** checks the scoring rules against the prototype's tests (results in the Console).
 - **Multiplayer** is a placeholder until online play is built.
 - **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
 - The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
@@ -48,13 +48,14 @@ Default controls (rebindable):
 |---|---|---|
 | Drive / turn | W S / A D (or arrows) | Split arcade: left stick Y, right stick X |
 | **Shoot** at your high goal (hold; the turret aims itself) | Space | RT |
-| **Dump** into the low goal (hold, front of the robot against the boiler) | Q | LT |
+| **Intake** FUEL off the carpet (hold; robots with a floor intake) | Q | LT |
+| **Dump** into the low goal (hold, front of the robot against the boiler) | Z | Y |
 | **Place GEAR** on the lift peg your front slot is lined up with | E | A |
 | **Climb** your rope (front bumper against it) / let go | T | X |
 | **FUEL from the loading station** (in your retrieval zone; nearest chute) | F | LB (L1) |
 | **GEAR from the loading station** (in your retrieval zone; nearest chute) | G | RB (R1) |
 | Precision (40%) | Shift | R3 (hold) |
-| Next camera (chase, driver, free) | C | Y |
+| Next camera (chase, driver, free) | C | D-pad up |
 | Flip chase camera (behind / in front) | V | L3 |
 | Reset robot to its start position | R | D-pad down |
 | **Restart match** (robot to start line, clock to 2:30, 3-2-1, go) | Enter | **Start** |
