@@ -4,7 +4,7 @@
   "name": "Rookie Bot",
   "author": "Steamworks Sim",
   "team": 0,
-  "description": "The test robot from the browser prototype: 6-wheel tank drive, turret shooter and low-goal dump sharing a 50-FUEL hopper it fills from a loading-station chute, a front gear slot that takes one GEAR from a chute, and a rope climber. No floor pickup.",
+  "description": "The test robot from the browser prototype: 6-wheel tank drive, an open-top 50-FUEL hopper (fills from a chute, a field hopper or the floor intake at the front) feeding a turret shooter in the back corner and a low-goal dump, a front gear slot that takes one GEAR from a chute, and a rope climber.",
   "version": "1.0",
 
   "frame":   { "length": 32, "width": 28, "height": 24 },
@@ -29,7 +29,7 @@
     "type": "turret",
     "rate": 6,
     "exitHeight": 30,
-    "exitOffset": [0, 0],
+    "exitOffset": [-10, -8],
     "maxExitSpeed": 40,
     "minRange": 2.5,
     "maxRange": 25,
@@ -45,7 +45,7 @@
 
   "preload": { "fuel": 10, "gears": 1 },
 
-  "intake": { "fuelFromChute": true, "hopperDepth": 12, "gearFromChute": true, "fuelFromFloor": false, "gearFromFloor": false },
+  "intake": { "fuelFromChute": true, "hopperDepth": 12, "gearFromChute": true, "fuelFromFloor": true, "gearFromFloor": false },
 
   "climber": { "enabled": true, "rate": 12, "setback": 3, "reachForward": 10, "reachLateral": 12 },
 

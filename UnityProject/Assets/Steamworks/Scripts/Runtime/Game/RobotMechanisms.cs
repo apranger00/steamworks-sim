@@ -54,6 +54,8 @@ namespace SteamworksSim.Game
         TankDrive drive;
         Collider body;
         Transform turret, heldGear;
+        GameObject[] hopperBalls;
+        int shownFuel = -1;
         float shootT, dumpT, gearCooldown, climbTopZ;
         RigidbodyConstraints savedConstraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         readonly System.Random rnd = new System.Random(2017);
@@ -128,6 +130,35 @@ namespace SteamworksSim.Game
                 var hm = transform.Find("Visual/Shooter turret");
                 hood.AddComponent<MeshRenderer>().sharedMaterial = hm != null ? hm.GetComponent<MeshRenderer>().sharedMaterial : dark;
             }
+            // FUEL in the open-top hopper, so you can see how full the robot is: one ball per slot, bottom layer first
+            if (def.intake != null && def.intake.fuelFromChute && fuel != null)
+            {
+                var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                var sphereMesh = sphere.GetComponent<MeshFilter>().sharedMesh;
+                Destroy(sphere);
+                var holder = new GameObject("Hopper FUEL").transform;
+                holder.SetParent(visual, false);
+                float hl = RobotFactory.HopperLength(def) - 1f, hw = RobotFactory.HopperWidth(def) - 1f, r = FuelPool.RadiusIn;
+                int nx = Mathf.Max(1, Mathf.FloorToInt(hl / (2f * r))), ny = Mathf.Max(1, Mathf.FloorToInt(hw / (2f * r)));
+                int nz = Mathf.Max(1, Mathf.FloorToInt((Height - 4.5f) / (2f * r * 0.92f)));
+                var list = new System.Collections.Generic.List<GameObject>();
+                for (int k = 0; k < nz; k++)
+                    for (int i = 0; i < nx; i++)
+                        for (int j = 0; j < ny; j++)
+                        {
+                            var b = new GameObject("FUEL");
+                            b.transform.SetParent(holder, false);
+                            float fx = -hl / 2f + r + i * (hl - 2f * r) / Mathf.Max(1, nx - 1);
+                            float fy = -hw / 2f + r + j * (hw - 2f * r) / Mathf.Max(1, ny - 1) + (k % 2 == 1 ? 0.8f : 0f);
+                            b.transform.localPosition = new Vector3(-fy * In, (4.5f + r + k * 2f * r * 0.92f) * In, fx * In);
+                            b.transform.localScale = Vector3.one * (2f * r * In);
+                            b.AddComponent<MeshFilter>().sharedMesh = sphereMesh;
+                            b.AddComponent<MeshRenderer>().sharedMaterial = fuel.BallMaterial;
+                            b.SetActive(false);
+                            list.Add(b);
+                        }
+                hopperBalls = list.ToArray();
+            }
             // The GEAR it carries, standing in the front slot
             if (def.gear != null && def.gear.enabled)
             {
@@ -163,6 +194,7 @@ namespace SteamworksSim.Game
             rules = getRules != null ? getRules() : null;
             if (gearCooldown > 0f) gearCooldown -= dt;
             if (heldGear != null) heldGear.gameObject.SetActive(gearCooldown <= 0f && Climb == ClimbPhase.None && HasGear);
+            ShowHopperFuel();
 
             UpdateShooterStatus(out var shot);
             if (Climb != ClimbPhase.None) { ClimbStep(dt); UpdateClimbStatus(); return; }
@@ -312,6 +344,19 @@ namespace SteamworksSim.Game
             Toast?.Invoke(msg);
         }
 
+        void ShowHopperFuel()
+        {
+            if (hopperBalls == null) return;
+            int slots = hopperBalls.Length, n;
+            if (FuelCapacity <= 0) n = slots;                                         // unlimited (testing): shown full
+            else if (FuelCapacity <= slots) n = Fuel;                                 // one ball per FUEL carried
+            else n = Mathf.CeilToInt(slots * Fuel / (float)FuelCapacity);             // big hoppers: scaled
+            n = Mathf.Clamp(n, 0, slots);
+            if (n == shownFuel) return;
+            shownFuel = n;
+            for (int i = 0; i < hopperBalls.Length; i++) hopperBalls[i].SetActive(i < n);
+        }
+
         // ---------------------------------------------------------------- intake
         /// <summary>A FUEL at spec position p moving at v (in/s): true if this robot takes it.</summary>
         public bool TryCatchFuel(Vector3 p, Vector3 v)
@@ -330,18 +375,38 @@ namespace SteamworksSim.Game
             return caught;
         }
 
-        /// <summary>A GEAR centred at spec position p: true if this robot takes it.</summary>
+        /// <summary>A loose GEAR on the carpet centred at spec position p: true if this robot's floor intake takes it.</summary>
         public bool TryCatchGear(Vector3 p)
         {
-            if (def.intake == null || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
+            if (def.intake == null || !def.intake.gearFromFloor || !enabledByMatch || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
             if (GearCapacity > 0 && Gears >= GearCapacity) return false;
             var d = new Vector2(p.x, p.y) - Center;
             float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left) - def.gear.slotOffset;
-            bool atSlot = lx >= HalfL - 8f && lx <= HalfL + 8f && Mathf.Abs(ly) <= 8f;
-            bool caught = atSlot && ((def.intake.gearFromChute && p.z >= 6f && p.z <= 40f)
-                                     || (def.intake.gearFromFloor && enabledByMatch && p.z < 6f));
+            bool caught = p.z < 6f && lx >= HalfL - 2f && lx <= HalfL + 8f && Mathf.Abs(ly) <= 8f;
             if (caught && GearCapacity > 0) Gears++;
             return caught;
+        }
+
+        /// <summary>
+        /// A GEAR coming out of a loading-station chute goes straight into the gear slot only if the robot can take
+        /// one, faces the station, has its front within `reach` in of the chute, and covers at least `overlap` of
+        /// the chute's width with its front, left to right. Otherwise it drops on the carpet.
+        /// </summary>
+        public bool TakeGearFromChute(LoadingSpec L, Vector2 chute, float reach, float overlap)
+        {
+            if (def.intake == null || !def.intake.gearFromChute || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
+            if (GearCapacity > 0 && Gears >= GearCapacity) return false;
+            var inward = new Vector2(L.inward[0], L.inward[1]);
+            var along = new Vector2(-inward.y, inward.x);
+            if (Vector2.Dot(Forward, -inward) < Mathf.Cos(30f * Mathf.Deg2Rad)) return false; // the slot is on the front
+            Vector2 c = Center, f = Forward * HalfL, l = Left * HalfW;
+            float depth = Vector2.Dot(c + f - new Vector2(L.a[0], L.a[1]), inward);       // front face to the station face
+            if (depth > reach) return false;
+            float s1 = Vector2.Dot(c + f + l - chute, along), s2 = Vector2.Dot(c + f - l - chute, along);
+            float covered = Mathf.Min(Mathf.Max(s1, s2), L.chuteHalfW) - Mathf.Max(Mathf.Min(s1, s2), -L.chuteHalfW);
+            if (covered < overlap * 2f * L.chuteHalfW) return false;
+            if (GearCapacity > 0) Gears++;
+            return true;
         }
 
         // ---------------------------------------------------------------- climber (physics.js _climbStep)
