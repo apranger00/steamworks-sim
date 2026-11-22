@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using SteamworksSim.Audio;
 using SteamworksSim.InputHandling;
 using SteamworksSim.Settings;
 using UnityEngine;
@@ -19,6 +20,8 @@ namespace SteamworksSim.UI
         public bool Rebinding { get; private set; }
 
         Action onBack, onTestSound;
+        Func<string> soundStatus;
+        Text soundStatusText;
         readonly Button[] tabButtons = new Button[3];
         readonly RectTransform[] tabs = new RectTransform[3];
         static readonly string[] TabNames = { "Controls", "Audio", "Graphics" };
@@ -30,9 +33,9 @@ namespace SteamworksSim.UI
         OptionRow layoutRow, masterRow, matchRow, displayRow, resolutionRow, vsyncRow, capRow, qualityRow, fovRow, infoRow;
         List<Vector2Int> resolutions = new List<Vector2Int>();
 
-        public RectTransform Build(Transform parent, Action back, Action testSound)
+        public RectTransform Build(Transform parent, Action back, Action testSound, Func<string> status)
         {
-            onBack = back; onTestSound = testSound;
+            onBack = back; onTestSound = testSound; soundStatus = status;
             Root = Ui.Stretch(Ui.Rect("Options", parent));
 
             var panel = Ui.Anchor(Ui.Rect("Panel", Root), new Vector2(0.5f, 0.5f), new Vector2(1180f, 960f));
@@ -94,6 +97,7 @@ namespace SteamworksSim.UI
             qualityRow.SetIndex(GameSettings.QualityLevel >= 0 ? GameSettings.QualityLevel : QualitySettings.GetQualityLevel());
             fovRow.SetIndex(Mathf.RoundToInt((GameSettings.FieldOfView - 50f) / 5f));
             infoRow.SetIndex(GameSettings.ShowDriveInfo ? 0 : 1);
+            if (soundStatusText != null) soundStatusText.text = soundStatus != null ? soundStatus() : "";
             ShowTab(tab);
         }
 
@@ -217,9 +221,13 @@ namespace SteamworksSim.UI
             masterRow = Ui.Option(c, "Master volume", Ui.Percentages(), 20, i => { GameSettings.MasterVolume = i / 20f; GameSettings.Apply(); }, false);
             matchRow = Ui.Option(c, "Match sounds", Ui.Percentages(), 20, i => { GameSettings.MatchVolume = i / 20f; GameSettings.Apply(); }, false);
             Ui.Spacer(c, 6f);
-            Ui.Button(c, "Play test sound (match start)", () => onTestSound?.Invoke(), 48f, 22);
+            var buttons = Ui.Row(c, 48f, 12f);
+            Ui.SetWidth(Ui.Button(buttons, "Play test sound (match start)", () => onTestSound?.Invoke(), 48f, 22), 420f);
+            Ui.SetWidth(Ui.Button(buttons, "Open sounds folder", () => MatchSounds.OpenFolder(), 48f, 22), 320f);
             Ui.Spacer(c, 6f);
-            Ui.Label(c, "Match sounds play from files in StreamingAssets/Sounds (see the README there). Robot and game-piece sounds will get their own slider when they exist.", 19, Ui.Muted);
+            soundStatusText = Ui.Label(c, "", 20, Ui.TextColor);
+            Ui.Spacer(c, 4f);
+            Ui.Label(c, "Match sounds are read from: " + MatchSounds.Folder + "\nPut the files there (names as in sounds.json), then restart Play. Robot and game-piece sounds will get their own slider when they exist.", 18, Ui.Muted);
             return c;
         }
 

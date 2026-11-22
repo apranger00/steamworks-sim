@@ -21,6 +21,7 @@ namespace SteamworksSim.Audio
         {
             public string matchStart = "frc-start-sound.mp3";
             public string autoEnd = "frc-end.mp3";
+            public string teleopStart = "frc-resume.mp3";
             public string endgame = "frc-warning.mp3";
             public string matchEnd = "frc-end.mp3";
 
@@ -30,6 +31,7 @@ namespace SteamworksSim.Audio
                 {
                     case MatchCue.MatchStart: return matchStart;
                     case MatchCue.AutoEnd: return autoEnd;
+                    case MatchCue.TeleopStart: return teleopStart;
                     case MatchCue.Endgame: return endgame;
                     default: return matchEnd;
                 }
@@ -38,8 +40,31 @@ namespace SteamworksSim.Audio
 
         public static string Folder => Path.Combine(Application.streamingAssetsPath, "Sounds");
 
+        /// <summary>Opens the sounds folder in Explorer (creating it if needed).</summary>
+        public static void OpenFolder()
+        {
+            Directory.CreateDirectory(Folder);
+            Application.OpenURL(new Uri(Folder).AbsoluteUri);
+        }
+
         public readonly List<string> problems = new List<string>();
         public bool Loaded { get; private set; }
+
+        /// <summary>One line per cue: which file plays, or why a placeholder tone plays instead.</summary>
+        public string StatusText { get; private set; } = "Loading match sounds...";
+
+        static readonly string[] CueNames = { "Match start", "End of AUTO", "TELEOP start", "Endgame (0:30)", "Match end (0:00)" };
+
+        /// <summary>The file in the sounds folder with this name (any letter case), or null.</summary>
+        static string FindFile(string name)
+        {
+            string path = Path.Combine(Folder, name);
+            if (File.Exists(path)) return path;
+            if (!Directory.Exists(Folder)) return null;
+            foreach (var f in Directory.GetFiles(Folder))
+                if (string.Equals(Path.GetFileName(f), name, StringComparison.OrdinalIgnoreCase)) return f;
+            return null;
+        }
 
         readonly Dictionary<MatchCue, AudioClip> clips = new Dictionary<MatchCue, AudioClip>();
         AudioSource source;
@@ -83,15 +108,17 @@ namespace SteamworksSim.Audio
                 catch (Exception e) { problems.Add("sounds.json: " + e.Message); }
             }
 
+            if (!Directory.Exists(Folder)) problems.Add("the sounds folder does not exist: " + Folder);
             var byFile = new Dictionary<string, AudioClip>(StringComparer.OrdinalIgnoreCase);
+            var status = new List<string>();
             foreach (MatchCue cue in Enum.GetValues(typeof(MatchCue)))
             {
                 string file = map.Get(cue);
                 AudioClip clip = null;
                 if (!string.IsNullOrEmpty(file) && !byFile.TryGetValue(file, out clip))
                 {
-                    string path = Path.Combine(Folder, file);
-                    if (File.Exists(path))
+                    string path = FindFile(file);
+                    if (path != null)
                     {
                         using (var req = UnityWebRequestMultimedia.GetAudioClip(new Uri(path).AbsoluteUri, TypeOf(path)))
                         {
@@ -108,8 +135,17 @@ namespace SteamworksSim.Audio
                     byFile[file] = clip;
                 }
                 clips[cue] = clip != null ? clip : Placeholder(cue);
+                status.Add(clip != null
+                    ? $"{CueNames[(int)cue]}: {file} ({clip.length:0.0} s)"
+                    : $"{CueNames[(int)cue]}: placeholder tone ({(string.IsNullOrEmpty(file) ? "no file set" : file + " not loaded")})");
             }
+            StatusText = string.Join("\n", status);
             foreach (var p in problems) Debug.LogWarning("[Steamworks] Sounds: " + p);
+            Debug.Log("[Steamworks] Match sounds from " + Folder + "\n" + StatusText);
+#if UNITY_EDITOR
+            if (UnityEditor.EditorUtility.audioMasterMute)
+                Debug.LogWarning("[Steamworks] Unity's Game view audio is muted: click the speaker (Mute Audio) button on the Game view toolbar to hear sounds.");
+#endif
             Loaded = true;
             if (pending.HasValue && Time.unscaledTime - pendingAt < 1.5f) Play(pending.Value);
             pending = null;
@@ -138,6 +174,12 @@ namespace SteamworksSim.Audio
                         int n = Mathf.Min(2, (int)(t / 0.25f));
                         float f = new[] { 523f, 659f, 784f }[n], lt = t - n * 0.25f;
                         return Mathf.Sin(2f * Mathf.PI * f * t) * Env(lt, 0.22f) * 0.5f;
+                    });
+                case MatchCue.TeleopStart: // two-note chime
+                    return Tone("resume (placeholder)", rate, 0.6f, t =>
+                    {
+                        float f = t < 0.2f ? 659f : 988f, lt = t < 0.2f ? t : t - 0.2f;
+                        return Mathf.Sin(2f * Mathf.PI * f * t) * Env(lt, t < 0.2f ? 0.18f : 0.4f) * 0.5f;
                     });
                 case MatchCue.Endgame: // whistle
                     return Tone("whistle (placeholder)", rate, 1.3f, t =>

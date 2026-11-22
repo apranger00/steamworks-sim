@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace SteamworksSim.UI
 {
-    public enum MenuPage { None, Main, RobotSelect, Multiplayer, Options, Pause }
+    public enum MenuPage { None, Main, RobotSelect, Multiplayer, Options, Pause, Results }
 
     /// <summary>
     /// Main menu, robot selection, multiplayer placeholder, options and pause menu. Built in code with
@@ -18,7 +18,9 @@ namespace SteamworksSim.UI
         SimBootstrap sim;
         Canvas canvas;
         Image dim;
+        GameObject wallpaper;
         OptionsScreen options;
+        ResultsScreen results;
         readonly Dictionary<MenuPage, RectTransform> pages = new Dictionary<MenuPage, RectTransform>();
         readonly Dictionary<MenuPage, Selectable> firstSelect = new Dictionary<MenuPage, Selectable>();
         MenuPage optionsReturn = MenuPage.Main;
@@ -33,14 +35,18 @@ namespace SteamworksSim.UI
         {
             sim = owner;
             canvas = Ui.Canvas("Menus", 10, transform);
+            BuildWallpaper();
             dim = Ui.Fill(canvas.transform, "Dim", new Color(0f, 0f, 0f, 0.4f));
             BuildMain();
             BuildRobotSelect();
             BuildMultiplayer();
             BuildPause();
             options = gameObject.AddComponent<OptionsScreen>();
-            pages[MenuPage.Options] = options.Build(canvas.transform, () => Back(), () => sim.PlayTestSound());
+            pages[MenuPage.Options] = options.Build(canvas.transform, () => Back(), () => sim.PlayTestSound(), () => sim.SoundStatus);
             firstSelect[MenuPage.Options] = options.First;
+            results = gameObject.AddComponent<ResultsScreen>();
+            pages[MenuPage.Results] = results.Build(canvas.transform, () => sim.PlayAgain(), () => sim.EnterRobotSelect(), () => sim.ShowMainMenu());
+            firstSelect[MenuPage.Results] = results.First;
             Show(MenuPage.None);
         }
 
@@ -48,8 +54,10 @@ namespace SteamworksSim.UI
         {
             Page = page;
             foreach (var kv in pages) kv.Value.gameObject.SetActive(kv.Key == page);
-            dim.gameObject.SetActive(page != MenuPage.None && page != MenuPage.RobotSelect);
-            dim.color = new Color(0f, 0f, 0f, page == MenuPage.Main || page == MenuPage.Multiplayer ? 0.25f : 0.5f);
+            bool onTitle = page == MenuPage.Main || page == MenuPage.Multiplayer || (page == MenuPage.Options && optionsReturn == MenuPage.Main);
+            wallpaper.SetActive(onTitle);
+            dim.gameObject.SetActive(page == MenuPage.Pause || page == MenuPage.Options);
+            dim.color = new Color(0f, 0f, 0f, onTitle ? 0.3f : 0.5f);
             if (page == MenuPage.RobotSelect) RefreshRobotSelect();
             if (page == MenuPage.Options) options.Refresh();
             var es = EventSystem.current;
@@ -58,6 +66,12 @@ namespace SteamworksSim.UI
                 es.SetSelectedGameObject(null);
                 if (firstSelect.TryGetValue(page, out var f) && f != null) es.SetSelectedGameObject(f.gameObject);
             }
+        }
+
+        public void ShowResults(MatchScore score)
+        {
+            Show(MenuPage.Results);
+            results.Show(score);
         }
 
         public void OpenOptions(MenuPage returnTo)
@@ -104,21 +118,57 @@ namespace SteamworksSim.UI
         }
 
         // ---------------------------------------------------------------- main menu
+        void BuildWallpaper()
+        {
+            // Title wallpaper (Resources/UI/TitleWallpaper), scaled to cover the screen
+            var r = Ui.Stretch(Ui.Rect("Wallpaper", canvas.transform));
+            r.gameObject.AddComponent<Image>().color = new Color(0.08f, 0.06f, 0.05f, 1f); // behind a narrower picture
+            var pic = Ui.Rect("Picture", r);
+            pic.anchorMin = pic.anchorMax = pic.pivot = new Vector2(0.5f, 0.5f);
+            wallpaper = r.gameObject;
+            var picture = pic.gameObject.AddComponent<RawImage>();
+            picture.raycastTarget = false;
+            var tex = Resources.Load<Texture2D>("UI/TitleWallpaper");
+            if (tex != null)
+            {
+                picture.texture = tex;
+                var fit = pic.gameObject.AddComponent<AspectRatioFitter>();
+                fit.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+                fit.aspectRatio = tex.width / (float)tex.height;
+            }
+            else
+            {
+                Ui.Stretch(pic);
+                picture.color = new Color(0.12f, 0.09f, 0.07f, 1f);
+            }
+        }
+
+        /// <summary>White rounded card in the middle of the title screen.</summary>
+        RectTransform TitleCard(RectTransform page, string name, float width)
+        {
+            var col = Ui.Column(page, name, width, 14f, 44);
+            Ui.Anchor(col, new Vector2(0.5f, 0.5f), new Vector2(width, 0f));
+            Ui.Round(col.gameObject.AddComponent<Image>(), 28f).color = Ui.Paper;
+            col.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(0f, -6f);
+            return col;
+        }
+
+        // ---------------------------------------------------------------- main menu
         void BuildMain()
         {
             var page = NewPage(MenuPage.Main, "Main menu");
-            var col = Ui.Column(page, "Main", 560f, 14f);
-            Ui.Anchor(col, new Vector2(0.5f, 0.5f), new Vector2(560f, 0f), new Vector2(0f, 20f));
-            Ui.Label(col, "FIRST STEAMWORKS", 68, Ui.Gold, TextAnchor.MiddleCenter, FontStyle.Bold, 84f);
-            Ui.Label(col, "2017 FRC game simulator", 26, Ui.Muted, TextAnchor.MiddleCenter, FontStyle.Normal, 36f);
-            Ui.Spacer(col, 36f);
-            firstSelect[MenuPage.Main] = Ui.Button(col, "Singleplayer", () => sim.EnterRobotSelect());
-            Ui.Button(col, "Multiplayer", () => Show(MenuPage.Multiplayer));
-            Ui.Button(col, "Options", () => OpenOptions(MenuPage.Main));
-            Ui.Button(col, "Quit game", () => sim.ExitGame());
+            var col = TitleCard(page, "Main", 600f);
+            Ui.Title(col, "STEAMWORKS SIM", 76, Ui.Ink, TextAnchor.MiddleCenter, 96f);
+            Ui.Label(col, "FIRST STEAMWORKS (2017) robot simulator", 21, new Color(0.38f, 0.4f, 0.44f), TextAnchor.MiddleCenter, FontStyle.Normal, 30f);
+            Ui.Spacer(col, 18f);
+            firstSelect[MenuPage.Main] = Ui.Button(col, "SINGLEPLAYER", () => sim.EnterRobotSelect(), 64f, 32, true, true);
+            Ui.Button(col, "MULTIPLAYER", () => Show(MenuPage.Multiplayer), 64f, 32, true, true);
+            Ui.Button(col, "OPTIONS", () => OpenOptions(MenuPage.Main), 64f, 32, true, true);
+            Ui.Button(col, "QUIT GAME", () => sim.ExitGame(), 64f, 32, true, true);
 
-            var version = Ui.Label(page, "Prototype build: placeholder art", 18, Ui.Muted, TextAnchor.LowerRight);
+            var version = Ui.Label(page, "Prototype build", 18, Ui.TextColor, TextAnchor.LowerRight);
             Ui.Anchor(version.rectTransform, new Vector2(1f, 0f), new Vector2(600f, 40f), new Vector2(-24f, 16f));
+            version.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(1f, -1f);
         }
 
         // ---------------------------------------------------------------- robot selection
@@ -132,7 +182,7 @@ namespace SteamworksSim.UI
 
             var col = Ui.Column(side, "Content", 640f, 12f);
             Ui.Anchor(col, new Vector2(0.5f, 1f), new Vector2(640f, 0f), new Vector2(0f, -60f));
-            Ui.Label(col, "Choose your robot", 44, Ui.Gold, TextAnchor.MiddleLeft, FontStyle.Bold, 64f);
+            Ui.Title(col, "CHOOSE YOUR ROBOT", 56, Ui.Gold, TextAnchor.MiddleLeft, 72f);
             Ui.Spacer(col, 8f);
             robotRow = Ui.Option(col, "Robot", new[] { "-" }, 0, i => { sim.SelectRobot(i); RefreshRobotInfo(); }, true, 52f, 210f);
             allianceRow = Ui.Option(col, "Alliance", new[] { "Red", "Blue" }, 0, i => { sim.SetAlliance(i == 0 ? "red" : "blue"); RefreshRobotInfo(); }, true, 52f, 210f);
@@ -143,9 +193,9 @@ namespace SteamworksSim.UI
             robotInfo = Ui.Label(col, "", 21, Ui.TextColor, TextAnchor.UpperLeft);
             robotInfo.GetComponent<LayoutElement>().minHeight = 230f;
             Ui.Spacer(col, 6f);
-            Ui.Button(col, "Start match", () => sim.StartMatchFromSelect(), 66f, 28);
+            Ui.Button(col, "START MATCH", () => sim.StartMatchFromSelect(), 68f, 34, false, true);
             Ui.Button(col, "Reload robot files", () => { sim.ReloadRobots(); RefreshRobotSelect(); }, 52f, 22);
-            Ui.Button(col, "Back", () => sim.ShowMainMenu(), 52f, 22);
+            Ui.Button(col, "BACK", () => sim.ShowMainMenu(), 52f, 26, false, true);
             firstSelect[MenuPage.RobotSelect] = robotRow;
         }
 
@@ -186,28 +236,26 @@ namespace SteamworksSim.UI
         void BuildMultiplayer()
         {
             var page = NewPage(MenuPage.Multiplayer, "Multiplayer");
-            var col = Ui.Column(page, "Multiplayer", 760f, 16f, 30);
-            Ui.Anchor(col, new Vector2(0.5f, 0.5f), new Vector2(760f, 0f));
-            col.gameObject.AddComponent<Image>().color = Ui.Backdrop;
-            Ui.Label(col, "Multiplayer", 44, Ui.Gold, TextAnchor.MiddleCenter, FontStyle.Bold, 64f);
-            Ui.Label(col, "Online matches (host a game, join with a code, up to six robots) are coming in a later build.", 24, Ui.TextColor, TextAnchor.MiddleCenter);
+            var col = TitleCard(page, "Multiplayer", 760f);
+            Ui.Title(col, "MULTIPLAYER", 60, Ui.Ink, TextAnchor.MiddleCenter, 80f);
+            Ui.Label(col, "Online matches (host a game, join with a code, up to six robots) are coming in a later build.", 24, Ui.Ink, TextAnchor.MiddleCenter);
             Ui.Spacer(col, 10f);
-            firstSelect[MenuPage.Multiplayer] = Ui.Button(col, "Back", () => Show(MenuPage.Main));
+            firstSelect[MenuPage.Multiplayer] = Ui.Button(col, "BACK", () => Show(MenuPage.Main), 64f, 32, true, true);
         }
 
         // ---------------------------------------------------------------- pause
         void BuildPause()
         {
             var page = NewPage(MenuPage.Pause, "Pause menu");
-            var col = Ui.Column(page, "Pause", 560f, 14f, 30);
+            var col = Ui.Column(page, "Pause", 560f, 14f, 36);
             Ui.Anchor(col, new Vector2(0.5f, 0.5f), new Vector2(560f, 0f));
-            col.gameObject.AddComponent<Image>().color = Ui.Backdrop;
-            Ui.Label(col, "Paused", 48, Ui.Gold, TextAnchor.MiddleCenter, FontStyle.Bold, 70f);
-            firstSelect[MenuPage.Pause] = Ui.Button(col, "Resume", () => sim.Resume());
-            Ui.Button(col, "Options", () => OpenOptions(MenuPage.Pause));
-            Ui.Button(col, "Return to robot selection", () => sim.EnterRobotSelect());
-            Ui.Button(col, "Quit to main menu", () => sim.ShowMainMenu());
-            Ui.Button(col, "Exit game", () => sim.ExitGame());
+            Ui.Round(col.gameObject.AddComponent<Image>(), 28f).color = Ui.Paper;
+            Ui.Title(col, "PAUSED", 64, Ui.Ink, TextAnchor.MiddleCenter, 84f);
+            firstSelect[MenuPage.Pause] = Ui.Button(col, "RESUME", () => sim.Resume(), 60f, 30, true, true);
+            Ui.Button(col, "OPTIONS", () => OpenOptions(MenuPage.Pause), 60f, 30, true, true);
+            Ui.Button(col, "RETURN TO ROBOT SELECTION", () => sim.EnterRobotSelect(), 60f, 30, true, true);
+            Ui.Button(col, "QUIT TO MAIN MENU", () => sim.ShowMainMenu(), 60f, 30, true, true);
+            Ui.Button(col, "EXIT GAME", () => sim.ExitGame(), 60f, 30, true, true);
         }
     }
 }

@@ -5,6 +5,7 @@ using SteamworksSim.InputHandling;
 using SteamworksSim.Robots;
 using SteamworksSim.Settings;
 using SteamworksSim.UI;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -20,7 +21,7 @@ namespace SteamworksSim.Game
     [DefaultExecutionOrder(-50)]
     public class SimBootstrap : MonoBehaviour
     {
-        public enum AppState { MainMenu, RobotSelect, Playing, Paused }
+        public enum AppState { MainMenu, RobotSelect, Playing, Paused, Results }
 
         public FieldBuilder field;
         public RobotCameraRig cameraRig;
@@ -40,6 +41,12 @@ namespace SteamworksSim.Game
 
         public AppState State { get; private set; } = AppState.MainMenu;
         public MatchClock Clock { get; } = new MatchClock();
+        public MatchScore Score { get; } = new MatchScore();
+
+        // BASE LINE for AUTO mobility (spec X, inches; Data/targets.json baseLineX), red at -X, blue at +X
+        const float BaseLineX = 230.6f;
+        [Tooltip("Seconds after 0:00 before the final score slides in.")]
+        public float resultsDelay = 2f;
         public RobotLibrary.LoadResult Library => library;
         public RobotDefinition Current => current;
 
@@ -47,6 +54,9 @@ namespace SteamworksSim.Game
         RobotLibrary.LoadResult library;
         RobotDefinition current;
         GameObject player, defender;
+        RobotDefinition defenderDef;
+        readonly Dictionary<GameObject, int> mobilityState = new Dictionary<GameObject, int>(); // 1 eligible, 2 started past the line, 3 scored
+        float resultsAt = -1f;
         TankDrive playerDrive;
         FieldMaterials ownMaterials;
         MatchSounds sounds;
@@ -82,6 +92,12 @@ namespace SteamworksSim.Game
             LoadLibrary(robotId);
 
             EnsureEventSystem();
+            if (FindAnyObjectByType<AudioListener>() == null)
+            {
+                var ears = Camera.main != null ? Camera.main.gameObject : gameObject;
+                ears.AddComponent<AudioListener>();
+                Debug.LogWarning("[Steamworks] The scene had no Audio Listener, so nothing could be heard; added one to " + ears.name + ".");
+            }
             sounds = gameObject.AddComponent<MatchSounds>();
             Clock.Cue += OnCue;
             hud = gameObject.AddComponent<MatchHud>();
@@ -165,6 +181,9 @@ namespace SteamworksSim.Game
         public void RestartMatch()
         {
             sounds.StopAll();
+            Score.Clear();
+            mobilityState.Clear();
+            resultsAt = -1f;
             ResetPlayer();
             if (defender != null) PlaceDefender();
             Clock.Start();
@@ -197,13 +216,41 @@ namespace SteamworksSim.Game
 #endif
         }
 
+        /// <summary>From the final score: same robot, same start, new match.</summary>
+        public void PlayAgain()
+        {
+            State = AppState.Playing;
+            menus.Show(MenuPage.None);
+            hud.SetVisible(true);
+            if (cameraRig != null) cameraRig.SetMode(playCamera);
+            RestartMatch();
+        }
+
+        void ShowResults()
+        {
+            resultsAt = -1f;
+            if (cameraRig != null) playCamera = cameraRig.mode;
+            State = AppState.Results;
+            hud.SetVisible(false);
+            Score.red.robots.Clear(); Score.blue.robots.Clear();
+            if (player != null) Score.Of(alliance).robots.Add(RobotLabel(current));
+            if (defender != null && defenderDef != null) Score.Other(alliance).robots.Add(RobotLabel(defenderDef));
+            // the field stays as it was at 0:00, circling slowly behind the score
+            if (cameraRig != null) cameraRig.ShowOrbit(new Vector3(0f, 0.4f, 0f), 15.5f, 20f, 30f, 3f);
+            menus.ShowResults(Score);
+        }
+
+        static string RobotLabel(RobotDefinition d) => d.team > 0 ? d.team.ToString() : d.name;
+
         void StopMatch()
         {
+            resultsAt = -1f;
             SetFrozen(false);
             Clock.Stop();
             if (sounds != null) sounds.StopAll();
             // remember the camera the player was driving with, for the next match
             if (cameraRig != null && (State == AppState.Playing || State == AppState.Paused)) playCamera = cameraRig.mode;
+            Score.Clear();
         }
 
         void SetFrozen(bool frozen)
@@ -213,6 +260,8 @@ namespace SteamworksSim.Game
             AudioListener.pause = frozen;
             if (cameraRig != null) cameraRig.AllowOrbitInput(!frozen);
         }
+
+        public string SoundStatus => sounds != null ? sounds.StatusText : "";
 
         public void PlayTestSound()
         {
@@ -306,6 +355,7 @@ namespace SteamworksSim.Game
             if (defender != null) { Destroy(defender); defender = null; Say("Defender removed"); return; }
             var def = library.robots.Find(r => r.id == "sim-6wd") ?? current;
             string other = alliance == "red" ? "blue" : "red";
+            defenderDef = def;
             defender = RobotFactory.Build(def, other, Mats, "Defender (idle)");
             defender.GetComponent<TankDrive>().idle = true;
             PlaceDefender();
@@ -318,19 +368,53 @@ namespace SteamworksSim.Game
         // ---------------------------------------------------------------- loop
         void FixedUpdate()
         {
-            if (State == AppState.Playing) Clock.Tick(Time.fixedDeltaTime);
+            if (State != AppState.Playing) return;
+            Clock.Tick(Time.fixedDeltaTime);
+            if (Clock.Phase == MatchPhase.Auto)
+            {
+                CheckMobility(player, alliance, current);
+                CheckMobility(defender, alliance == "red" ? "blue" : "red", defenderDef);
+            }
+        }
+
+        /// <summary>AUTO mobility (5 points): a robot that starts behind its BASE LINE and gets a bumper past it.</summary>
+        void CheckMobility(GameObject robot, string robotAlliance, RobotDefinition d)
+        {
+            if (robot == null || d == null) return;
+            mobilityState.TryGetValue(robot, out int st);
+            if (st >= 2) return;
+            int side = robotAlliance == "blue" ? 1 : -1;
+            bool past = BumperPast(robot.transform, d, side, side * BaseLineX);
+            if (st == 0)
+            {
+                // the first time a robot is seen in AUTO decides whether it can earn mobility
+                mobilityState[robot] = past ? 2 : 1;
+                if (past) return;
+            }
+            if (past)
+            {
+                mobilityState[robot] = 3;
+                Score.Of(robotAlliance).mobility += MatchScore.MobilityPoints;
+            }
+        }
+
+        static bool BumperPast(Transform t, RobotDefinition d, int side, float lineX)
+        {
+            Vector3 f = t.forward * (d.LengthWithBumpers * 0.5f * Units.Inch), r = t.right * (d.WidthWithBumpers * 0.5f * Units.Inch), p = t.position;
+            Vector3[] corners = { p + f + r, p + f - r, p - f + r, p - f - r };
+            foreach (var c in corners)
+            {
+                float x = Units.ToSpec(c).x;
+                if (side < 0 ? x > lineX : x < lineX) return true;
+            }
+            return false;
         }
 
         void OnCue(MatchCue cue)
         {
             sounds.Play(cue);
-            switch (cue)
-            {
-                case MatchCue.MatchStart: hud.Banner("AUTONOMOUS"); break;
-                case MatchCue.AutoEnd: hud.Banner("TELEOPERATED"); break;
-                case MatchCue.Endgame: hud.Banner("30 SECONDS: ENDGAME"); break;
-                case MatchCue.MatchEnd: hud.Banner("MATCH OVER"); break;
-            }
+            if (cue == MatchCue.MatchStart) hud.Banner("AUTONOMOUS");
+            if (cue == MatchCue.MatchEnd) resultsAt = Time.time + resultsDelay; // final score slides in shortly after
         }
 
         void Update()
@@ -353,6 +437,10 @@ namespace SteamworksSim.Game
                     if (reader.ResetRobot) { ResetPlayer(); Say("Robot reset"); }
                     if (reader.ToggleDefender) ToggleDefender();
                     if (reader.ReloadRobots) ReloadRobots();
+                    if (resultsAt > 0f && Clock.Phase == MatchPhase.Over && Time.time >= resultsAt) ShowResults();
+                    break;
+                case AppState.Results:
+                    if (reader.RestartMatch) PlayAgain();
                     break;
                 case AppState.Paused:
                     if (reader.Pause || reader.Cancel) menus.Back();
