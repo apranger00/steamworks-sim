@@ -1,5 +1,6 @@
 using SteamworksSim.Cameras;
 using SteamworksSim.Field;
+using SteamworksSim.Game;
 using UnityEditor;
 using UnityEngine;
 
@@ -43,6 +44,38 @@ namespace SteamworksSim.EditorTools
             Selection.activeObject = fb.gameObject;
             SceneView.lastActiveSceneView?.Frame(new Bounds(Vector3.up * 1f, new Vector3(18f, 3f, 9f)), false);
             Debug.Log("[Steamworks] Field created. Press Play to build it for real, or use Steamworks > Rebuild Field Preview after editing data.");
+        }
+
+        [MenuItem("Steamworks/Set Up Drive Test", priority = 2)]
+        public static void SetUpDriveTest()
+        {
+            var fb = Object.FindAnyObjectByType<FieldBuilder>();
+            if (fb == null) { CreateField(); fb = Object.FindAnyObjectByType<FieldBuilder>(); }
+            var cam = Camera.main;
+            if (cam == null)
+            {
+                var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
+                Undo.RegisterCreatedObjectUndo(camGo, "Create camera");
+                cam = camGo.AddComponent<Camera>();
+                camGo.AddComponent<AudioListener>();
+            }
+            if (cam.GetComponent<FieldOrbitCamera>() == null) Undo.AddComponent<FieldOrbitCamera>(cam.gameObject);
+            var rig = cam.GetComponent<RobotCameraRig>();
+            if (rig == null) rig = Undo.AddComponent<RobotCameraRig>(cam.gameObject);
+
+            var boot = Object.FindAnyObjectByType<SimBootstrap>();
+            if (boot == null)
+            {
+                var go = new GameObject("Sim");
+                Undo.RegisterCreatedObjectUndo(go, "Create Sim");
+                boot = go.AddComponent<SimBootstrap>();
+            }
+            boot.field = fb;
+            boot.cameraRig = rig;
+            EditorUtility.SetDirty(boot);
+            EditorUtility.SetDirty(cam.gameObject);
+            Selection.activeObject = boot.gameObject;
+            Debug.Log("[Steamworks] Drive test ready. Press Play: WASD or a gamepad to drive, C for cameras, B for a defender. Save the scene (Ctrl+S).");
         }
 
         [MenuItem("Steamworks/Rebuild Field Preview", priority = 1)]

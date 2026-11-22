@@ -22,8 +22,26 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 4. In Unity Hub, choose **Add > Add project from disk** and select `UnityProject/`. Open it.
 5. In Unity, open the menu **Steamworks > Create Field in Scene**. The field appears in the Scene view.
 6. Press **Play**. Right-drag to orbit, middle-drag to pan, scroll to zoom, keys **1–4** for preset views.
-7. Optional: **Steamworks > Toggle CAD Reference** overlays the official field CAD (translucent blue) to compare against the generated field. **Steamworks > Robots > List Robot Mods** checks the robot files.
-8. Commit the files Unity generated (`ProjectSettings/`, `Packages/`, `*.meta`). `.gitignore` already excludes `Library/`, `Temp/` and other caches.
+7. To drive: **Steamworks > Set Up Drive Test**, save the scene, and press **Play** (see *Driving* below).
+8. Optional: **Steamworks > Toggle CAD Reference** overlays the official field CAD (translucent blue) to compare against the generated field. **Steamworks > Robots > List Robot Mods** checks the robot files.
+9. Commit the files Unity generated (`ProjectSettings/`, `Packages/`, `*.meta`). `.gitignore` already excludes `Library/`, `Temp/` and other caches.
+
+## Driving (step 2)
+
+**Steamworks > Set Up Drive Test** adds a `Sim` object (robot spawning, input, HUD) and camera rig to the open scene. Press Play.
+
+| Action | Keyboard | Gamepad |
+|---|---|---|
+| Drive / turn | W S / A D (or arrows) | Left stick Y / right stick X |
+| Precision (40%) | Shift | LB |
+| Next camera (chase, driver, free) | C | Y |
+| Flip chase camera (behind / in front) | V | L3 |
+| Reset robot to its start position | R | Back |
+| Add / remove a parked defender | B | |
+| Switch alliance / start station / robot | F1 / F2 / F3 | |
+| Reload robot files from disk | F5 | |
+
+Edit a `robot.json` while playing and press **F5** to try the change immediately. The drive model is the prototype's (motor-limited acceleration, traction-limited pushing, side scrub, slowing when turning at speed), running on PhysX at 120 Hz.
 
 ## Coordinate frames
 
@@ -32,7 +50,7 @@ All data files use the **spec frame**: inches, origin at field centre on the car
 ## Status
 
 - [x] Step 1: field built in Unity from the prototype's data, with static colliders and a CAD overlay
-- [ ] Step 2: drivable robot from a robot mod file, tank drive, chase / driver / free cameras, gamepad
+- [x] Step 2: drivable robot from a robot mod file, tank drive, chase / driver / free cameras, gamepad
 - [ ] Step 3: FUEL and GEARS on PhysX, goal sensors, shooter, gear placement, climbing, match timing and scoring (port of `prototype/web/game.js` with its tests)
 - [ ] Step 4: online multiplayer (Netcode for GameObjects + Multiplayer Services), HUD, sounds
 

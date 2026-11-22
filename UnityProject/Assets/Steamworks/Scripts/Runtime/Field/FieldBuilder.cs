@@ -155,6 +155,14 @@ namespace SteamworksSim.Field
         {
             var root = new GameObject("Colliders").transform;
             root.SetParent(GeneratedRoot, false);
+            // Carpet floor: the whole carpet (936 x 360 in), top surface at the carpet (y = 0).
+            var floor = new GameObject("Carpet floor");
+            floor.layer = colliderLayer;
+            floor.transform.SetParent(root, false);
+            var box = floor.AddComponent<BoxCollider>();
+            box.center = new Vector3(0f, -0.05f, 0.2f * Units.Inch);
+            box.size = new Vector3(936f * Units.Inch, 0.1f, 360f * Units.Inch);
+            floor.isStatic = true;
             int i = 0;
             foreach (var p in cols.prisms)
             {
