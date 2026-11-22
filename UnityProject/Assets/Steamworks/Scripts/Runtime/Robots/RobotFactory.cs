@@ -61,7 +61,7 @@ namespace SteamworksSim.Robots
             {
                 // Open-top hopper: a low base under the whole robot plus a ring of walls around the hopper, so FUEL
                 // can fall in from above (a closed box would act like a lid)
-                const float floorZ = 4.5f * In;
+                float floorZ = HopperFloor(d) * In;
                 float hl = HopperLength(d) * In, hw = HopperWidth(d) * In;
                 var col = root.AddComponent<BoxCollider>();
                 col.size = new Vector3(W, floorZ - clearance, L);
@@ -107,6 +107,51 @@ namespace SteamworksSim.Robots
             c.sharedMaterial = bumperMaterial;
         }
 
+        /// <summary>
+        /// Height (in) of the open-top hopper's floor: set so that `shooter.capacity` FUEL, piled loosely (HopperPile),
+        /// come up to the rim. A full hopper is full to the top, and more FUEL spills over the sides.
+        /// </summary>
+        public static float HopperFloor(RobotDefinition d)
+        {
+            if (d.shooter == null || d.shooter.capacity <= 0) return 4.5f;
+            float top = 0f;
+            foreach (var p in HopperPile(d)) top = Mathf.Max(top, p.z + 2.5f);
+            return Mathf.Clamp(d.frame.height - top, 4.5f, d.frame.height - 6f);
+        }
+
+        static readonly Dictionary<RobotDefinition, List<Vector3>> piles = new Dictionary<RobotDefinition, List<Vector3>>();
+
+        /// <summary>
+        /// Where the FUEL sits in a loose pile in this robot's hopper (in: forward, left, up from the hopper floor),
+        /// bottom of the pile first: balls dropped one by one, each trying 100 random spots and settling where it comes
+        /// to rest lowest, on the floor or on the balls below. Same pile every time for a given robot.
+        /// </summary>
+        public static List<Vector3> HopperPile(RobotDefinition d)
+        {
+            if (piles.TryGetValue(d, out var cached)) return cached;
+            int count = d.shooter != null && d.shooter.capacity > 0 ? d.shooter.capacity : 60;
+            float r = 2.5f, ax = HopperLength(d) / 2f - r, ay = HopperWidth(d) / 2f - r, touch = 4f * r * r;
+            var rnd = new System.Random(2017);
+            var pts = new List<Vector3>(count);
+            for (int n = 0; n < count; n++)
+            {
+                Vector3 best = default; float bestZ = float.MaxValue;
+                for (int k = 0; k < 100; k++)
+                {
+                    float x = ((float)rnd.NextDouble() * 2f - 1f) * ax, y = ((float)rnd.NextDouble() * 2f - 1f) * ay, z = r;
+                    foreach (var q in pts)
+                    {
+                        float d2 = (x - q.x) * (x - q.x) + (y - q.y) * (y - q.y);
+                        if (d2 < touch) z = Mathf.Max(z, q.z + Mathf.Sqrt(touch - d2));
+                    }
+                    if (z < bestZ) { bestZ = z; best = new Vector3(x, y, z); }
+                }
+                pts.Add(best);
+            }
+            piles[d] = pts;
+            return pts;
+        }
+
         /// <summary>Inside of the open-top hopper (in): the frame less 2 in each side.</summary>
         public static float HopperLength(RobotDefinition d) => d.frame.length - 4f;
         public static float HopperWidth(RobotDefinition d) => d.frame.width - 4f;
@@ -149,7 +194,9 @@ namespace SteamworksSim.Robots
             {
                 // Open-top FUEL hopper filling the frame: clear walls and an aluminium rim, so you can see the FUEL inside
                 var clear = mats.Get("polyHopper");
-                float hl = HopperLength(d), hw = HopperWidth(d), z0 = 4.5f, hh = H - z0;
+                float hl = HopperLength(d), hw = HopperWidth(d), z0 = HopperFloor(d), hh = H - z0;
+                if (z0 > 6f) Part(t, cubeMesh, dark, V(0, 0, (4.5f + z0) / 2f), V(hl, hw, z0 - 4.5f), "Electronics bay");
+                Part(t, cubeMesh, alu, V(0, 0, z0 - 0.25f), V(hl, hw, 0.5f), "Hopper floor");
                 Part(t, cubeMesh, clear, V(hl / 2f, 0, z0 + hh / 2f), V(0.25f, hw, hh), "Hopper wall front");
                 Part(t, cubeMesh, clear, V(-hl / 2f, 0, z0 + hh / 2f), V(0.25f, hw, hh), "Hopper wall back");
                 Part(t, cubeMesh, clear, V(0, hw / 2f, z0 + hh / 2f), V(hl, 0.25f, hh), "Hopper wall left");

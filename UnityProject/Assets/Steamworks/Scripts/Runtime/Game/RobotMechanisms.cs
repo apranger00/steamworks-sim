@@ -56,6 +56,7 @@ namespace SteamworksSim.Game
         Transform turret, heldGear;
         GameObject[] hopperBalls;
         int shownFuel = -1;
+        Collider fullCap; // closes a full hopper with a shallow dome, so more FUEL rolls off over the sides
         float shootT, dumpT, gearCooldown, climbTopZ;
         RigidbodyConstraints savedConstraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         readonly System.Random rnd = new System.Random(2017);
@@ -130,7 +131,8 @@ namespace SteamworksSim.Game
                 var hm = transform.Find("Visual/Shooter turret");
                 hood.AddComponent<MeshRenderer>().sharedMaterial = hm != null ? hm.GetComponent<MeshRenderer>().sharedMaterial : dark;
             }
-            // FUEL in the open-top hopper, so you can see how full the robot is: one ball per slot, bottom layer first
+            // FUEL in the open-top hopper, so you can see how full the robot is. The balls lie loose, as a real pile
+            // does: each one settles into the lowest gap it can find on top of the ones already there.
             if (def.intake != null && def.intake.fuelFromChute && fuel != null)
             {
                 var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -138,26 +140,28 @@ namespace SteamworksSim.Game
                 Destroy(sphere);
                 var holder = new GameObject("Hopper FUEL").transform;
                 holder.SetParent(visual, false);
-                float hl = RobotFactory.HopperLength(def) - 1f, hw = RobotFactory.HopperWidth(def) - 1f, r = FuelPool.RadiusIn;
-                int nx = Mathf.Max(1, Mathf.FloorToInt(hl / (2f * r))), ny = Mathf.Max(1, Mathf.FloorToInt(hw / (2f * r)));
-                int nz = Mathf.Max(1, Mathf.FloorToInt((Height - 4.5f) / (2f * r * 0.92f)));
-                var list = new System.Collections.Generic.List<GameObject>();
-                for (int k = 0; k < nz; k++)
-                    for (int i = 0; i < nx; i++)
-                        for (int j = 0; j < ny; j++)
-                        {
-                            var b = new GameObject("FUEL");
-                            b.transform.SetParent(holder, false);
-                            float fx = -hl / 2f + r + i * (hl - 2f * r) / Mathf.Max(1, nx - 1);
-                            float fy = -hw / 2f + r + j * (hw - 2f * r) / Mathf.Max(1, ny - 1) + (k % 2 == 1 ? 0.8f : 0f);
-                            b.transform.localPosition = new Vector3(-fy * In, (4.5f + r + k * 2f * r * 0.92f) * In, fx * In);
-                            b.transform.localScale = Vector3.one * (2f * r * In);
-                            b.AddComponent<MeshFilter>().sharedMesh = sphereMesh;
-                            b.AddComponent<MeshRenderer>().sharedMaterial = fuel.BallMaterial;
-                            b.SetActive(false);
-                            list.Add(b);
-                        }
-                hopperBalls = list.ToArray();
+                float hl = RobotFactory.HopperLength(def), hw = RobotFactory.HopperWidth(def), floor = RobotFactory.HopperFloor(def);
+                var pile = RobotFactory.HopperPile(def);
+                hopperBalls = new GameObject[pile.Count];
+                for (int n = 0; n < pile.Count; n++)
+                {
+                    var b = new GameObject("FUEL");
+                    b.transform.SetParent(holder, false);
+                    b.transform.localPosition = new Vector3(-pile[n].y * In, (floor + pile[n].z) * In, pile[n].x * In); // (fwd, left, up) -> local
+                    b.transform.localScale = Vector3.one * (2f * FuelPool.RadiusIn * In);
+                    b.AddComponent<MeshFilter>().sharedMesh = sphereMesh;
+                    b.AddComponent<MeshRenderer>().sharedMaterial = fuel.BallMaterial;
+                    b.SetActive(false);
+                    hopperBalls[n] = b;
+                }
+                // the dome over a full hopper (a collider only, switched on while full)
+                var cap = new GameObject("Collider (full hopper)");
+                cap.transform.SetParent(transform, false);
+                var mc = cap.AddComponent<MeshCollider>();
+                mc.sharedMesh = Dome(hl, hw, Height);
+                mc.convex = true;
+                mc.enabled = false;
+                fullCap = mc;
             }
             // The GEAR it carries, standing in the front slot
             if (def.gear != null && def.gear.enabled)
@@ -344,8 +348,28 @@ namespace SteamworksSim.Game
             Toast?.Invoke(msg);
         }
 
+        /// <summary>A shallow dome (robot-local, Unity axes) closing the hopper at the rim: 2.5 in high in the middle.</summary>
+        static Mesh Dome(float len, float wid, float height)
+        {
+            float L = len / 2f * In, W = wid / 2f * In, h = height * In;
+            var m = new Mesh { name = "Full hopper dome" };
+            m.vertices = new[]
+            {
+                new Vector3(-W, h - 0.5f * In, -L), new Vector3(W, h - 0.5f * In, -L), new Vector3(W, h - 0.5f * In, L), new Vector3(-W, h - 0.5f * In, L),
+                new Vector3(0f, h + 2.5f * In, 0f),
+            };
+            m.triangles = new[] { 0, 1, 2, 0, 2, 3, 0, 4, 1, 1, 4, 2, 2, 4, 3, 3, 4, 0 };
+            m.RecalculateBounds();
+            return m;
+        }
+
         void ShowHopperFuel()
         {
+            if (fullCap != null)
+            {
+                bool full = FuelCapacity > 0 && Fuel >= FuelCapacity && Climb == ClimbPhase.None;
+                if (fullCap.enabled != full) fullCap.enabled = full;
+            }
             if (hopperBalls == null) return;
             int slots = hopperBalls.Length, n;
             if (FuelCapacity <= 0) n = slots;                                         // unlimited (testing): shown full
@@ -368,7 +392,7 @@ namespace SteamworksSim.Game
             // open-top hopper: a ball that has dropped in over the rim (or rests inside it)
             float hl = RobotFactory.HopperLength(def) / 2f, hw = RobotFactory.HopperWidth(def) / 2f;
             if (def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= hl && Mathf.Abs(ly) <= hw
-                && p.z >= Lift + 4.5f && p.z <= TopZ + 1f) caught = true;
+                && p.z >= Lift + RobotFactory.HopperFloor(def) && p.z <= TopZ + 1f) caught = true;
             // floor intake across the front bumper
             if (!caught && def.intake.fuelFromFloor && enabledByMatch && p.z <= FuelPool.RadiusIn + 2f
                 && lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f) caught = true;
