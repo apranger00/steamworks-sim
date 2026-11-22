@@ -33,7 +33,9 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 - **Singleplayer** opens robot selection (robot, alliance, start position; your robot waits on its start line). **Start match** runs a 3-2-1 countdown, 15 s AUTO, a 3 s pause (timer 0:03 to 0:00), then 2:15 TELEOP; robots are disabled during the countdown and the pause. Both periods are driver-controlled.
 - At 0:00 the **final score** slides in over the field: totals, AUTO / TELEOP breakdown (mobility, fuel, rotors, takeoff, penalty), robots on each alliance, ranking points and the winner. Everything scores: AUTO mobility, FUEL (boiler counts 5 per second per goal; high 1 kPa per ball in AUTO, 1 per 3 in TELEOP; low a third of that), GEARS (PILOTS lift, install and crank: ROTOR 1 needs 1 GEAR, then 2, 4, 6), and takeoff (TOUCHPAD held at least 1 s at 0:00). Playoff scoring: 40 kPa earns a 20-point BONUS and all four ROTORS a 100-point BONUS (no ranking points). The ROPES drop with 30 s left. **HOPPERS**: drive a bumper against a push panel in the guardrail and both containers next to it pour their 100 FUEL onto the field (once per match). The boiler net sits tight behind the high goal; FUEL that still ends up behind or on top of a boiler rolls back out beside the low goal. The only messages during a match are a ROTOR starting and an alliance reaching 40 kPa.
 
-The default robot (Rookie Bot, folder `sim-6wd`) carries unlimited FUEL and GEARS for testing (no intake yet). The drive info panel shows whether the shooter is in range. **Steamworks > Run Scoring Self-Test** checks the scoring rules against the prototype's tests (results in the Console).
+**Loading stations**: your return loading station is in the corner at the *other* end of the field (red's is at the blue end), with your retrieval zone taped in front of it. With any part of your bumpers in the zone, press F / L1 for FUEL or G / R1 for a GEAR and the chute nearest your robot drops it: 20 FUEL at a time (or whatever is left), one GEAR at a time. Each station starts with its loading lane (20 FUEL, 18 GEARS) plus the preloads its alliance's robots didn't take (10 FUEL and 1 GEAR for each of the three teams); in single player that is 40 FUEL and 20 GEARS. GEARS are never restocked. FUEL is: every FUEL the red boiler counts goes to the blue station, and the other way round. Pieces nobody catches land on the field.
+
+The default robot (Rookie Bot, folder `sim-6wd`) starts with 10 FUEL and 1 GEAR, holds 50 FUEL and 1 GEAR, and takes pieces in only from a chute: FUEL falls into its open-top hopper when it sits under a chute, and a GEAR slides into its front slot when it faces the station with the slot lined up with the chute. It can't pick anything up off the floor. The drive info panel shows whether the shooter is in range. **Steamworks > Run Scoring Self-Test** checks the scoring rules against the prototype's tests (results in the Console).
 - **Multiplayer** is a placeholder until online play is built.
 - **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
 - The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
@@ -47,7 +49,9 @@ Default controls (rebindable):
 | **Dump** into the low goal (hold, front of the robot against the boiler) | Q | LT |
 | **Place GEAR** on the lift peg your front slot is lined up with | E | A |
 | **Climb** your rope (front bumper against it) / let go | T | X |
-| Precision (40%) | Shift | LB |
+| **FUEL from the loading station** (in your retrieval zone; nearest chute) | F | LB (L1) |
+| **GEAR from the loading station** (in your retrieval zone; nearest chute) | G | RB (R1) |
+| Precision (40%) | Shift | R3 (hold) |
 | Next camera (chase, driver, free) | C | Y |
 | Flip chase camera (behind / in front) | V | L3 |
 | Reset robot to its start position | R | D-pad down |

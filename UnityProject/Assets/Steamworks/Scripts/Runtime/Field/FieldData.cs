@@ -64,5 +64,6 @@ namespace SteamworksSim.Field
         public string name;
         public float[] pts;  // convex polygon, counter-clockwise, flattened
         public float z0, z1;
+        public float[] pts0, pts1; // frustums only: exact bottom (z0) and top (z1) rings
     }
 }
