@@ -215,9 +215,10 @@ export function layout() {
     const face = [bc[0] + n2[0] * (half + 0.15), bc[1] + n2[1] * (half + 0.15)];
     push(box(`${OWN} LOW EFFICIENCY GOAL`, 'hole', [face[0], face[1], B.lowGoal.z + B.lowGoal.h / 2],
       [0.3, B.lowGoal.w, B.lowGoal.h], Math.atan2(n2[1], n2[0]) / D2R));
-    // Boiler net (behind the goal, outside the field)
-    const back = [bc[0] - n2[0] * 26, bc[1] - n2[1] * 26];
-    push(box(`${OWN} BOILER net`, 'net', [back[0], back[1], 119 / 2 + 1], [0.5, 58, 119], Math.atan2(n2[1], n2[0]) / D2R));
+    // Boiler net: tight behind the high goal (12 in behind the boiler centre, just clear of the funnel),
+    // from the roof up, so long misses drop back onto the boiler instead of out of the field
+    const back = [bc[0] - n2[0] * 12, bc[1] - n2[1] * 12];
+    push(box(`${OWN} BOILER net`, 'net', [back[0], back[1], (B.roofH + 152) / 2], [0.5, 64, 152 - B.roofH], Math.atan2(n2[1], n2[0]) / D2R));
 
     // Airship ------------------------------------------------------------------
     const A = DIM.airship;
@@ -327,6 +328,20 @@ export function layout() {
   }
 
   return { items, fuel, gears };
+}
+
+// Hopper pairs and their push panels (for the game: pushing a panel dumps both containers' FUEL)
+export function hoppers() {
+  const H = DIM.hopper, out = [];
+  for (const [side, list] of [[1, H.containers.scoring], [-1, H.containers.far]]) {
+    for (let k = 0; k + 1 < list.length; k += 2) {
+      const gx = (list[k][1] + list[k + 1][0]) / 2;
+      out.push({ panel: [gx, side * (DIM.field.halfY - 0.5)], panelHalfW: 11, side,
+                 containers: [list[k][0], list[k][1], list[k + 1][0], list[k + 1][1]],
+                 yIn: side * H.yIn, yOut: side * H.yOut, floorZ: H.floorZ, fieldHalfY: DIM.field.halfY, railH: DIM.sideRail.h });
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
