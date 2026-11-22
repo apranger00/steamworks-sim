@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "id": "sim-6wd",
+  "name": "Sim 6WD (reference robot)",
+  "author": "Steamworks Sim",
+  "team": 0,
+  "description": "The tuned test robot from the browser prototype: 6-wheel tank drive, turret shooter, low-goal dump, front gear slot and rope climber.",
+  "version": "1.0",
+
+  "frame":   { "length": 32, "width": 28, "height": 24 },
+  "bumpers": { "thickness": 3.25, "bottom": 2, "top": 7 },
+  "mass": 140,
+
+  "drivetrain": {
+    "type": "tank",
+    "topSpeed": 12,
+    "acceleration": 50,
+    "traction": 1.1,
+    "sideScrub": 0.85,
+    "brake": 0.9,
+    "maxTurnRate": 270,
+    "trackWidth": 24,
+    "wheelDiameter": 6,
+    "wheelsPerSide": 3
+  },
+
+  "shooter": {
+    "enabled": true,
+    "type": "turret",
+    "rate": 6,
+    "exitHeight": 30,
+    "exitOffset": [0, 0],
+    "maxExitSpeed": 40,
+    "minRange": 2.5,
+    "maxRange": 25,
+    "entryAngle": 55,
+    "aimError": 0.6,
+    "speedError": 1.2,
+    "capacity": 0
+  },
+
+  "lowGoalDump": { "enabled": true, "rate": 10, "height": 22, "speed": 5.83, "width": 14 },
+
+  "gear": { "enabled": true, "slotOffset": 0, "maxDistance": 4, "maxLateral": 3.5, "maxAngle": 15, "capacity": 0 },
+
+  "climber": { "enabled": true, "rate": 12, "setback": 3, "reachForward": 10, "reachLateral": 12 },
+
+  "model": { "file": "", "scale": 1, "offset": [0, 0, 0], "rotation": [0, 0, 0] }
+}

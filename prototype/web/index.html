@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steamworks Field Blockout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout idea: full-bleed 3D field; one docked control rail on the left, live drive HUD bottom-right,
+     hover/measure readout bottom-left. Single dark theme: an arena at night, steel-grey UI with
+     alliance red/blue as the only colour and brass for live values. */
+  :root {
+    color-scheme: dark;
+    --bg: #0f1215;
+    --panel: rgba(20, 24, 28, 0.9);
+    --line: #2c333a;
+    --ink: #e7ebee;
+    --muted: #8e99a3;
+    --red: #e0434f;
+    --blue: #4c86ee;
+    --brass: #d9a514;
+    --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --body: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 13px; overflow: hidden; }
+  #view { position: fixed; inset: 0; }
+  #view canvas { display: block; }
+  .rail {
+    position: fixed; top: 16px; left: 16px; width: 262px; max-height: calc(100% - 32px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
+    display: flex; flex-direction: column; gap: 14px; backdrop-filter: blur(6px);
+  }
+  h1 { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: 0.02em; margin: 0; line-height: 1.05; text-wrap: balance; }
+  h1 .v { color: var(--brass); }
+  .sub { color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  h2, summary { font-family: var(--display); font-weight: 500; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+  summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; }
+  summary::after { content: '+'; font-family: var(--mono); }
+  details[open] > summary::after { content: '−'; }
+  summary::-webkit-details-marker { display: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  button {
+    font: inherit; color: var(--ink); background: #1b2026; border: 1px solid var(--line); border-radius: 5px;
+    padding: 6px 8px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  }
+  button:hover { border-color: #46515c; background: #222830; }
+  button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+  button .k { font-family: var(--mono); color: var(--muted); font-size: 11px; }
+  button.red { border-left: 3px solid var(--red); }
+  button.blue { border-left: 3px solid var(--blue); }
+  button[aria-pressed="true"] { background: #2a3038; border-color: var(--brass); }
+  button.seg { justify-content: center; }
+  .toggles { display: flex; flex-direction: column; gap: 5px; }
+  label.tg { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  label.tg input { accent-color: var(--brass); }
+  label.tg .note { margin-left: auto; color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .counts { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; margin: 0; }
+  .counts dt { color: var(--muted); }
+  .counts dd { margin: 0; text-align: right; }
+  .slider { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; margin-bottom: 6px; }
+  .slider label { color: var(--ink); }
+  .slider output { font-family: var(--mono); font-size: 12px; color: var(--brass); font-variant-numeric: tabular-nums; }
+  .slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--brass); }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; color: var(--muted); line-height: 1.35; }
+  .keys kbd { font-family: var(--mono); font-size: 11px; color: var(--ink); background: #1b2026; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; white-space: nowrap; }
+  .readout {
+    position: fixed; left: 294px; bottom: 16px; max-width: calc(100% - 560px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px;
+    font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; line-height: 1.5;
+  }
+  .readout .name { font-family: var(--body); font-weight: 500; color: var(--ink); }
+  .readout .dim { color: var(--muted); }
+  .readout .meas { color: var(--brass); }
+  .hud {
+    position: fixed; right: 16px; bottom: 16px; min-width: 200px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px;
+    display: grid; grid-template-columns: auto auto; gap: 2px 14px; align-items: baseline;
+    font-variant-numeric: tabular-nums;
+  }
+  .hud .big { font-family: var(--display); font-weight: 700; font-size: 40px; line-height: 1; color: var(--brass); grid-column: 1 / -1; }
+  .hud .big small { font-size: 16px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+  .hud dt { color: var(--muted); }
+  .hud dd { margin: 0; text-align: right; font-family: var(--mono); font-size: 12px; }
+  .chip { display: inline-block; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line); font-family: var(--mono); font-size: 11px; }
+  .chip.on { border-color: var(--brass); color: var(--brass); }
+  .board .bubble { display: inline-block; padding: 0 6px; margin: 0 2px; border-radius: 9px; font-family: var(--mono); font-size: 10px; line-height: 15px; color: #fff; }
+  .board .side.red .bubble { background: var(--red); }
+  .board .side.blue .bubble { background: var(--blue); }
+  #status { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+  /* Scoreboard: red | clock | blue, centred at the top */
+  .board { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 1fr auto 1fr;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; min-width: 420px; font-variant-numeric: tabular-nums; }
+  .board .side { padding: 6px 14px; display: grid; gap: 2px; }
+  .board .side.red { border-top: 4px solid var(--red); text-align: right; }
+  .board .side.blue { border-top: 4px solid var(--blue); }
+  .board .pts { font-family: var(--display); font-weight: 700; font-size: 38px; line-height: 1; }
+  .board .meta { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .board .rotors { letter-spacing: 2px; }
+  .board .rotors .on { color: var(--brass); }
+  .board .rotors .lab { letter-spacing: 0.08em; font-size: 10px; }
+  .board .clock { padding: 6px 16px; text-align: center; border-top: 4px solid var(--line); background: #151a1f; min-width: 112px; }
+  .board .clock .period { font-family: var(--display); font-weight: 500; letter-spacing: 0.14em; font-size: 13px; color: var(--muted); }
+  .board .clock .time { font-family: var(--display); font-weight: 700; font-size: 38px; line-height: 1; }
+  .board .clock.auto { border-top-color: var(--brass); }
+  .board .clock.auto .period, .board .clock.endgame .time { color: var(--brass); }
+  .board .clock.post .period { color: var(--ink); }
+  /* Breakdown + log, docked top-right */
+  .scores { position: fixed; top: 16px; right: 16px; width: 300px; max-height: calc(100% - 210px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+  table.bd { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  table.bd th, table.bd td { padding: 2px 0; text-align: right; font-weight: 400; }
+  table.bd th:first-child, table.bd td:first-child { text-align: left; color: var(--muted); }
+  table.bd thead th { font-family: var(--display); letter-spacing: 0.1em; font-size: 12px; }
+  table.bd thead th.r { color: var(--red); } table.bd thead th.b { color: var(--blue); }
+  table.bd tr.sum td { border-top: 1px solid var(--line); font-weight: 500; color: var(--ink); }
+  table.bd td { font-family: var(--mono); font-size: 12px; }
+  .log { display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 1.35; }
+  .log .e { display: grid; grid-template-columns: 58px 1fr; gap: 6px; }
+  .log .e .t { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .log .e.red .x { border-left: 3px solid var(--red); padding-left: 5px; }
+  .log .e.blue .x { border-left: 3px solid var(--blue); padding-left: 5px; }
+  .log .e.period .x { color: var(--brass); }
+  .log .e.score .x { color: var(--ink); }
+  .log .e.info .x, .log .e.gear .x, .log .e.climb .x { color: var(--muted); }
+  .toast { position: fixed; left: 50%; top: 112px; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 12px; font-size: 13px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.ok { border-color: var(--brass); }
+  .toast.red { border-color: var(--red); border-width: 2px; font-family: var(--display); font-weight: 700; letter-spacing: 0.06em; font-size: 16px; }
+  .toast.blue { border-color: var(--blue); border-width: 2px; font-family: var(--display); font-weight: 700; letter-spacing: 0.06em; font-size: 16px; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  .err { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--ink); background: rgba(15,18,21,0.92); }
+  @media (max-width: 760px) {
+    .rail { width: auto; right: 16px; max-height: 42%; }
+    .readout { display: none; }
+    .hud { left: 16px; right: 16px; }
+    .scores { display: none; }
+    .board { min-width: 0; top: auto; bottom: 150px; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="view" aria-label="3D view of the 2017 FRC STEAMWORKS field with a drivable robot"></div>
+
+<aside class="rail">
+  <div>
+    <h1>FIRST STEAMWORKS sim <span class="v">v1.3</span></h1>
+    <div class="sub">Drive a 6WD robot on the official-dimension field. Fuel, gears, ropes and robots are simulated; field elements are fixed.</div>
+  </div>
+
+  <section>
+    <h2>Match</h2>
+    <div class="grid2" style="grid-template-columns: 1.6fr 1fr; margin-bottom:6px">
+      <button id="m-start">Start match <span class="k">Enter</span></button>
+      <button id="m-practice" class="seg" title="Stop the match and drive freely; scoring counts at TELEOP values">Practice</button>
+    </div>
+    <div class="grid2" style="margin-bottom:6px">
+      <button id="m-quals" class="seg" aria-pressed="true" title="Ranking Points for 40 kPa and four rotors">Qualification</button>
+      <button id="m-playoffs" class="seg" aria-pressed="false" title="+20 for 40 kPa and +100 for four rotors">Playoff</button>
+    </div>
+    <div class="grid2" style="margin-bottom:6px">
+      <button id="p-real" class="seg" aria-pressed="true" title="Pilot raises the lift 1 s, installs 1.5 s, cranks 2 s">Pilots: real</button>
+      <button id="p-inst" class="seg" aria-pressed="false" title="Gears install and rotors start the moment a gear is on a lift">Pilots: instant</button>
+    </div>
+    <label class="tg"><input type="checkbox" id="m-reserve"> Reserve gear on airships <span class="note">official</span></label>
+    <label class="tg"><input type="checkbox" id="m-sound" checked> Match sounds</label>
+  </section>
+
+  <section>
+    <h2>Robot</h2>
+    <div class="grid2" style="margin-bottom:6px">
+      <button id="al-red" class="red seg" aria-pressed="true">Red</button>
+      <button id="al-blue" class="blue seg" aria-pressed="false">Blue</button>
+    </div>
+    <div class="grid3" style="margin-bottom:6px">
+      <button id="st-0" class="seg" aria-pressed="false" title="Start in front of the player station next to the boiler">Boiler</button>
+      <button id="st-1" class="seg" aria-pressed="true" title="Start in front of the centre player station">Centre</button>
+      <button id="st-2" class="seg" aria-pressed="false" title="Start in front of the player station next to the loading station">Loading</button>
+    </div>
+    <button id="reset" style="width:100%">Reset to start position <span class="k">R</span></button>
+  </section>
+
+  <section>
+    <h2>Camera</h2>
+    <div class="grid3">
+      <button id="cm-chase" class="seg" aria-pressed="true">Chase</button>
+      <button id="cm-driver" class="seg" aria-pressed="false">Driver</button>
+      <button id="cm-free" class="seg" aria-pressed="false">Free</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Test pieces</h2>
+    <div class="grid2">
+      <button id="spill">Spill 100 fuel <span class="k">F</span></button>
+      <button id="drop">Drop 4 gears <span class="k">G</span></button>
+      <button id="defender">Add defender <span class="k">B</span></button>
+      <button id="clear">Clear pieces</button>
+    </div>
+  </section>
+
+  <details>
+    <summary>Drivetrain tuning</summary>
+    <div class="slider"><label for="s-speed">Top speed</label><output id="o-speed"></output><input type="range" id="s-speed" min="6" max="20" step="0.5" value="12"></div>
+    <div class="slider"><label for="s-accel">Acceleration (from stop)</label><output id="o-accel"></output><input type="range" id="s-accel" min="15" max="80" step="1" value="50"></div>
+    <div class="slider"><label for="s-trac">Traction (μ)</label><output id="o-trac"></output><input type="range" id="s-trac" min="0.5" max="1.5" step="0.05" value="1.1"></div>
+    <div class="slider"><label for="s-turn">Max turn rate</label><output id="o-turn"></output><input type="range" id="s-turn" min="90" max="540" step="10" value="270"></div>
+    <div class="slider"><label for="s-mass">Weight with bumpers + battery</label><output id="o-mass"></output><input type="range" id="s-mass" min="60" max="155" step="1" value="140"></div>
+    <button id="tune-reset">Restore defaults</button>
+  </details>
+
+  <details>
+    <summary>View</summary>
+    <div class="grid2" style="margin-bottom:8px">
+      <button id="cam-overview">Overview <span class="k">1</span></button>
+      <button id="cam-top">Top-down <span class="k">2</span></button>
+      <button id="cam-red" class="red">Red wall <span class="k">3</span></button>
+      <button id="cam-blue" class="blue">Blue wall <span class="k">4</span></button>
+      <button id="cam-airship" class="red">Red airship <span class="k">5</span></button>
+      <button id="cam-boiler" class="red">Red boiler <span class="k">6</span></button>
+    </div>
+    <div class="toggles">
+      <label class="tg"><input type="checkbox" id="tg-pieces" checked> Staged pieces (hoppers, lanes)</label>
+      <label class="tg"><input type="checkbox" id="tg-tape" checked> Tape lines</label>
+      <label class="tg"><input type="checkbox" id="tg-field" checked> Field blockout</label>
+      <label class="tg"><input type="checkbox" id="tg-cad"> Official CAD ghost <span class="note">1.7 MB</span></label>
+    </div>
+    <div id="status"></div>
+  </details>
+
+  <details open>
+    <summary>Controls</summary>
+    <div class="keys">
+      <span><kbd>W</kbd> <kbd>S</kbd></span><span>Forward / reverse</span>
+      <span><kbd>A</kbd> <kbd>D</kbd></span><span>Turn left / right</span>
+      <span><kbd>Shift</kbd></span><span>Precision (40%)</span>
+      <span><kbd>Space</kbd></span><span>Shoot at your high goal (hold)</span>
+      <span><kbd>Q</kbd></span><span>Dump into the low goal (hold, front against the boiler face)</span>
+      <span><kbd>E</kbd></span><span>Place a GEAR on the lift peg in front of you</span>
+      <span><kbd>T</kbd></span><span>Latch onto your rope and climb / let go</span>
+      <span><kbd>Enter</kbd></span><span>Start match</span>
+      <span><kbd>C</kbd></span><span>Next camera</span>
+      <span><kbd>V</kbd></span><span>Chase camera: behind / in front</span>
+      <span>Gamepad</span><span>Left stick drive, right stick turn, LB precision, RT shoot, LT dump, A gear, X climb, Y camera, L3 flip chase camera, Start match, Back reset</span>
+      <span>Mouse</span><span>Hover to read positions; click two points to measure (Esc clears)</span>
+    </div>
+  </details>
+</aside>
+
+<div class="readout" id="readout"><span class="dim">Hover the field to read positions. Origin is field centre; +X toward the blue wall, +Y toward the scoring table, Z up. Inches.</span></div>
+
+<div class="board" aria-live="off">
+  <div class="side red"><div class="pts" id="b-red">0</div><div class="meta" id="b-red-meta">0.00 kPa</div><div class="meta rotors" id="b-red-rot"></div></div>
+  <div class="clock" id="b-clock"><div class="period" id="b-period">PRACTICE</div><div class="time" id="b-time">—</div></div>
+  <div class="side blue"><div class="pts" id="b-blue">0</div><div class="meta" id="b-blue-meta">0.00 kPa</div><div class="meta rotors" id="b-blue-rot"></div></div>
+</div>
+
+<aside class="scores">
+  <details open>
+    <summary>Score breakdown</summary>
+    <table class="bd"><thead><tr><th></th><th class="r">RED</th><th class="b">BLUE</th></tr></thead><tbody id="bd"></tbody></table>
+  </details>
+  <details open>
+    <summary>Match log</summary>
+    <div class="log" id="log"></div>
+  </details>
+</aside>
+
+<div class="toast" id="toast" role="status"></div>
+
+<dl class="hud" aria-live="off">
+  <div class="big" id="h-speed">0.0<small>ft/s</small></div>
+  <dt>Heading</dt><dd id="h-head">0°</dd>
+  <dt>Position</dt><dd id="h-pos">—</dd>
+  <dt>Input</dt><dd><span class="chip" id="h-input">Keyboard</span></dd>
+  <dt>Fuel / gears loose</dt><dd id="h-pieces">0 / 0</dd>
+  <dt>Shooter</dt><dd id="h-shoot">—</dd>
+  <dt>Climb</dt><dd id="h-climb">—</dd>
+</dl>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { layout, colliders, ropes, targets, IN } from './field.js';
+import { Match, RULES } from './game.js';
+import { MECH, aimHigh, fireHigh, dumpLow, gearAlign } from './mechanisms.js';
+import { buildField, parseCadGhost, v3, gearGeometry, makeRobotMesh, makeMaterials } from './build.js';
+import { Sim, ROBOT_DEFAULTS, G } from './physics.js';
+
+// ---------- renderer / scene ----------
+const host = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(host.clientWidth, host.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f1215);
+scene.fog = new THREE.Fog(0x0f1215, 40, 90);
+const camera = new THREE.PerspectiveCamera(55, host.clientWidth / host.clientHeight, 0.05, 200);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI * 0.495;
+
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a2f24, 0.9));
+const key = new THREE.DirectionalLight(0xffffff, 1.6);
+key.position.set(-6, 18, 8); key.castShadow = true; key.shadow.mapSize.set(4096, 4096);
+Object.assign(key.shadow.camera, { left: -14, right: 14, top: 9, bottom: -9, near: 1, far: 50 });
+key.shadow.bias = -0.0004; scene.add(key);
+const fill = new THREE.DirectionalLight(0xc8d6ff, 0.5); fill.position.set(8, 10, -10); scene.add(fill);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 50), new THREE.MeshStandardMaterial({ color: 0x1a1d20, roughness: 1 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -0.0135; floor.receiveShadow = true; scene.add(floor);
+
+// ---------- field ----------
+const data = layout();
+const { groups } = buildField(THREE, data);
+for (const g of Object.values(groups)) scene.add(g);
+const M = makeMaterials(THREE);
+
+// ---------- physics ----------
+const sim = new Sim(colliders(data), { maxBalls: 700, maxGears: 60 });
+for (const r of ropes(data)) sim.addRope(r);
+const STATIONS = [-88, -16, 87]; // player-station centre Y (boiler side, centre, loading side)
+const state = { alliance: 'red', station: 1, cam: 'chase' };
+const camState = { init: false, pos: new THREE.Vector3(), look: new THREE.Vector3(), reverse: false };
+const CHASE = { back: 130, height: 94, ahead: 28, lookZ: 8 }; // inches
+const robotSpec = structuredClone(ROBOT_DEFAULTS);
+const player = sim.addRobot({ ...robotSpec, name: 'You' });
+const robotMeshes = new Map();
+function attachMesh(r, color) {
+  const m = makeRobotMesh(THREE, r, color); scene.add(m.root); robotMeshes.set(r, m); return m;
+}
+let playerMesh = attachMesh(player, 0xd32030);
+
+function startPose() {
+  const s = state.alliance === 'red' ? -1 : 1;
+  return { x: s * (326 - player.length / 2 - 0.5), y: STATIONS[state.station], th: s < 0 ? 0 : Math.PI };
+}
+function resetRobot() {
+  Object.assign(player, startPose(), { vx: 0, vy: 0, w: 0, lift: 0, climb: null });
+  player.updateShape();
+  camState.init = false;
+}
+function setAlliance(a) {
+  state.alliance = a;
+  scene.remove(playerMesh.root); robotMeshes.delete(player);
+  playerMesh = attachMesh(player, a === 'red' ? 0xd32030 : 0x1f5fd1);
+  document.getElementById('al-red').setAttribute('aria-pressed', a === 'red');
+  document.getElementById('al-blue').setAttribute('aria-pressed', a === 'blue');
+  if (defender) placeDefender();
+  resetRobot();
+}
+function setStation(i) {
+  state.station = i;
+  [0, 1, 2].forEach((k) => document.getElementById('st-' + k).setAttribute('aria-pressed', k === i));
+  resetRobot();
+}
+
+// Seeded random so the starting test layout is the same every load
+let seed = 2017;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+function seedTestPieces() {
+  // Loose fuel across the neutral zone (as after hoppers have been dumped) and a few gears.
+  for (let k = 0; k < 70; k++) sim.addBall(-120 + rnd() * 240, -140 + rnd() * 280, 2.5);
+  for (const [x, y] of [[-250, -40], [-250, 40], [-60, 120], [60, -120]]) sim.addGear(x, y, rnd() * 6);
+}
+function insideField(x, y) { return Math.abs(x) < 300 && Math.abs(y) < 140; }
+function spillFuel() {
+  const f = [Math.cos(player.th), Math.sin(player.th)];
+  let cx = player.x + f[0] * 70, cy = player.y + f[1] * 70;
+  if (!insideField(cx, cy)) { cx = 0; cy = 0; }
+  for (let k = 0; k < 100; k++) {
+    const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()) * 18;
+    sim.addBall(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 6 + rnd() * 40, (rnd() - 0.5) * 20, (rnd() - 0.5) * 20, 0);
+  }
+}
+function dropGears() {
+  const f = [Math.cos(player.th), Math.sin(player.th)], l = [-f[1], f[0]];
+  for (let k = 0; k < 4; k++) {
+    const d = 50 + (k >> 1) * 15, side = (k & 1 ? 1 : -1) * 9;
+    let x = player.x + f[0] * d + l[0] * side, y = player.y + f[1] * d + l[1] * side;
+    if (!insideField(x, y)) { x = (k - 1.5) * 15; y = 0; }
+    sim.addGear(x, y, rnd() * 6);
+  }
+}
+let defender = null;
+function placeDefender() {
+  const s = state.alliance === 'red' ? -1 : 1;
+  Object.assign(defender, { x: s * 60, y: STATIONS[state.station], th: Math.PI / 2, vx: 0, vy: 0, w: 0 });
+  defender.updateShape();
+}
+function toggleDefender() {
+  const btn = document.getElementById('defender');
+  if (defender) {
+    sim.robots.splice(sim.robots.indexOf(defender), 1);
+    scene.remove(robotMeshes.get(defender).root); robotMeshes.delete(defender); defender = null;
+    btn.firstChild.textContent = 'Add defender ';
+  } else {
+    defender = sim.addRobot({ ...robotSpec, name: 'Defender', mode: 'idle' });
+    attachMesh(defender, state.alliance === 'red' ? 0x1f5fd1 : 0xd32030);
+    placeDefender();
+    btn.firstChild.textContent = 'Remove defender ';
+  }
+}
+function clearPieces() { sim.clearBalls(); sim.gears.length = 0; }
+
+seedTestPieces();
+resetRobot();
+
+// Dynamic piece rendering
+const ballMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(2.5 * IN, 14, 10), M.fuel, sim.maxBalls);
+ballMesh.castShadow = true; ballMesh.receiveShadow = true; ballMesh.name = 'FUEL (simulated)';
+ballMesh.frustumCulled = false; scene.add(ballMesh);
+const gearMesh = new THREE.InstancedMesh(gearGeometry(THREE), M.gear, sim.maxGears);
+gearMesh.castShadow = true; gearMesh.receiveShadow = true; gearMesh.name = 'GEAR (simulated)';
+gearMesh.frustumCulled = false; scene.add(gearMesh);
+const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0), tmpV = new THREE.Vector3();
+// Ropes: one instanced cylinder per segment, re-oriented every frame
+const ropeSegs = sim.ropes.reduce((n, r) => n + r.n - 1, 0);
+const ropeMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.5 * IN, 0.5 * IN, 1, 8), M.rope, ropeSegs);
+ropeMesh.name = 'ROPE'; ropeMesh.castShadow = true; ropeMesh.frustumCulled = false; scene.add(ropeMesh);
+const ra = new THREE.Vector3(), rb = new THREE.Vector3(), rdir = new THREE.Vector3(), rscale = new THREE.Vector3();
+function syncRopes() {
+  let k = 0;
+  for (const r of sim.ropes) for (let i = 0; i < r.n - 1; i++) {
+    ra.set(r.x[i] * IN, r.z[i] * IN, -r.y[i] * IN); rb.set(r.x[i + 1] * IN, r.z[i + 1] * IN, -r.y[i + 1] * IN);
+    rdir.subVectors(rb, ra); const len = rdir.length();
+    q.setFromUnitVectors(up, len > 1e-9 ? rdir.divideScalar(len) : up);
+    m4.compose(ra.add(rb).multiplyScalar(0.5), q, rscale.set(1, len * 1.04, 1));
+    ropeMesh.setMatrixAt(k++, m4);
+  }
+  ropeMesh.instanceMatrix.needsUpdate = true;
+}
+function syncPieces() {
+  const b = sim.b;
+  for (let i = 0; i < sim.nBalls; i++) { m4.makeTranslation(b.x[i] * IN, b.z[i] * IN, -b.y[i] * IN); ballMesh.setMatrixAt(i, m4); }
+  ballMesh.count = sim.nBalls; ballMesh.instanceMatrix.needsUpdate = true;
+  sim.gears.forEach((g, i) => { q.setFromAxisAngle(up, g.th); m4.compose(tmpV.set(g.x * IN, 1 * IN, -g.y * IN), q, one); gearMesh.setMatrixAt(i, m4); });
+  gearMesh.count = sim.gears.length; gearMesh.instanceMatrix.needsUpdate = true;
+}
+
+// ---------- match + scoring ----------
+const TG = targets();
+const match = new Match(TG);
+for (const al of ['red', 'blue']) {
+  sim.addSensor({ kind: 'disc', ...TG[al].highGoal, alliance: al, goal: 'high' });
+  sim.addSensor({ kind: 'face', ...TG[al].lowGoal, alliance: al, goal: 'low' });
+}
+sim.onSense = (S) => match.fuelLoaded(S.alliance, S.goal); // full goal -> ball bounces back out
+const ropeTouchpad = new Map(); // rope -> { alliance, index }
+for (const rope of sim.ropes) for (const al of ['red', 'blue']) TG[al].touchpads.forEach((tp, i) => {
+  if (Math.hypot(tp.c[0] - rope.anchor[0], tp.c[1] - rope.anchor[1]) < 1) ropeTouchpad.set(rope, { alliance: al, index: i });
+});
+const robotId = new Map();
+const robotInfo = () => sim.robots.map((r) => {
+  if (!robotId.has(r)) robotId.set(r, robotId.size + 1);
+  const al = r === player ? state.alliance : (state.alliance === 'red' ? 'blue' : 'red');
+  const tp = r.climb ? ropeTouchpad.get(r.climb.rope) : null;
+  return { id: robotId.get(r), name: r === player ? 'Your robot' : r.name, alliance: al, corners: r.corners,
+           climb: tp && tp.alliance === al ? { touchpad: tp.index } : null, topZ: r.lift + r.height };
+});
+const toastEl = document.getElementById('toast'); let toastT = 0; const toastQueue = [];
+function showToast({ msg, cls }) { toastEl.textContent = msg; toastEl.className = 'toast show ' + cls; toastT = 1.8; }
+function toast(msg, ok = false, cls = '') {
+  const t = { msg, cls: cls || (ok ? 'ok' : '') };
+  if (toastT > 0) toastQueue.push(t); else showToast(t);
+}
+const rotorSeen = { red: [false, false, false, false], blue: [false, false, false, false] };
+const disabled = () => match.state === 'post';
+const actionLock = () => disabled() || player.climb;
+
+// Shooter / dump fire timers
+const fire = { shoot: 0, dump: 0, held: { shoot: false, dump: false } };
+let aimNow = null;
+function updateMechanisms(dt) {
+  const tg = TG[state.alliance];
+  aimNow = aimHigh(player, tg.highGoal);
+  playerMesh.aim(player, aimNow.sol ? aimNow.sol : null);
+  if (actionLock()) return;
+  for (const kind of ['shoot', 'dump']) {
+    if (!fire.held[kind]) { fire[kind] = Math.min(fire[kind] + dt, 0); continue; }
+    const rate = kind === 'shoot' ? MECH.shooter.rate : MECH.dump.rate;
+    fire[kind] += dt;
+    while (fire[kind] >= 0) {
+      fire[kind] -= 1 / rate;
+      const shot = kind === 'shoot' ? fireHigh(player, tg.highGoal, rnd) : dumpLow(player, rnd);
+      if (!shot) { fire[kind] = 0; break; }
+      if (sim.addBall(...shot.p, ...shot.v, player) < 0) { toast('Too much loose FUEL on the field. Use Clear pieces.'); fire[kind] = 0; break; }
+    }
+  }
+}
+function placeGear() {
+  if (actionLock()) return;
+  const g = gearAlign(player, TG[state.alliance].lifts);
+  if (!g || !g.ok) return;
+  const res = match.deliverGear(state.alliance, g.index);
+  if (res.ok) { gearCooldown = 0.6; pegAnim[state.alliance][g.index] = PEG_ANIM; }
+}
+let gearCooldown = 0;
+const PEG_ANIM = 1.0; // s, visual rise when pilots are instant
+const pegAnim = { red: [0, 0, 0], blue: [0, 0, 0] };
+function toggleClimb() {
+  if (disabled()) return;
+  if (player.climb) { sim.releaseClimb(player); toast('Letting go of the rope'); return; }
+  const rope = sim.ropes.find((r) => ropeTouchpad.get(r)?.alliance === state.alliance && sim.canClimb(player, r));
+  if (!rope) {
+    toast(match.running && !sim.ropes.some((r) => r.deployed) ? 'ROPES deploy with 30 seconds left' : 'Drive your front bumper into one of your ropes first');
+    return;
+  }
+  const tp = ropeTouchpad.get(rope);
+  sim.startClimb(player, rope, TG[state.alliance].touchpads[tp.index].z + 1.0);
+  toast(`Latched: climbing to TOUCHPAD ${tp.index + 1}`, true);
+}
+
+// Match flow
+let audio = null;
+function beep(kind) {
+  if (!document.getElementById('m-sound').checked) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const now = audio.currentTime;
+    const tones = { start: [[523, 0, 0.18], [659, 0.18, 0.18], [784, 0.36, 0.4]], autoEnd: [[220, 0, 0.6]],
+      teleop: [[880, 0, 0.12], [880, 0.2, 0.12]], endgame: [[1320, 0, 0.25], [990, 0.3, 0.25]], end: [[150, 0, 1.2]] }[kind] || [];
+    for (const [f, t, d] of tones) {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = kind === 'end' || kind === 'autoEnd' ? 'sawtooth' : 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, now + t); g.gain.exponentialRampToValueAtTime(0.12, now + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + t + d);
+      o.connect(g).connect(audio.destination); o.start(now + t); o.stop(now + t + d + 0.05);
+    }
+  } catch (e) { /* audio unavailable */ }
+}
+function startMatch() {
+  match.mode = document.getElementById('m-playoffs').getAttribute('aria-pressed') === 'true' ? 'playoffs' : 'quals';
+  match.pilots = document.getElementById('p-inst').getAttribute('aria-pressed') === 'true' ? 'instant' : 'realistic';
+  match.reserveGear = document.getElementById('m-reserve').checked;
+  clearPieces(); resetRobot(); if (defender) placeDefender();
+  for (const r of sim.ropes) sim.stowRope(r); // PILOTS deploy ROPES for the last 30 s
+  toastQueue.length = 0; toastT = 0; toastEl.className = 'toast';
+  match.start(performance.now());
+  lastPeriod = match.state; endgameBeeped = false;
+  document.getElementById('m-start').firstChild.textContent = 'Restart match ';
+  beep('start');
+}
+let lastPeriod = match.state, endgameBeeped = false;
+function setSeg(on, off) { document.getElementById(on).setAttribute('aria-pressed', 'true'); document.getElementById(off).setAttribute('aria-pressed', 'false'); }
+
+// ---------- field visuals driven by the match ----------
+// Spinning rotors: re-parent rotor meshes under pivots at their axes.
+groups.field.updateMatrixWorld(true);
+const rotorPivots = { red: [null, null, null, null], blue: [null, null, null, null] };
+const SMALL_ROTOR_ANGLE = [null, 90, 210, 330]; // ROTOR 2/3/4 positions (numbering unconfirmed)
+for (const al of ['red', 'blue']) {
+  const OWN = al.toUpperCase(), ac = TG[al].airship;
+  const mk = (x, y, names) => {
+    const pivot = new THREE.Group(); pivot.position.set(x * IN, 0, -y * IN); groups.field.add(pivot); pivot.updateMatrixWorld(true);
+    for (const m of groups.field.children.filter((c) => names(c.name))) pivot.attach(m);
+    return pivot;
+  };
+  rotorPivots[al][0] = mk(ac[0], ac[1], (n) => n === `${OWN} ROTOR 1 (central)`);
+  for (let k = 1; k < 4; k++) {
+    const a = SMALL_ROTOR_ANGLE[k] * Math.PI / 180;
+    const x = ac[0] + Math.cos(a) * 53, y = ac[1] + Math.sin(a) * 53;
+    const tag = `${OWN} small ROTOR (${SMALL_ROTOR_ANGLE[k]}°)`;
+    rotorPivots[al][k] = mk(x, y, (n) => n === tag + ' hub' || n === tag + ' blade');
+  }
+}
+// GEARS riding the lift carriages up to the pilots
+const pegGears = { red: [], blue: [] };
+for (const al of ['red', 'blue']) for (const L of TG[al].lifts) {
+  const m = new THREE.Mesh(gearGeometry(THREE), M.gear); m.castShadow = true; m.visible = false;
+  m.quaternion.setFromUnitVectors(up, new THREE.Vector3(L.u[0], 0, -L.u[1]));
+  scene.add(m); pegGears[al].push({ m, L });
+}
+// Reserve GEARS on the decks (only with the official reserve-gear rule)
+const reserveMeshes = data.gears.filter((g) => g.reserve).map((g) => {
+  const m = new THREE.Mesh(gearGeometry(THREE), M.gear); m.castShadow = true;
+  m.position.copy(v3(THREE, ...g.c)); m.visible = false; groups.pieces.add(m);
+  return { m, alliance: g.reserve };
+});
+document.getElementById('m-reserve').addEventListener('change', (e) => {
+  // takes effect now in practice; in a running match it applies from the next match
+  if (match.state === 'practice') {
+    match.reserveGear = e.target.checked;
+    for (const A of [match.red, match.blue]) if (A.reserve !== 'used') A.reserve = e.target.checked ? 'staged' : 'none';
+  }
+});
+// TOUCHPAD plates and domes
+const touchVis = { red: [], blue: [] };
+for (const al of ['red', 'blue']) TG[al].touchpads.forEach((tp) => {
+  const near = (n) => groups.field.children.filter((c) => c.name === n).sort((a, b) =>
+    Math.hypot(a.position.x / IN - tp.c[0], -a.position.z / IN - tp.c[1]) - Math.hypot(b.position.x / IN - tp.c[0], -b.position.z / IN - tp.c[1]))[0];
+  const plate = near(`${al.toUpperCase()} TOUCHPAD`), dome = near(`${al.toUpperCase()} TOUCHPAD dome`);
+  if (dome) dome.material = dome.material.clone();
+  if (plate) plate.material = plate.material.clone();
+  touchVis[al].push({ plate, dome, y0: plate ? plate.position.y : 0, dy0: dome ? dome.position.y : 0 });
+});
+const ALLIANCE_HEX = { red: 0xff2a3a, blue: 0x2f7bff };
+function syncMatchVisuals(dt) {
+  for (const al of ['red', 'blue']) {
+    const A = match.alliance(al);
+    A.rotors.forEach((on, k) => {
+      if (on && rotorPivots[al][k]) rotorPivots[al][k].rotation.y += dt * (k === 0 ? 4 : 12);
+      if (on && !rotorSeen[al][k]) toast(`${al.toUpperCase()} ROTOR ${k + 1} IS ACTIVE`, false, al);
+      rotorSeen[al][k] = on;
+    });
+    A.pegs.forEach((peg, i) => {
+      const { m, L } = pegGears[al][i];
+      let rise, show;
+      if (match.pilots === 'instant') {
+        if (pegAnim[al][i] > 0) pegAnim[al][i] = Math.max(0, pegAnim[al][i] - dt);
+        show = pegAnim[al][i] > 0; rise = 1 - pegAnim[al][i] / PEG_ANIM;
+      } else {
+        show = peg.state !== 'empty'; rise = peg.state === 'rising' ? Math.min(1, peg.t / Math.max(RULES.pilot.lift, 0.001)) : 0;
+      }
+      m.visible = show;
+      const r = 44 - rise * 6;
+      m.position.set((L.tip[0] - L.u[0] * (49.4 - r)) * IN, (13 + rise * 32) * IN, -(L.tip[1] - L.u[1] * (49.4 - r)) * IN);
+    });
+    A.touch.forEach((tp, i) => {
+      const v = touchVis[al][i]; if (!v.plate) return;
+      const climber = sim.robots.find((r) => r.climb && ropeTouchpad.get(r.climb.rope)?.alliance === al && ropeTouchpad.get(r.climb.rope)?.index === i);
+      const press = climber ? Math.max(0, Math.min(1.5, climber.lift + climber.height - TG[al].touchpads[i].z)) : 0;
+      v.plate.position.y = v.y0 + press * IN; if (v.dome) v.dome.position.y = v.dy0 + press * IN;
+      // Lit once a robot has climbed successfully: plate pressed for the required 1 s (or credited at T=0)
+      const lit = tp.credited || (tp.pressed && tp.held >= RULES.touchpadHold);
+      for (const m of [v.dome, v.plate]) if (m) {
+        m.material.emissive.setHex(lit ? ALLIANCE_HEX[al] : 0x000000);
+        m.material.emissiveIntensity = lit ? (m === v.dome ? 1.4 : 0.9) : 0;
+      }
+      if (v.plate) { v.plate.material.opacity = lit ? 0.9 : 0.55; }
+    });
+  }
+  for (const g of reserveMeshes) { const st = match.alliance(g.alliance).reserve; g.m.visible = st === 'staged' || st === 'available'; }
+  // the held gear blinks off briefly after placing (reload)
+  if (gearCooldown > 0) gearCooldown -= dt;
+  playerMesh.heldGear.visible = gearCooldown <= 0 && !player.climb;
+}
+
+// ---------- scoreboard ----------
+const $ = (id) => document.getElementById(id);
+const fmtClock = (s) => { const t = Math.ceil(s - 1e-9); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+function rotorDots(sc) { return '<span class="lab">ROTORS </span>' + sc.rotors.map((on, k) => `<span class="${on ? 'on' : ''}" title="ROTOR ${k + 1}${on ? ' turning' : ` set ${sc.sets[k]}/${RULES.gearsNeeded[k]}`}">${on ? '●' : '○'}</span>`).join(''); }
+function matchClock(e) {
+  if (e.t == null) return '—';
+  const left = e.state === 'auto' ? RULES.autoLen - e.t : RULES.autoLen + RULES.teleopLen - e.t;
+  const p = e.state === 'auto' ? 'A' : e.state === 'teleop' ? 'T' : '';
+  return `${p} ${Math.max(0, left).toFixed(1)}`;
+}
+let boardT = 0, logCount = -1;
+function renderBoard(dt) {
+  boardT += dt; if (boardT < 0.1) return; boardT = 0;
+  const r = match.score('red'), b = match.score('blue');
+  for (const [al, sc] of [['red', r], ['blue', b]]) {
+    $('b-' + al).textContent = sc.total;
+    const A = match.alliance(al);
+    const pressure = A.pressureFlag
+      ? `${sc.kPa.toFixed(2)} kPa <span class="bubble" title="40 kPa threshold reached">${match.mode === 'playoffs' ? '+20' : '+1 RP'}</span>`
+      : `${sc.kPa.toFixed(2)} / ${RULES.pressureThreshold} kPa`;
+    $('b-' + al + '-meta').innerHTML = `${pressure}${sc.rp != null && match.state === 'post' ? ` · ${sc.rp} RP total` : ''}`;
+    $('b-' + al + '-rot').innerHTML = rotorDots(sc);
+  }
+  const clock = $('b-clock'), left = match.periodLeft();
+  clock.className = 'clock ' + match.state + (match.state === 'teleop' && left <= RULES.endgame ? ' endgame' : '');
+  $('b-period').textContent = { practice: 'PRACTICE', auto: 'AUTO', teleop: left <= RULES.endgame ? 'TELEOP · ENDGAME' : 'TELEOP', post: r.result ? `FINAL · ${r.total > b.total ? 'RED WINS' : r.total < b.total ? 'BLUE WINS' : 'TIE'}` : 'FINAL' }[match.state];
+  $('b-time').textContent = left == null ? '—' : fmtClock(left);
+  const rows = [
+    ['AUTO mobility', 'mobility'], ['AUTO pressure', 'autoPressure'], ['AUTO rotors', 'rotorAuto'],
+    ['TELEOP pressure', 'telePressure'], ['TELEOP rotors', 'rotorTele'], ['Ready for takeoff', 'takeoff'],
+    ...(match.mode === 'playoffs' ? [['Playoff bonuses', 'bonus']] : []),
+  ];
+  let html = rows.map(([lab, k]) => `<tr><td>${lab}</td><td>${r[k]}</td><td>${b[k]}</td></tr>`).join('');
+  html += `<tr class="sum"><td>Total</td><td>${r.total}</td><td>${b.total}</td></tr>`;
+  const f = (sc, p) => `${sc.fuel[p].high} / ${sc.fuel[p].low}`;
+  html += `<tr><td>Pressure</td><td>${r.kPa.toFixed(2)}</td><td>${b.kPa.toFixed(2)}</td></tr>`;
+  html += `<tr><td>FUEL counted AUTO (H / L)</td><td>${f(r, 'auto')}</td><td>${f(b, 'auto')}</td></tr>`;
+  html += `<tr><td>FUEL counted TELEOP</td><td>${f(r, 'teleop')}</td><td>${f(b, 'teleop')}</td></tr>`;
+  html += `<tr><td>GEAR sets</td><td>${r.sets.join('·')}</td><td>${b.sets.join('·')}</td></tr>`;
+  if (match.reserveGear) html += `<tr><td>Reserve GEAR</td><td>${r.reserve}</td><td>${b.reserve}</td></tr>`;
+  if (match.mode === 'quals') html += `<tr><td>Ranking Points</td><td>${r.rp}</td><td>${b.rp}</td></tr>`;
+  if (match.state !== 'practice') html += `<tr><td>Match time (sim / wall)</td><td colspan="2">${match.t.toFixed(2)} / ${((performance.now() - match.wallStart) / 1000).toFixed(2)} s</td></tr>`;
+  $('bd').innerHTML = html;
+  if (match.events.length !== logCount) {
+    logCount = match.events.length;
+    $('log').innerHTML = match.events.slice(-60).reverse().map((e) =>
+      `<div class="e ${e.alliance || ''} ${e.kind}"><span class="t">${matchClock(e)}</span><span class="x">${e.text}</span></div>`).join('');
+  }
+}
+
+// ---------- tuning ----------
+const TUNE = {
+  speed: { el: 's-speed', out: 'o-speed', fmt: (v) => `${v} ft/s`, apply: (v) => { robotSpec.maxSpeed = v * 12; } },
+  accel: { el: 's-accel', out: 'o-accel', fmt: (v) => `${v} ft/s²`, apply: (v) => { robotSpec.stallAccel = v * 12; } },
+  trac: { el: 's-trac', out: 'o-trac', fmt: (v) => v.toFixed(2), apply: (v) => { robotSpec.traction = v; } },
+  turn: { el: 's-turn', out: 'o-turn', fmt: (v) => `${v}°/s`, apply: (v) => { robotSpec.maxTurn = v * Math.PI / 180; } },
+  mass: { el: 's-mass', out: 'o-mass', fmt: (v) => `${v} lb`, apply: (v) => { robotSpec.mass = v; } },
+};
+const DEFAULTS = { speed: 12, accel: 50, trac: 1.1, turn: 270, mass: 140 };
+function applyTuning() {
+  for (const [k, t] of Object.entries(TUNE)) {
+    const v = Number(document.getElementById(t.el).value);
+    t.apply(v); document.getElementById(t.out).textContent = t.fmt(v);
+  }
+  for (const r of sim.robots) Object.assign(r, { maxSpeed: robotSpec.maxSpeed, stallAccel: robotSpec.stallAccel, traction: robotSpec.traction, maxTurn: robotSpec.maxTurn, mass: robotSpec.mass });
+}
+for (const t of Object.values(TUNE)) {
+  const el = document.getElementById(t.el);
+  el.addEventListener('input', applyTuning);
+  el.addEventListener('pointerup', () => el.blur()); // give the keyboard back to driving
+}
+document.getElementById('tune-reset').addEventListener('click', () => {
+  for (const [k, v] of Object.entries(DEFAULTS)) document.getElementById(TUNE[k].el).value = v;
+  applyTuning();
+});
+applyTuning();
+
+// ---------- UI wiring ----------
+const blurAfter = (id, fn) => document.getElementById(id).addEventListener('click', (e) => { fn(); e.currentTarget.blur(); });
+blurAfter('al-red', () => setAlliance('red'));
+blurAfter('al-blue', () => setAlliance('blue'));
+[0, 1, 2].forEach((k) => blurAfter('st-' + k, () => setStation(k)));
+blurAfter('reset', resetRobot);
+blurAfter('spill', spillFuel);
+blurAfter('drop', dropGears);
+blurAfter('defender', toggleDefender);
+blurAfter('clear', clearPieces);
+blurAfter('m-start', startMatch);
+blurAfter('m-practice', () => { for (const r of sim.ropes) sim.deployRope(r); match.abort(); lastPeriod = match.state; document.getElementById('m-start').firstChild.textContent = 'Start match '; });
+blurAfter('m-quals', () => { setSeg('m-quals', 'm-playoffs'); if (match.state === 'practice') match.mode = 'quals'; });
+blurAfter('m-playoffs', () => { setSeg('m-playoffs', 'm-quals'); if (match.state === 'practice') match.mode = 'playoffs'; });
+blurAfter('p-real', () => { setSeg('p-real', 'p-inst'); match.pilots = 'realistic'; });
+blurAfter('p-inst', () => { setSeg('p-inst', 'p-real'); match.pilots = 'instant'; });
+const CAMS = ['chase', 'driver', 'free'];
+function flipChase() {
+  camState.reverse = !camState.reverse;
+  if (state.cam !== 'chase') setCam('chase');
+  camState.init = false; // cut straight to the new side instead of swinging through the robot
+}
+function setCam(m) {
+  state.cam = m; camState.init = false;
+  CAMS.forEach((c) => document.getElementById('cm-' + c).setAttribute('aria-pressed', c === m));
+  controls.enabled = m === 'free';
+  if (m === 'free') controls.target.copy(v3(THREE, player.x, player.y, 12));
+}
+CAMS.forEach((c) => blurAfter('cm-' + c, () => setCam(c)));
+
+const bind = (id, obj) => document.getElementById(id).addEventListener('change', (e) => { obj.visible = e.target.checked; });
+bind('tg-pieces', groups.pieces); bind('tg-tape', groups.tape); bind('tg-field', groups.field);
+
+// Free-camera presets
+const PRESETS = {
+  overview: [[0, -560, 330], [0, 0, 0]], top: [[0, -1, 980], [0, 0, 0]],
+  red: [[-400, 0, 68], [0, 0, 30]], blue: [[400, 0, 68], [0, 0, 30]],
+  airship: [[-60, -150, 140], [-176.7, 0, 60]], boiler: [[-200, -40, 110], [-320, -158, 60]],
+};
+const presetKeys = Object.keys(PRESETS);
+let tween = null;
+function goTo(name) {
+  setCam('free');
+  const [p, t] = PRESETS[name];
+  const toPos = v3(THREE, ...p), toTgt = v3(THREE, ...t);
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { camera.position.copy(toPos); controls.target.copy(toTgt); return; }
+  tween = { t0: performance.now(), fromPos: camera.position.clone(), fromTgt: controls.target.clone(), toPos, toTgt };
+}
+presetKeys.forEach((k) => blurAfter('cam-' + k, () => goTo(k)));
+
+// CAD ghost (lazy)
+async function loadCadBuffer() {
+  const { default: b64 } = await import('./cad_ghost.js');
+  const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const stream = new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).arrayBuffer();
+}
+let cad = null, cadLoading = false;
+const status = document.getElementById('status');
+document.getElementById('tg-cad').addEventListener('change', async (e) => {
+  if (cad) { cad.visible = e.target.checked; return; }
+  if (!e.target.checked || cadLoading) return;
+  cadLoading = true; status.textContent = 'Loading CAD ghost…';
+  try {
+    const geo = parseCadGhost(THREE, await loadCadBuffer());
+    cad = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x7fd0ff, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide, roughness: 0.6 }));
+    cad.renderOrder = 2; cad.visible = document.getElementById('tg-cad').checked; scene.add(cad);
+    status.textContent = `CAD ghost: ${(geo.index.count / 3 / 1000).toFixed(0)}k triangles`;
+  } catch (err) {
+    status.textContent = 'Could not load the CAD ghost (' + err.message + '). Reload the page to try again.';
+    e.target.checked = false;
+  } finally { cadLoading = false; }
+});
+
+// ---------- input ----------
+const keys = new Set();
+const isTyping = (e) => e.target instanceof HTMLInputElement && e.target.type !== 'checkbox' && e.target.type !== 'range';
+window.addEventListener('keydown', (e) => {
+  if (isTyping(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+  keys.add(e.code);
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Enter'].includes(e.code)) e.preventDefault();
+  if (e.repeat) return;
+  if (e.code === 'KeyR') resetRobot();
+  if (e.code === 'Enter') startMatch();
+  if (e.code === 'KeyE') placeGear();
+  if (e.code === 'KeyT') toggleClimb();
+  if (e.code === 'KeyC') setCam(CAMS[(CAMS.indexOf(state.cam) + 1) % CAMS.length]);
+  if (e.code === 'KeyV') flipChase();
+  if (e.code === 'KeyF') spillFuel();
+  if (e.code === 'KeyG') dropGears();
+  if (e.code === 'KeyB') toggleDefender();
+  if (e.code === 'Escape') { clearMeasure(); renderReadout(); }
+  const i = Number(e.key) - 1;
+  if (i >= 0 && i < presetKeys.length) goTo(presetKeys[i]);
+});
+window.addEventListener('keyup', (e) => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
+
+const padPrev = {};
+let padShoot = false, padDump = false;
+let inputSource = 'Keyboard';
+function readInput() {
+  padShoot = false; padDump = false;
+  let thr = 0, turn = 0, precise = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  if (keys.has('KeyW') || keys.has('ArrowUp')) thr += 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) thr -= 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) turn += 0.65;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) turn -= 0.65;
+  let src = thr || turn ? 'Keyboard' : null;
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const p of pads) {
+    if (!p || !p.connected) continue;
+    const dz = (v) => (Math.abs(v) < 0.08 ? 0 : Math.sign(v) * ((Math.abs(v) - 0.08) / 0.92) ** 2);
+    const py = dz(-(p.axes[1] || 0));
+    const px = dz(-((p.axes.length >= 4 ? p.axes[2] : p.axes[0]) || 0));
+    if (py || px) { thr = py; turn = px; src = 'Gamepad'; }
+    if (p.buttons[4]?.pressed) precise = true;
+    const edge = (i) => { const now = !!p.buttons[i]?.pressed, was = padPrev[p.index + ':' + i]; padPrev[p.index + ':' + i] = now; return now && !was; };
+    if (edge(3)) setCam(CAMS[(CAMS.indexOf(state.cam) + 1) % CAMS.length]);
+    if (edge(10)) flipChase(); // L3
+    if (edge(9)) startMatch();
+    if (edge(8)) resetRobot();
+    if (edge(0)) placeGear();
+    if (edge(2)) toggleClimb();
+    if ((p.buttons[7]?.value || 0) > 0.4) padShoot = true;
+    if ((p.buttons[6]?.value || 0) > 0.4) padDump = true;
+    if (!src) src = 'Gamepad';
+  }
+  if (src) inputSource = src;
+  fire.held.shoot = keys.has('Space') || padShoot;
+  fire.held.dump = keys.has('KeyQ') || padDump;
+  if (disabled() || player.climb) { thr = 0; turn = 0; }
+  const k = precise ? 0.4 : 1;
+  player.input.throttle = Math.max(-1, Math.min(1, thr)) * k;
+  player.input.turn = Math.max(-1, Math.min(1, turn)) * k;
+}
+
+// ---------- cameras ----------
+function updateCamera(dt) {
+  if (state.cam === 'free') {
+    if (tween) {
+      const t = Math.min(1, (performance.now() - tween.t0) / 900), k = 1 - Math.pow(1 - t, 3);
+      camera.position.lerpVectors(tween.fromPos, tween.toPos, k);
+      controls.target.lerpVectors(tween.fromTgt, tween.toTgt, k);
+      if (t >= 1) tween = null;
+    }
+    controls.update(); return;
+  }
+  tween = null;
+  const f = [Math.cos(player.th), Math.sin(player.th)];
+  let pos, look;
+  if (state.cam === 'chase') {
+    const d = camState.reverse ? -1 : 1; // reverse: in front of the robot, looking back across it
+    pos = v3(THREE, player.x - d * f[0] * CHASE.back, player.y - d * f[1] * CHASE.back, CHASE.height);
+    look = v3(THREE, player.x + d * f[0] * CHASE.ahead, player.y + d * f[1] * CHASE.ahead, CHASE.lookZ);
+  } else {
+    const s = state.alliance === 'red' ? -1 : 1;
+    pos = v3(THREE, s * 352, STATIONS[state.station], 66);
+    look = v3(THREE, player.x, player.y, 12);
+  }
+  if (!camState.init) { camState.pos.copy(pos); camState.look.copy(look); camState.init = true; }
+  const a = 1 - Math.exp(-dt * (state.cam === 'chase' ? 5 : 8));
+  camState.pos.lerp(pos, a); camState.look.lerp(look, a);
+  camera.position.copy(camState.pos); camera.lookAt(camState.look);
+}
+
+// ---------- hover readout + measuring ----------
+const readout = document.getElementById('readout');
+const ray = new THREE.Raycaster(); const mouse = new THREE.Vector2();
+let hoverDirty = false, lastHit = null;
+const pickables = () => [groups.field, groups.pieces, groups.tape, ballMesh, gearMesh, ropeMesh, ...[...robotMeshes.values()].map((m) => m.root)].filter((g) => g.visible);
+const toSpec = (p) => [p.x / IN, -p.z / IN, p.y / IN];
+const fmt = (v) => (v >= 0 ? ' ' : '') + v.toFixed(1);
+const ftin = (inch) => { const a = Math.abs(inch); const ft = Math.floor(a / 12); return `${ft}′ ${(a - ft * 12).toFixed(1)}″`; };
+renderer.domElement.addEventListener('pointermove', (e) => {
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); hoverDirty = true;
+});
+const marks = []; const markGeo = new THREE.SphereGeometry(1.2 * IN, 12, 8);
+const markMat = new THREE.MeshBasicMaterial({ color: 0xd9a514, depthTest: false }); let measLine = null;
+function clearMeasure() { marks.forEach((m) => scene.remove(m)); marks.length = 0; if (measLine) { scene.remove(measLine); measLine = null; } }
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 4 || e.button !== 0) return;
+  updateHover(); if (!lastHit) return;
+  if (marks.length >= 2) clearMeasure();
+  const m = new THREE.Mesh(markGeo, markMat); m.renderOrder = 10; m.position.copy(lastHit.point); scene.add(m); marks.push(m);
+  if (marks.length === 2) {
+    measLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([marks[0].position, marks[1].position]), new THREE.LineBasicMaterial({ color: 0xd9a514, depthTest: false }));
+    measLine.renderOrder = 10; scene.add(measLine);
+  }
+  renderReadout();
+});
+function updateHover() { ray.setFromCamera(mouse, camera); lastHit = ray.intersectObjects(pickables(), true).find((h) => h.object.visible) || null; }
+function hitName(h) {
+  let o = h.object; for (const [r, m] of robotMeshes) { let p = o; while (p) { if (p === m.root) return `Robot (${r.name})`; p = p.parent; } }
+  return o.name || 'Field';
+}
+function renderReadout() {
+  let html = '';
+  if (lastHit) {
+    const [x, y, z] = toSpec(lastHit.point);
+    html += `<div><span class="name">${hitName(lastHit)}</span></div><div>X ${fmt(x)}  Y ${fmt(y)}  Z ${fmt(z)} <span class="dim">in</span></div>`;
+  } else html += '<div class="dim">Origin is field centre; +X toward the blue wall, +Y toward the scoring table, Z up. Inches.</div>';
+  if (marks.length === 1) html += '<div class="meas">Click a second point to measure.</div>';
+  if (marks.length === 2) {
+    const a = toSpec(marks[0].position), b = toSpec(marks[1].position);
+    const d3 = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), d2 = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    html += `<div class="meas">Distance ${d3.toFixed(1)} in (${ftin(d3)})  ·  floor ${d2.toFixed(1)} in  ·  ΔZ ${(b[2] - a[2]).toFixed(1)} in</div>`;
+  }
+  readout.innerHTML = html;
+}
+
+// ---------- HUD ----------
+const hSpeed = document.getElementById('h-speed'), hHead = document.getElementById('h-head'), hPos = document.getElementById('h-pos');
+const hInput = document.getElementById('h-input'), hPieces = document.getElementById('h-pieces');
+let hudT = 0;
+function updateHud(dt) {
+  hudT += dt; if (hudT < 0.1) return; hudT = 0;
+  hSpeed.innerHTML = `${(Math.hypot(player.vx, player.vy) / 12).toFixed(1)}<small>ft/s</small>`;
+  hHead.textContent = `${(((player.th * 180 / Math.PI) % 360 + 360) % 360).toFixed(0)}°`;
+  hPos.textContent = `${player.x.toFixed(0)}, ${player.y.toFixed(0)} in`;
+  hInput.textContent = inputSource; hInput.classList.toggle('on', inputSource === 'Gamepad');
+  hPieces.textContent = `${sim.nBalls} / ${sim.gears.length}`;
+  $('h-shoot').textContent = aimNow ? (aimNow.ok ? `In range ${(aimNow.range / 12).toFixed(1)} ft` : `${aimNow.reason}${aimNow.range ? ` (${(aimNow.range / 12).toFixed(1)} ft)` : ''}`) : '—';
+  const c = player.climb;
+  $('h-climb').textContent = c ? { attach: 'Latching…', up: `Climbing ${(player.lift + player.height).toFixed(0)}″`, hold: 'Pressing TOUCHPAD', down: 'Lowering' }[c.phase]
+    : (sim.ropes.some((r) => ropeTouchpad.get(r)?.alliance === state.alliance && sim.canClimb(player, r)) ? 'Rope in reach — press T'
+      : (match.running && !sim.ropes.some((r) => r.deployed) ? 'Ropes stowed until 0:30' : '—'));
+  if (disabled()) $('h-input').textContent = 'Disabled';
+}
+
+// ---------- loop ----------
+function onResize() { camera.aspect = host.clientWidth / host.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(host.clientWidth, host.clientHeight); }
+window.addEventListener('resize', onResize);
+setCam('chase');
+let last = performance.now();
+renderer.setAnimationLoop((now) => {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  readInput();
+  updateMechanisms(dt);
+  sim.step(dt, Math.max(2, Math.ceil(dt * 240)));
+  match.update(dt, robotInfo(), performance.now());
+  if (match.state !== lastPeriod) {
+    beep({ teleop: 'teleop', post: 'end' }[match.state] || '');
+    if (lastPeriod === 'auto') beep('autoEnd');
+    lastPeriod = match.state;
+  }
+  if (!endgameBeeped && match.state === 'teleop' && match.periodLeft() <= RULES.endgame) {
+    endgameBeeped = true; beep('endgame');
+    for (const r of sim.ropes) sim.deployRope(r);
+    match.log('PILOTS deploy the ROPES', null, 'period');
+  }
+  syncMatchVisuals(dt);
+  renderBoard(dt);
+  if (toastT > 0 && (toastT -= dt) <= 0) { if (toastQueue.length) showToast(toastQueue.shift()); else toastEl.className = 'toast'; }
+  for (const [r, m] of robotMeshes) m.update(r, dt);
+  syncPieces();
+  syncRopes();
+  updateCamera(dt);
+  if (hoverDirty) { hoverDirty = false; updateHover(); renderReadout(); }
+  updateHud(dt);
+  renderer.render(scene, camera);
+});
+window.__fieldReady = true;
+</script>
+<script>
+  window.addEventListener('error', (e) => { window.__fieldError = e.message; });
+  setTimeout(() => {
+    if (window.__fieldReady) return;
+    const d = document.createElement('div');
+    d.className = 'err';
+    d.textContent = 'The 3D view did not start' + (window.__fieldError ? ' (' + window.__fieldError + ')' : '') +
+      '. It needs WebGL and a connection to cdn.jsdelivr.net. Reload the page to try again.';
+    document.body.appendChild(d);
+  }, 12000);
+</script>
+<noscript><div class="err">This sim needs JavaScript and WebGL.</div></noscript>
+</body>
+</html>

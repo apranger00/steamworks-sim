@@ -1,0 +1,9 @@
+* text=auto
+*.cs diff=csharp
+*.unity merge=unityyamlmerge eol=lf
+*.prefab merge=unityyamlmerge eol=lf
+*.asset merge=unityyamlmerge eol=lf
+*.meta eol=lf
+# Large generated reference mesh: don't diff
+UnityProject/Assets/Steamworks/Reference/*.obj -diff linguist-generated
+UnityProject/Assets/Steamworks/Data/*.json -diff linguist-generated
