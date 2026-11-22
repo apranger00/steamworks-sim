@@ -104,7 +104,7 @@ namespace SteamworksSim.UI
         // ---------------------------------------------------------------- controls
         RectTransform BuildControls(Transform parent)
         {
-            var c = Ui.Column(parent, "Controls", 1100f, 6f, 0, false);
+            var c = Ui.Column(parent, "Controls", 1100f, 4f, 0, false);
             var header = Ui.Row(c, 34f, 12f);
             Ui.SetWidth(Ui.Label(header, "", 20, Ui.Muted), 200f, 1f);
             Ui.SetWidth(Ui.Label(header, "Keyboard", 20, Ui.Muted, TextAnchor.MiddleCenter), 300f);
@@ -114,18 +114,18 @@ namespace SteamworksSim.UI
             foreach (var e in GameControls.Entries)
             {
                 var entry = e;
-                var row = Ui.Row(c, 42f, 12f);
-                Ui.SetWidth(Ui.Label(row, entry.label, 22, Ui.TextColor), 200f, 1f);
+                var row = Ui.Row(c, 36f, 12f);
+                Ui.SetWidth(Ui.Label(row, entry.label, 20, Ui.TextColor), 200f, 1f);
                 var br = new BindingRow { entry = entry };
                 Text kbLabel = null;
-                var kb = Ui.Button(row, "", () => StartRebind(entry, false, kbLabel), 42f, 21);
+                var kb = Ui.Button(row, "", () => StartRebind(entry, false, kbLabel), 36f, 19);
                 kbLabel = Ui.LabelOf(kb);
                 Ui.SetWidth(kb, 300f);
                 br.keyboard = kbLabel;
                 if (entry.gamepadIndex >= 0)
                 {
                     Text padLabel = null;
-                    var pad = Ui.Button(row, "", () => StartRebind(entry, true, padLabel), 42f, 21);
+                    var pad = Ui.Button(row, "", () => StartRebind(entry, true, padLabel), 36f, 19);
                     padLabel = Ui.LabelOf(pad);
                     Ui.SetWidth(pad, 300f);
                     br.gamepad = padLabel;

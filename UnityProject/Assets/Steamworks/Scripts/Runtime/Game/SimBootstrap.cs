@@ -43,8 +43,6 @@ namespace SteamworksSim.Game
         public MatchClock Clock { get; } = new MatchClock();
         public MatchScore Score { get; } = new MatchScore();
 
-        // BASE LINE for AUTO mobility (spec X, inches; Data/targets.json baseLineX), red at -X, blue at +X
-        const float BaseLineX = 230.6f;
         [Tooltip("Seconds after 0:00 before the final score slides in.")]
         public float resultsDelay = 2f;
         public RobotLibrary.LoadResult Library => library;
@@ -55,8 +53,15 @@ namespace SteamworksSim.Game
         RobotDefinition current;
         GameObject player, defender;
         RobotDefinition defenderDef;
-        readonly Dictionary<GameObject, int> mobilityState = new Dictionary<GameObject, int>(); // 1 eligible, 2 started past the line, 3 scored
+        RobotMechanisms playerMech, defenderMech;
         float resultsAt = -1f;
+        TargetsFile targets;
+        MatchRules rules;
+        FuelPool fuel;
+        RopeSystem ropes;
+        FieldAnimator animator;
+        public MatchRules Rules => rules;
+        public RobotMechanisms PlayerMechanisms => playerMech;
         TankDrive playerDrive;
         FieldMaterials ownMaterials;
         MatchSounds sounds;
@@ -100,14 +105,29 @@ namespace SteamworksSim.Game
             }
             sounds = gameObject.AddComponent<MatchSounds>();
             Clock.Cue += OnCue;
+
+            // Scoring: rules (port of the prototype's game.js), FUEL, ROPES, moving field parts
+            targets = TargetsFile.Load();
+            rules = new MatchRules(targets);
+            rules.Log += (al, text) => Debug.Log($"[Match {Clock.Phase}] {(al != null ? al.ToUpper() + ": " : "")}{text}");
+            fuel = gameObject.AddComponent<FuelPool>();
+            fuel.GoalEntered = (al, goal) =>
+                (Clock.Phase == MatchPhase.Auto || Clock.Phase == MatchPhase.AutoPause || Clock.Phase == MatchPhase.Teleop) && rules.FuelLoaded(al, goal);
+            ropes = gameObject.AddComponent<RopeSystem>();
+            animator = gameObject.AddComponent<FieldAnimator>();
             hud = gameObject.AddComponent<MatchHud>();
             hud.Init(this);
             menus = gameObject.AddComponent<GameMenus>();
             menus.Init(this);
+            rules.RotorStarted += (al, k) => hud.Toast($"{al.ToUpper()} ROTOR {k + 1} IS ACTIVE", al == "red" ? new Color(1f, 0.45f, 0.42f) : new Color(0.45f, 0.65f, 1f));
         }
 
         void Start()
         {
+            // the field has been built by now (FieldBuilder.Awake), so its materials and moving parts exist
+            fuel.Init(targets, Mats.Get("fuel"));
+            ropes.Init(RopesFile.Load(), targets, Mats.Get("rope"));
+            animator.Init(field, targets, Mats);
             GameSettings.Apply();
             if (skipMenus) { SpawnPlayer(); StartMatchFromSelect(); }
             else ShowMainMenu();
@@ -182,7 +202,9 @@ namespace SteamworksSim.Game
         {
             sounds.StopAll();
             Score.Clear();
-            mobilityState.Clear();
+            rules.Reset();
+            fuel.Clear();
+            ropes.StowAll(); // the PILOTS drop them with 30 s left
             resultsAt = -1f;
             ResetPlayer();
             if (defender != null) PlaceDefender();
@@ -246,6 +268,9 @@ namespace SteamworksSim.Game
         {
             resultsAt = -1f;
             SetFrozen(false);
+            if (fuel != null) fuel.Clear();
+            if (ropes != null) ropes.HangAll();
+            rules?.Reset();
             Clock.Stop();
             if (sounds != null) sounds.StopAll();
             // remember the camera the player was driving with, for the next match
@@ -302,7 +327,7 @@ namespace SteamworksSim.Game
         {
             if (player != null) Destroy(player);
             if (defender != null) Destroy(defender);
-            player = defender = null; playerDrive = null;
+            player = defender = null; playerDrive = null; playerMech = defenderMech = null;
             if (cameraRig != null) cameraRig.robot = null;
         }
 
@@ -311,6 +336,9 @@ namespace SteamworksSim.Game
             if (player != null) Destroy(player);
             player = RobotFactory.Build(current, alliance, Mats, $"Player robot: {current.name}");
             playerDrive = player.GetComponent<TankDrive>();
+            playerMech = player.AddComponent<RobotMechanisms>();
+            playerMech.Init(current, alliance, 1, "Your robot", fuel, ropes, () => rules, targets);
+            playerMech.Toast += t => hud.Toast(t, Color.white);
             if (cameraRig != null) cameraRig.robot = player.transform;
             ResetPlayer();
         }
@@ -318,6 +346,7 @@ namespace SteamworksSim.Game
         void ResetPlayer()
         {
             if (player == null) return;
+            if (playerMech != null) playerMech.ResetState(); // off the rope, back on the carpet
             // Bumpers touching the alliance wall, facing the field (prototype startPose)
             float x = Side * (326f - current.LengthWithBumpers / 2f - 0.5f);
             Place(player, x, StationY[station], Side < 0 ? 0f : 180f);
@@ -352,69 +381,82 @@ namespace SteamworksSim.Game
 
         void ToggleDefender()
         {
-            if (defender != null) { Destroy(defender); defender = null; Say("Defender removed"); return; }
+            if (defender != null) { Destroy(defender); defender = null; defenderMech = null; Say("Defender removed"); return; }
             var def = library.robots.Find(r => r.id == "sim-6wd") ?? current;
             string other = alliance == "red" ? "blue" : "red";
             defenderDef = def;
             defender = RobotFactory.Build(def, other, Mats, "Defender (idle)");
             defender.GetComponent<TankDrive>().idle = true;
+            defenderMech = defender.AddComponent<RobotMechanisms>();
+            defenderMech.Init(def, other, 2, "Defender", fuel, ropes, () => rules, targets);
             PlaceDefender();
             Say("Defender added: parked sideways, brakes on");
         }
 
         // Parked sideways in front of your station, on your side of the field
-        void PlaceDefender() => Place(defender, Side * 60f, StationY[station], 90f);
+        void PlaceDefender()
+        {
+            if (defenderMech != null) defenderMech.ResetState();
+            Place(defender, Side * 60f, StationY[station], 90f);
+        }
 
         // ---------------------------------------------------------------- loop
         void FixedUpdate()
         {
-            if (State != AppState.Playing) return;
-            Clock.Tick(Time.fixedDeltaTime);
-            if (Clock.Phase == MatchPhase.Auto)
+            if (rules == null) return;
+            float dt = Time.fixedDeltaTime;
+            if (State == AppState.Playing)
             {
-                CheckMobility(player, alliance, current);
-                CheckMobility(defender, alliance == "red" ? "blue" : "red", defenderDef);
+                // the tick belongs to the phase it starts in; the 3 s pause after AUTO scores at TELEOP values
+                var phase = Clock.Phase;
+                if (phase == MatchPhase.Auto || phase == MatchPhase.AutoPause || phase == MatchPhase.Teleop)
+                    rules.Advance(dt, phase == MatchPhase.Auto ? Period.Auto : Period.Teleop, RobotsForRules());
+                Clock.Tick(dt);
+                rules.Fill(Score);
             }
+            bool on = State == AppState.Playing && Clock.Running;
+            if (playerMech != null) playerMech.enabledByMatch = on;
+            if (defenderMech != null) defenderMech.enabledByMatch = false; // parked
+            ropes.SetBodies(Bodies());
+            animator.Sync(rules, dt, ClimbTop);
         }
 
-        /// <summary>AUTO mobility (5 points): a robot that starts behind its BASE LINE and gets a bumper past it.</summary>
-        void CheckMobility(GameObject robot, string robotAlliance, RobotDefinition d)
+        IEnumerable<RobotMechanisms> Mechs()
         {
-            if (robot == null || d == null) return;
-            mobilityState.TryGetValue(robot, out int st);
-            if (st >= 2) return;
-            int side = robotAlliance == "blue" ? 1 : -1;
-            bool past = BumperPast(robot.transform, d, side, side * BaseLineX);
-            if (st == 0)
-            {
-                // the first time a robot is seen in AUTO decides whether it can earn mobility
-                mobilityState[robot] = past ? 2 : 1;
-                if (past) return;
-            }
-            if (past)
-            {
-                mobilityState[robot] = 3;
-                Score.Of(robotAlliance).mobility += MatchScore.MobilityPoints;
-            }
+            if (playerMech != null) yield return playerMech;
+            if (defenderMech != null) yield return defenderMech;
         }
 
-        static bool BumperPast(Transform t, RobotDefinition d, int side, float lineX)
+        List<RulesRobot> RobotsForRules()
         {
-            Vector3 f = t.forward * (d.LengthWithBumpers * 0.5f * Units.Inch), r = t.right * (d.WidthWithBumpers * 0.5f * Units.Inch), p = t.position;
-            Vector3[] corners = { p + f + r, p + f - r, p - f + r, p - f - r };
-            foreach (var c in corners)
-            {
-                float x = Units.ToSpec(c).x;
-                if (side < 0 ? x > lineX : x < lineX) return true;
-            }
-            return false;
+            var list = new List<RulesRobot>();
+            foreach (var m in Mechs())
+                list.Add(new RulesRobot { id = m.id, name = m.displayName, alliance = m.alliance, corners = m.Corners(), climbTouchpad = m.ClimbTouchpad, topZ = m.TopZ });
+            return list;
+        }
+
+        IEnumerable<RopeSystem.Body> Bodies() { foreach (var m in Mechs()) yield return m.AsBody(); }
+
+        float ClimbTop(string al, int touchpad)
+        {
+            foreach (var m in Mechs()) if (m.alliance == al && m.ClimbTouchpad == touchpad) return m.TopZ;
+            return -1f;
         }
 
         void OnCue(MatchCue cue)
         {
             sounds.Play(cue);
-            if (cue == MatchCue.MatchStart) hud.Banner("AUTONOMOUS");
-            if (cue == MatchCue.MatchEnd) resultsAt = Time.time + resultsDelay; // final score slides in shortly after
+            switch (cue)
+            {
+                case MatchCue.MatchStart: hud.Banner("AUTONOMOUS"); break;
+                case MatchCue.AutoEnd: rules.EndAuto(); break;
+                case MatchCue.Endgame: ropes.DeployAll(); break; // PILOTS drop the ROPES
+                case MatchCue.MatchEnd:
+                    rules.EndMatch();
+                    rules.Fill(Score);
+                    resultsAt = Time.time + resultsDelay; // final score slides in shortly after
+                    break;
+            }
         }
 
         void Update()
@@ -422,6 +464,13 @@ namespace SteamworksSim.Game
             var input = reader.Read();
             bool driving = State == AppState.Playing && Clock.Running; // disabled during the countdown and after 0:00
             if (playerDrive != null) playerDrive.input = driving ? input : RobotInput.Idle;
+            if (playerMech != null)
+            {
+                playerMech.shootHeld = driving && input.shoot;
+                playerMech.dumpHeld = driving && input.dump;
+                if (driving && reader.PlaceGear) playerMech.PlaceGear();
+                if (driving && reader.Climb) playerMech.ToggleClimb();
+            }
             if (menus.Rebinding) return;
 
             switch (State)
@@ -465,7 +514,7 @@ namespace SteamworksSim.Game
                 label = new GUIStyle(GUI.skin.label) { fontSize = 13, richText = true };
                 big = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, richText = true };
             }
-            float w = 300f, h = 150f, x = Screen.width - w - 16f, y = Screen.height - h - 16f;
+            float w = 330f, h = 205f, x = Screen.width - w - 16f, y = Screen.height - h - 16f;
             GUI.Box(new Rect(x, y, w, h), GUIContent.none, box);
             GUILayout.BeginArea(new Rect(x + 12f, y + 8f, w - 24f, h - 16f));
             float speedFt = playerDrive != null ? playerDrive.Speed / 0.3048f : 0f;
@@ -474,6 +523,8 @@ namespace SteamworksSim.Game
             float heading = Mathf.Repeat(90f - player.transform.eulerAngles.y, 360f);
             GUILayout.Label($"{current.name}  <color=#8e99a3>({alliance}, {StationName[station]})</color>", label);
             GUILayout.Label($"Position {spec.x:0}, {spec.y:0} in   Heading {heading:0}°", label);
+            if (playerMech != null)
+                GUILayout.Label($"Shooter: {playerMech.ShooterStatus}\nGear: {playerMech.GearStatus}\nClimb: {playerMech.ClimbStatus}", label);
             GUILayout.Label($"Camera {cameraRig?.mode}{(cameraRig != null && cameraRig.chaseReversed && cameraRig.mode == RobotCameraRig.Mode.Chase ? " (front)" : "")}   Input {reader.LastSource}", label);
             if (!string.IsNullOrEmpty(message) && Time.unscaledTime - messageTime < 2.5f)
                 GUILayout.Label($"<color=#ffffff>{message}</color>", label);

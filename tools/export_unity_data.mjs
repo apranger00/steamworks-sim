@@ -16,6 +16,9 @@ import { layout, colliders, targets, ropes, DIM } from '../prototype/web/field.j
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'UnityProject/Assets/Steamworks/Data');
 mkdirSync(out, { recursive: true });
+// targets and ropes are loaded at runtime with Resources.Load, so they live under Resources/Data
+const outRes = join(root, 'UnityProject/Assets/Steamworks/Resources/Data');
+mkdirSync(outRes, { recursive: true });
 
 const flat = (pts) => pts.flat();
 const r4 = (v) => Math.round(v * 1e4) / 1e4;
@@ -55,9 +58,9 @@ const alliance = (a) => ({
   lifts: a.lifts.map((l) => ({ name: l.name, u: l.u, tip: l.tip, z: l.z })),
   touchpads: a.touchpads.map((t) => ({ c: t.c, z: t.z })),
 });
-writeFileSync(join(out, 'targets.json'), JSON.stringify(clean({ version: 1, red: alliance(tg.red), blue: alliance(tg.blue) })));
+writeFileSync(join(outRes, 'targets.json'), JSON.stringify(clean({ version: 1, red: alliance(tg.red), blue: alliance(tg.blue) })));
 
-writeFileSync(join(out, 'ropes.json'), JSON.stringify(clean({ version: 1, ropes: ropes(lay).map((r) => ({
+writeFileSync(join(outRes, 'ropes.json'), JSON.stringify(clean({ version: 1, ropes: ropes(lay).map((r) => ({
   name: r.name, anchor: r.anchor, pin: r.pin, pinR: r.pinR, length: r.length, radius: r.radius, out: r.out })) })));
 
 console.log(`items ${items.length}, colliders ${cols.prisms.length}, fuel ${lay.fuel.length}, gears ${lay.gears.length}, ropes ${ropes(lay).length}`);

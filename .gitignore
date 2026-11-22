@@ -35,3 +35,9 @@ UnityProject/sysinfo.txt
 Thumbs.db
 *.swp
 node_modules/
+
+# Licensed fonts that may not be redistributed (e.g. Haymaker personal licence): keep them local only
+UnityProject/Assets/Steamworks/Resources/Fonts/Title.ttf
+UnityProject/Assets/Steamworks/Resources/Fonts/Title.otf
+UnityProject/Assets/Steamworks/Resources/Fonts/Title.ttf.meta
+UnityProject/Assets/Steamworks/Resources/Fonts/Title.otf.meta

@@ -4,8 +4,7 @@ namespace SteamworksSim.Game
 {
     /// <summary>
     /// One alliance's points, split the way the field's score screen shows them (2017 manual Table 4-1).
-    /// Step 2.5 scores AUTO mobility; FUEL, ROTORS and TAKEOFF are filled in when game pieces and
-    /// climbing arrive (step 3, a port of prototype/web/game.js).
+    /// Filled from MatchRules (the port of prototype/web/game.js) every tick.
     /// </summary>
     public class AllianceScore
     {
@@ -19,13 +18,14 @@ namespace SteamworksSim.Game
         public int teleopRotors;    // TELEOP: 40 per ROTOR
         public int takeoff;         // TELEOP: 50 per robot ready for takeoff
         public int penalty;         // foul points awarded by the other alliance's fouls
+        public int bonus;           // playoff bonuses (40 kPa: 20, four ROTORS: 100)
 
         public float kPa;           // pressure accumulated
         public int rotorsTurning;   // 0..4
         public readonly List<string> robots = new List<string>();
 
         public int Auto => mobility + autoFuel + autoRotors;
-        public int Teleop => teleopFuel + teleopRotors + takeoff;
+        public int Teleop => teleopFuel + teleopRotors + takeoff + bonus;
         public int Total => Auto + Teleop + penalty;
 
         public bool PressureRp => kPa >= 40f;     // 40 kPa: +1 ranking point
@@ -33,7 +33,7 @@ namespace SteamworksSim.Game
 
         public void Clear()
         {
-            mobility = autoFuel = autoRotors = teleopFuel = teleopRotors = takeoff = penalty = 0;
+            mobility = autoFuel = autoRotors = teleopFuel = teleopRotors = takeoff = penalty = bonus = 0;
             kPa = 0f; rotorsTurning = 0;
             robots.Clear();
         }

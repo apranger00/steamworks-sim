@@ -20,6 +20,7 @@ namespace SteamworksSim.InputHandling
         public static InputActionAsset Asset { get; private set; }
         public static InputAction Throttle, Turn, LeftStick, RightStick;
         public static InputAction Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause;
+        public static InputAction Shoot, Dump, PlaceGear, Climb;
 
         /// <summary>One line in the Controls menu.</summary>
         public class Entry
@@ -50,6 +51,10 @@ namespace SteamworksSim.InputHandling
             LeftStick = map.AddAction("Left stick", InputActionType.Value, "<Gamepad>/leftStick", expectedControlLayout: "Vector2");
             RightStick = map.AddAction("Right stick", InputActionType.Value, "<Gamepad>/rightStick", expectedControlLayout: "Vector2");
 
+            Shoot = Button(map, "Shoot (high goal)", "<Keyboard>/space", "<Gamepad>/rightTrigger");
+            Dump = Button(map, "Dump (low goal)", "<Keyboard>/q", "<Gamepad>/leftTrigger");
+            PlaceGear = Button(map, "Place GEAR", "<Keyboard>/e", "<Gamepad>/buttonSouth");
+            Climb = Button(map, "Climb / let go", "<Keyboard>/t", "<Gamepad>/buttonWest");
             Precision = Button(map, "Precision", "<Keyboard>/shift", "<Gamepad>/leftShoulder");
             NextCamera = Button(map, "Next camera", "<Keyboard>/c", "<Gamepad>/buttonNorth");
             FlipChase = Button(map, "Flip chase camera", "<Keyboard>/v", "<Gamepad>/leftStickPress");
@@ -62,7 +67,7 @@ namespace SteamworksSim.InputHandling
             Entries.Add(new Entry { label = "Drive backward", action = Throttle, keyboardIndex = 1, driveDirection = 1 });
             Entries.Add(new Entry { label = "Turn left", action = Turn, keyboardIndex = 2, driveDirection = 2 });
             Entries.Add(new Entry { label = "Turn right", action = Turn, keyboardIndex = 1, driveDirection = 3 });
-            foreach (var a in new[] { Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause })
+            foreach (var a in new[] { Shoot, Dump, PlaceGear, Climb, Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause })
                 Entries.Add(new Entry { label = a == Precision ? "Precision (slow) driving" : a.name, action = a, keyboardIndex = 0, gamepadIndex = 1 });
 
             string json = PlayerPrefs.GetString(PrefsKey, "");

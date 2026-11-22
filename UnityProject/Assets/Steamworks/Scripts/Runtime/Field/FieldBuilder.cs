@@ -27,6 +27,10 @@ namespace SteamworksSim.Field
         public bool reserveGear = false;
         [Tooltip("Layer for the static collision prisms.")]
         public int colliderLayer = 0;
+        [Tooltip("Build ROTORS and TOUCHPADS as separate objects so the match can spin and light them.")]
+        public bool separateAnimatedParts = true;
+
+        public const string AnimatedName = "Animated";
 
         public const string RootName = "Generated Field";
         public Transform GeneratedRoot { get; private set; }
@@ -72,12 +76,24 @@ namespace SteamworksSim.Field
                 return mb;
             }
 
+            // Moving parts (ROTORS, TOUCHPADS): own mesh per part, around a pivot
+            var animated = new Dictionary<string, (Vector3 pivot, Dictionary<string, MeshBuilder> meshes)>();
+            MeshBuilder A(string key, Vector3 pivotSpec, string mat)
+            {
+                if (!animated.TryGetValue(key, out var e)) animated[key] = e = (pivotSpec, new Dictionary<string, MeshBuilder>());
+                if (!e.meshes.TryGetValue(mat, out var mb)) e.meshes[mat] = mb = new MeshBuilder();
+                return mb;
+            }
+            int touchpadCount = 0;
+
             foreach (var it in data.items)
             {
                 if (it.mat == "rope") continue; // ropes are simulated objects, not static geometry
                 if (it.group == "pieces" && !includeStagedPieces) continue;
                 string group = string.IsNullOrEmpty(it.group) ? "field" : it.group;
-                var mb = B(group, it.mat);
+                Vector3 pivot = default;
+                string animKey = separateAnimatedParts ? AnimatedKey(it, ref touchpadCount, out pivot) : null;
+                var mb = animKey != null ? A(animKey, pivot, it.mat) : B(group, it.mat);
                 switch (it.type)
                 {
                     case "box":
@@ -146,6 +162,28 @@ namespace SteamworksSim.Field
                 go.isStatic = !Application.isPlaying;
             }
 
+            if (animated.Count > 0)
+            {
+                var animRoot = new GameObject(AnimatedName).transform;
+                animRoot.SetParent(GeneratedRoot, false);
+                foreach (var kv in animated)
+                {
+                    var pivot = new GameObject(kv.Key).transform;
+                    pivot.SetParent(animRoot, false);
+                    pivot.localPosition = Units.ToUnity(kv.Value.pivot);
+                    foreach (var m in kv.Value.meshes)
+                    {
+                        var go = new GameObject(m.Key);
+                        go.transform.SetParent(pivot, false);
+                        go.transform.localPosition = -pivot.localPosition; // vertices are in field space
+                        go.AddComponent<MeshFilter>().sharedMesh = m.Value.ToMesh($"{kv.Key}_{m.Key}");
+                        var mr = go.AddComponent<MeshRenderer>();
+                        mr.sharedMaterial = Materials.Get(m.Key);
+                        if (m.Key == "touchpad" || m.Key == "dome") mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    }
+                }
+            }
+
             if (buildColliders && collidersJson != null) BuildColliders(JsonUtility.FromJson<ColliderFile>(collidersJson.text));
 
             if (preview) SetHideFlagsRecursive(GeneratedRoot, HideFlags.DontSave);
@@ -177,6 +215,46 @@ namespace SteamworksSim.Field
                 mc.convex = true; // every prism is convex by construction
                 go.isStatic = true;
             }
+        }
+
+        static readonly int[] SmallRotorAngles = { 90, 210, 330 }; // ROTORS 2, 3, 4 (numbering as in the prototype)
+
+        /// <summary>
+        /// Name of the moving part this item belongs to, or null for static geometry. ROTOR parts pivot on their
+        /// vertical axis; each TOUCHPAD plate and dome is its own part ("RED TOUCHPAD #0").
+        /// </summary>
+        static string AnimatedKey(FieldItem it, ref int touchpadCount, out Vector3 pivot)
+        {
+            pivot = Vector3.zero;
+            string n = it.name ?? "";
+            int sp = n.IndexOf(' ');
+            if (sp <= 0) return null;
+            string al = n.Substring(0, sp);
+            if (al != "RED" && al != "BLUE") return null;
+            if (n.EndsWith("ROTOR 1 (central)"))
+            {
+                pivot = new Vector3(it.c[0], it.c[1], 0f);
+                return $"{al} ROTOR 1";
+            }
+            if (n.Contains("small ROTOR (") && (n.EndsWith(" hub") || n.EndsWith(" blade")))
+            {
+                for (int k = 0; k < SmallRotorAngles.Length; k++)
+                {
+                    if (!n.Contains($"({SmallRotorAngles[k]}°)")) continue;
+                    var tg = TargetsFile.Load();
+                    var ac = tg != null ? tg.Of(al == "BLUE" ? "blue" : "red").airship : new[] { 0f, 0f };
+                    float a = SmallRotorAngles[k] * Mathf.Deg2Rad;
+                    pivot = new Vector3(ac[0] + Mathf.Cos(a) * 53f, ac[1] + Mathf.Sin(a) * 53f, 0f);
+                    return $"{al} ROTOR {k + 2}";
+                }
+                return null;
+            }
+            if (n == $"{al} TOUCHPAD" || n == $"{al} TOUCHPAD dome")
+            {
+                pivot = new Vector3(it.c[0], it.c[1], it.c[2]);
+                return $"{n} #{touchpadCount++}";
+            }
+            return null;
         }
 
         static void SetHideFlagsRecursive(Transform t, HideFlags flags)
