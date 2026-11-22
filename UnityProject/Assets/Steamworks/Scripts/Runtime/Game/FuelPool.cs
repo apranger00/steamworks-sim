@@ -31,7 +31,7 @@ namespace SteamworksSim.Game
             public Rigidbody rb;
             public SphereCollider col;
             public Vector3 prev;          // spec position last tick
-            public Collider ignored;      // the robot it just left (no collision for a moment)
+            public Collider[] ignored;    // the robot it just left (no collision for a moment)
             public float ignoreUntil;
             public float slow;            // seconds spent nearly still behind a boiler face
         }
@@ -78,7 +78,7 @@ namespace SteamworksSim.Game
         }
 
         /// <summary>Adds a ball at a spec position (in) with a spec velocity (in/s). It ignores `owner` briefly.</summary>
-        public void Spawn(Vector3 specPos, Vector3 specVel, Collider owner = null, float ownerTime = 0.3f)
+        public void Spawn(Vector3 specPos, Vector3 specVel, Collider[] owner = null, float ownerTime = 0.3f)
         {
             Ball b;
             if (free.Count > 0) { b = free[free.Count - 1]; free.RemoveAt(free.Count - 1); }
@@ -91,9 +91,9 @@ namespace SteamworksSim.Game
             b.rb.angularVelocity = Vector3.zero;
             b.prev = specPos;
             b.slow = 0f;
-            if (owner != null)
+            if (owner != null && owner.Length > 0)
             {
-                Physics.IgnoreCollision(b.col, owner, true);
+                foreach (var c in owner) if (c != null) Physics.IgnoreCollision(b.col, c, true);
                 b.ignored = owner; b.ignoreUntil = Time.time + ownerTime;
             }
             active.Add(b);
@@ -101,8 +101,15 @@ namespace SteamworksSim.Game
 
         void Release(Ball b)
         {
-            if (b.ignored != null) { Physics.IgnoreCollision(b.col, b.ignored, false); b.ignored = null; }
+            Unignore(b);
             b.go.SetActive(false);
+        }
+
+        static void Unignore(Ball b)
+        {
+            if (b.ignored == null) return;
+            foreach (var c in b.ignored) if (c) Physics.IgnoreCollision(b.col, c, false); // skip destroyed robots
+            b.ignored = null;
         }
 
         public void Clear()
@@ -117,7 +124,7 @@ namespace SteamworksSim.Game
             for (int i = active.Count - 1; i >= 0; i--)
             {
                 var b = active[i];
-                if (b.ignored != null && now >= b.ignoreUntil) { if (b.ignored) Physics.IgnoreCollision(b.col, b.ignored, false); b.ignored = null; }
+                if (b.ignored != null && now >= b.ignoreUntil) Unignore(b);
 
                 var p = b.rb.position;
                 var cur = Units.ToSpec(p);

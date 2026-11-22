@@ -57,10 +57,30 @@ namespace SteamworksSim.Robots
             // Step 2: robots stay on the carpet and never tip. (Climbing in step 3 releases Y.)
             rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
-            var col = root.AddComponent<BoxCollider>();
-            col.size = new Vector3(W, H - clearance, L);
-            col.center = new Vector3(0f, clearance + (H - clearance) / 2f, 0f);
-            col.sharedMaterial = bumperMaterial;
+            if (d.intake != null && d.intake.fuelFromChute)
+            {
+                // Open-top hopper: a low base under the whole robot plus a ring of walls around the hopper, so FUEL
+                // can fall in from above (a closed box would act like a lid)
+                const float floorZ = 4.5f * In;
+                float hl = HopperLength(d) * In, hw = HopperWidth(d) * In;
+                var col = root.AddComponent<BoxCollider>();
+                col.size = new Vector3(W, floorZ - clearance, L);
+                col.center = new Vector3(0f, clearance + (floorZ - clearance) / 2f, 0f);
+                col.sharedMaterial = bumperMaterial;
+                float wallH = H - floorZ, cy = floorZ + wallH / 2f;
+                float ringL = (L - hl) / 2f, ringW = (W - hw) / 2f;
+                Wall(root, "front", new Vector3(0f, cy, (hl + ringL) / 2f), new Vector3(W, wallH, ringL));
+                Wall(root, "back", new Vector3(0f, cy, -(hl + ringL) / 2f), new Vector3(W, wallH, ringL));
+                Wall(root, "left", new Vector3(-(hw + ringW) / 2f, cy, 0f), new Vector3(ringW, wallH, hl));
+                Wall(root, "right", new Vector3((hw + ringW) / 2f, cy, 0f), new Vector3(ringW, wallH, hl));
+            }
+            else
+            {
+                var col = root.AddComponent<BoxCollider>();
+                col.size = new Vector3(W, H - clearance, L);
+                col.center = new Vector3(0f, clearance + (H - clearance) / 2f, 0f);
+                col.sharedMaterial = bumperMaterial;
+            }
 
             var drive = root.AddComponent<TankDrive>();
             drive.Configure(d);
@@ -76,6 +96,15 @@ namespace SteamworksSim.Robots
             info.definition = d;
             info.alliance = alliance;
             return root;
+        }
+
+        static void Wall(GameObject root, string side, Vector3 center, Vector3 size)
+        {
+            var go = new GameObject("Collider (hopper " + side + ")");
+            go.transform.SetParent(root.transform, false);
+            var c = go.AddComponent<BoxCollider>();
+            c.center = center; c.size = size;
+            c.sharedMaterial = bumperMaterial;
         }
 
         /// <summary>Inside of the open-top hopper (in): the frame less 2 in each side.</summary>

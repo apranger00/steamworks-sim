@@ -52,7 +52,7 @@ namespace SteamworksSim.Game
         TargetsFile targets;
         Rigidbody rb;
         TankDrive drive;
-        Collider body;
+        Collider[] body; // every collider of the robot (an open-hopper robot has several)
         Transform turret, heldGear;
         GameObject[] hopperBalls;
         int shownFuel = -1;
@@ -72,7 +72,7 @@ namespace SteamworksSim.Game
             fuel = f; ropes = r; targets = t; getRules = rulesGetter;
             rb = GetComponent<Rigidbody>();
             drive = GetComponent<TankDrive>();
-            body = GetComponent<Collider>();
+            body = GetComponentsInChildren<Collider>();
             BuildVisuals();
         }
         Func<MatchRules> getRules;
@@ -365,9 +365,10 @@ namespace SteamworksSim.Game
             var d = new Vector2(p.x, p.y) - Center;
             float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left);
             bool caught = false;
-            // open-top hopper: a ball coming down over the robot
-            if (def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= HalfL && Mathf.Abs(ly) <= HalfW
-                && p.z >= TopZ && p.z <= TopZ + def.intake.hopperDepth) caught = true;
+            // open-top hopper: a ball that has dropped in over the rim (or rests inside it)
+            float hl = RobotFactory.HopperLength(def) / 2f, hw = RobotFactory.HopperWidth(def) / 2f;
+            if (def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= hl && Mathf.Abs(ly) <= hw
+                && p.z >= Lift + 4.5f && p.z <= TopZ + 1f) caught = true;
             // floor intake across the front bumper
             if (!caught && def.intake.fuelFromFloor && enabledByMatch && p.z <= FuelPool.RadiusIn + 2f
                 && lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f) caught = true;
