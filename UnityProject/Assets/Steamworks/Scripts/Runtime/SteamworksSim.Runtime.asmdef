@@ -2,7 +2,8 @@
     "name": "SteamworksSim.Runtime",
     "rootNamespace": "SteamworksSim",
     "references": [
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -7,7 +7,7 @@ namespace SteamworksSim.Cameras
 {
     /// <summary>
     /// Free look-around camera for the field (step 1). Right-drag orbits, middle-drag pans,
-    /// scroll zooms; keys 1-4 jump to presets. Robot cameras (chase / driver) arrive in step 2.
+    /// scroll zooms; keys 1-4 jump to presets. Also the menu background (autoSpin, allowInput off).
     /// </summary>
     public class FieldOrbitCamera : MonoBehaviour
     {
@@ -18,6 +18,10 @@ namespace SteamworksSim.Cameras
         public float yaw = 0f;     // degrees around +y
         public float pitch = 32f;  // degrees above the horizon
         public float orbitSpeed = 0.25f, panSpeed = 0.0025f, zoomSpeed = 0.0015f;
+        [Tooltip("Degrees per second of automatic turning (menu backgrounds).")]
+        public float autoSpin;
+        [Tooltip("Mouse and preset keys move the camera.")]
+        public bool allowInput = true;
 
         Vector3 goalTarget; float goalDistance, goalYaw, goalPitch; bool tweening;
 
@@ -31,6 +35,15 @@ namespace SteamworksSim.Cameras
         {
             SetPreset(p);
             target = goalTarget; distance = goalDistance; yaw = goalYaw; pitch = goalPitch;
+            tweening = false;
+            Apply();
+        }
+
+        /// <summary>Jumps straight to a view (no tween).</summary>
+        public void Set(Vector3 newTarget, float newDistance, float newYaw, float newPitch)
+        {
+            target = goalTarget = newTarget; distance = goalDistance = newDistance;
+            yaw = goalYaw = newYaw; pitch = goalPitch = newPitch;
             tweening = false;
             Apply();
         }
@@ -59,7 +72,7 @@ namespace SteamworksSim.Cameras
                 scroll = m.scroll.ReadValue().y;
                 orbit = m.rightButton.isPressed; pan = m.middleButton.isPressed;
             }
-            var k = Keyboard.current;
+            var k = allowInput ? Keyboard.current : null;
             if (k != null)
             {
                 if (k.digit1Key.wasPressedThisFrame) SetPreset(Preset.Overview);
@@ -71,11 +84,13 @@ namespace SteamworksSim.Cameras
             dx = Input.GetAxis("Mouse X") * 10f; dy = Input.GetAxis("Mouse Y") * 10f;
             scroll = Input.mouseScrollDelta.y * 120f;
             orbit = Input.GetMouseButton(1); pan = Input.GetMouseButton(2);
-            if (Input.GetKeyDown(KeyCode.Alpha1)) SetPreset(Preset.Overview);
+            if (allowInput && Input.GetKeyDown(KeyCode.Alpha1)) SetPreset(Preset.Overview);
             if (Input.GetKeyDown(KeyCode.Alpha2)) SetPreset(Preset.TopDown);
             if (Input.GetKeyDown(KeyCode.Alpha3)) SetPreset(Preset.RedWall);
             if (Input.GetKeyDown(KeyCode.Alpha4)) SetPreset(Preset.BlueWall);
 #endif
+            if (!allowInput) { dx = dy = scroll = 0f; orbit = pan = false; }
+            if (autoSpin != 0f) { yaw += autoSpin * Time.unscaledDeltaTime; goalYaw = yaw; }
             if (orbit || pan || Mathf.Abs(scroll) > 0.01f) tweening = false;
             if (tweening)
             {

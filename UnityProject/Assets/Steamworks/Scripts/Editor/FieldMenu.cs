@@ -1,5 +1,6 @@
 using SteamworksSim.Cameras;
 using SteamworksSim.Field;
+using SteamworksSim.Game;
 using UnityEditor;
 using UnityEngine;
 
@@ -43,6 +44,50 @@ namespace SteamworksSim.EditorTools
             Selection.activeObject = fb.gameObject;
             SceneView.lastActiveSceneView?.Frame(new Bounds(Vector3.up * 1f, new Vector3(18f, 3f, 9f)), false);
             Debug.Log("[Steamworks] Field created. Press Play to build it for real, or use Steamworks > Rebuild Field Preview after editing data.");
+        }
+
+        [MenuItem("Steamworks/Set Up Drive Test", priority = 2)]
+        public static void SetUpDriveTest()
+        {
+            var fb = Object.FindAnyObjectByType<FieldBuilder>();
+            if (fb == null) { CreateField(); fb = Object.FindAnyObjectByType<FieldBuilder>(); }
+            var cam = Camera.main;
+            if (cam == null)
+            {
+                var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
+                Undo.RegisterCreatedObjectUndo(camGo, "Create camera");
+                cam = camGo.AddComponent<Camera>();
+                camGo.AddComponent<AudioListener>();
+            }
+            if (cam.GetComponent<FieldOrbitCamera>() == null) Undo.AddComponent<FieldOrbitCamera>(cam.gameObject);
+            var rig = cam.GetComponent<RobotCameraRig>();
+            if (rig == null) rig = Undo.AddComponent<RobotCameraRig>(cam.gameObject);
+
+            var boot = Object.FindAnyObjectByType<SimBootstrap>();
+            if (boot == null)
+            {
+                var go = new GameObject("Sim");
+                Undo.RegisterCreatedObjectUndo(go, "Create Sim");
+                boot = go.AddComponent<SimBootstrap>();
+            }
+            boot.field = fb;
+            boot.cameraRig = rig;
+            EditorUtility.SetDirty(boot);
+            EditorUtility.SetDirty(cam.gameObject);
+            Selection.activeObject = boot.gameObject;
+
+            // A saved scene goes into the build list, so File > Build Profiles builds the game
+            var scenePath = boot.gameObject.scene.path;
+            if (!string.IsNullOrEmpty(scenePath))
+            {
+                var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+                if (!list.Exists(s => s.path == scenePath))
+                {
+                    list.Insert(0, new EditorBuildSettingsScene(scenePath, true));
+                    EditorBuildSettings.scenes = list.ToArray();
+                }
+            }
+            Debug.Log("[Steamworks] Game scene ready. Save the scene (Ctrl+S), run this menu once more to add it to the build list, then press Play.");
         }
 
         [MenuItem("Steamworks/Rebuild Field Preview", priority = 1)]
