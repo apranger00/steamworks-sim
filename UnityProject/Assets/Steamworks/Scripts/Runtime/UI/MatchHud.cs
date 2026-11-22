@@ -11,7 +11,9 @@ namespace SteamworksSim.UI
         SimBootstrap sim;
         GameObject root;
         Text period, time, banner, centerHint, cornerHint;
-        Image timerBg;
+        Image timerBg, countdownFill;
+        RectTransform countdownRoot;
+        Text countdownNumber;
         float bannerAt = -100f, hintRefresh;
 
         public void Init(SimBootstrap owner)
@@ -36,6 +38,25 @@ namespace SteamworksSim.UI
             Ui.Anchor(centerHint.rectTransform, new Vector2(0.5f, 0.62f), new Vector2(1400f, 50f));
             centerHint.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(2f, -2f);
 
+            // 3-2-1 countdown: big number inside a ring that drains each second
+            countdownRoot = Ui.Anchor(Ui.Rect("Countdown", canvas.transform), new Vector2(0.5f, 0.5f), new Vector2(320f, 320f), new Vector2(0f, 40f));
+            var disc = Ui.Rect("Disc", countdownRoot);
+            Ui.Stretch(disc, 18f);
+            var discImg = disc.gameObject.AddComponent<Image>();
+            discImg.sprite = Ui.Disc; discImg.color = new Color(0.05f, 0.06f, 0.08f, 0.6f); discImg.raycastTarget = false;
+            var track = Ui.Fill(countdownRoot, "Track", new Color(1f, 1f, 1f, 0.15f));
+            track.sprite = Ui.Ring; track.raycastTarget = false;
+            countdownFill = Ui.Fill(countdownRoot, "Fill", Ui.Gold);
+            countdownFill.sprite = Ui.Ring; countdownFill.raycastTarget = false;
+            countdownFill.type = Image.Type.Filled;
+            countdownFill.fillMethod = Image.FillMethod.Radial360;
+            countdownFill.fillOrigin = (int)Image.Origin360.Top;
+            countdownFill.fillClockwise = false;
+            countdownNumber = Ui.Label(countdownRoot, "3", 180, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Stretch(countdownNumber.rectTransform);
+            countdownNumber.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(3f, -3f);
+            countdownRoot.gameObject.SetActive(false);
+
             cornerHint = Ui.Label(canvas.transform, "", 18, Ui.Muted, TextAnchor.LowerLeft);
             Ui.Anchor(cornerHint.rectTransform, new Vector2(0f, 0f), new Vector2(900f, 30f), new Vector2(20f, 14f));
             SetVisible(false);
@@ -53,6 +74,7 @@ namespace SteamworksSim.UI
             var c = sim.Clock;
             switch (c.Phase)
             {
+                case MatchPhase.Countdown: period.text = "GET READY"; period.color = Ui.Gold; break;
                 case MatchPhase.Auto: period.text = "AUTONOMOUS"; period.color = Ui.Gold; break;
                 case MatchPhase.Teleop:
                     period.text = c.InEndgame ? "ENDGAME" : "TELEOPERATED";
@@ -63,6 +85,20 @@ namespace SteamworksSim.UI
             }
             time.text = Format(c.PeriodLeft);
             time.color = c.InEndgame && c.Phase == MatchPhase.Teleop ? new Color(1f, 0.55f, 0.2f) : Ui.TextColor;
+
+            bool counting = c.Phase == MatchPhase.Countdown;
+            if (countdownRoot.gameObject.activeSelf != counting) countdownRoot.gameObject.SetActive(counting);
+            if (counting)
+            {
+                float left = c.CountdownLeft;
+                int n = Mathf.Clamp(Mathf.CeilToInt(left - 1e-4f), 1, 3);
+                float frac = Mathf.Clamp01(left - (n - 1));          // 1 -> 0 within each second
+                countdownNumber.text = n.ToString();
+                countdownFill.fillAmount = frac;
+                float pop = Mathf.Clamp01((frac - 0.8f) / 0.2f);     // each new number pops in
+                countdownNumber.rectTransform.localScale = Vector3.one * (1f + 0.45f * pop * pop);
+                var nc = countdownNumber.color; nc.a = 1f - pop * 0.6f; countdownNumber.color = nc;
+            }
 
             float age = Time.unscaledTime - bannerAt;
             var bc = banner.color; bc.a = Mathf.Clamp01(1f - (age - 1.6f) / 0.6f);

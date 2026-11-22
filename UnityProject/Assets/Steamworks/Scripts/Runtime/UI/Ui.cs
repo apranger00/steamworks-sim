@@ -32,6 +32,33 @@ namespace SteamworksSim.UI
             }
         }
 
+        static Sprite ring, disc;
+        /// <summary>A soft-edged ring (generated once), for radial fills such as the countdown.</summary>
+        public static Sprite Ring => ring != null ? ring : ring = Circle("Ring", 0.80f);
+        /// <summary>A soft-edged filled circle (generated once).</summary>
+        public static Sprite Disc => disc != null ? disc : disc = Circle("Disc", -1f);
+
+        static Sprite Circle(string name, float inner)
+        {
+            const int n = 256;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[n * n];
+            float edge = 4f / n;
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
+                    float r = Mathf.Sqrt(dx * dx + dy * dy);
+                    float a = Mathf.Clamp01((r - inner) / edge + 0.5f) * Mathf.Clamp01((0.98f - r) / edge + 0.5f);
+                    px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            var sp = Sprite.Create(tex, new Rect(0f, 0f, n, n), new Vector2(0.5f, 0.5f), 100f);
+            sp.name = name;
+            return sp;
+        }
+
         public static Canvas Canvas(string name, int sortOrder, Transform parent)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));

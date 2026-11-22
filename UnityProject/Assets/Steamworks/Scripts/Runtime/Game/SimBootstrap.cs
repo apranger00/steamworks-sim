@@ -161,7 +161,7 @@ namespace SteamworksSim.Game
             RestartMatch();
         }
 
-        /// <summary>Start (Enter): robot back on its start line, clock back to 2:30, match starts at once.</summary>
+        /// <summary>Start (Enter): robot back on its start line, clock back to 2:30, 3-2-1 countdown, go.</summary>
         public void RestartMatch()
         {
             sounds.StopAll();
@@ -336,7 +336,7 @@ namespace SteamworksSim.Game
         void Update()
         {
             var input = reader.Read();
-            bool driving = State == AppState.Playing && Clock.Phase != MatchPhase.Over;
+            bool driving = State == AppState.Playing && Clock.Running; // disabled during the countdown and after 0:00
             if (playerDrive != null) playerDrive.input = driving ? input : RobotInput.Idle;
             if (menus.Rebinding) return;
 

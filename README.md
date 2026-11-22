@@ -30,7 +30,7 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 
 **Steamworks > Set Up Drive Test** adds a `Sim` object and the camera rig to the open scene (and, once the scene is saved, adds it to the build list). Press Play: the game opens on the main menu with the field behind it.
 
-- **Singleplayer** opens robot selection (robot, alliance, start position; your robot waits on its start line). **Start match** begins at once: 15 s AUTO, then 2:15 TELEOP, both driver-controlled.
+- **Singleplayer** opens robot selection (robot, alliance, start position; your robot waits on its start line). **Start match** runs a 3-2-1 countdown (robots disabled), then 15 s AUTO and 2:15 TELEOP, both driver-controlled.
 - **Multiplayer** is a placeholder until online play is built.
 - **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
 - The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
@@ -44,7 +44,7 @@ Default controls (rebindable):
 | Next camera (chase, driver, free) | C | Y |
 | Flip chase camera (behind / in front) | V | L3 |
 | Reset robot to its start position | R | D-pad down |
-| **Restart match** (robot to start line, clock to 2:30, go) | Enter | **Start** |
+| **Restart match** (robot to start line, clock to 2:30, 3-2-1, go) | Enter | **Start** |
 | **Pause menu** | Esc | **Select** (View / Back) |
 | Back out of a menu | Esc | B |
 | Practice: add / remove a parked defender | B | |
