@@ -1,27 +1,26 @@
 using SteamworksSim.Robots;
+using SteamworksSim.Settings;
 using UnityEngine;
-#if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
-#endif
 
 namespace SteamworksSim.InputHandling
 {
     /// <summary>
-    /// Reads keyboard and gamepad into a RobotInput (driving) plus one-shot UI actions.
-    /// Mapping matches the browser prototype:
-    ///   Keyboard: W/S or arrows drive, A/D turn, Shift precision (40%), C next camera, V flip chase camera,
-    ///             R reset robot, B add/remove defender, F1 alliance, F2 start station, F3 next robot, F5 reload robot files.
-    ///   Gamepad:  left stick Y drive, right stick X turn, LB precision, Y next camera, L3 flip chase camera,
-    ///             Back reset robot.
+    /// Turns the player's keyboard and gamepad into a RobotInput (driving) plus one-shot actions.
+    /// Bindings live in GameControls (rebindable in Options > Controls). Defaults:
+    ///   Keyboard: W/S (or arrows) drive, A/D turn, Shift precision, C camera, V flip chase, R reset robot,
+    ///             Enter restart match, Esc pause. Practice keys: B defender, F5 reload robot files.
+    ///   Gamepad:  sticks per the chosen layout, LB precision, Y camera, L3 flip chase, D-pad down reset robot,
+    ///             Start restart match, Select (View / Back) pause, B back out of menus.
     /// </summary>
     public class PlayerInputReader
     {
         public enum Source { Keyboard, Gamepad }
         public Source LastSource { get; private set; } = Source.Keyboard;
 
-        public bool NextCamera, FlipChase, ResetRobot, ToggleDefender, NextAlliance, NextStation, NextRobot, ReloadRobots;
+        public bool NextCamera, FlipChase, ResetRobot, RestartMatch, Pause, Cancel, ToggleDefender, ReloadRobots;
 
-        const float Deadband = 0.08f, KeyboardTurn = 0.65f, Precision = 0.4f;
+        const float Deadband = 0.08f, KeyboardTurn = 0.65f, PrecisionScale = 0.4f;
 
         static float Shape(float v)
         {
@@ -34,53 +33,63 @@ namespace SteamworksSim.InputHandling
         /// <summary>Call once per rendered frame (Update).</summary>
         public RobotInput Read()
         {
-            NextCamera = FlipChase = ResetRobot = ToggleDefender = NextAlliance = NextStation = NextRobot = ReloadRobots = false;
-            float thr = 0f, turn = 0f; bool precise = false, kbActive = false;
-#if ENABLE_INPUT_SYSTEM
+            GameControls.Init();
+            var input = new RobotInput();
+
+            float thr = GameControls.Throttle.ReadValue<float>();
+            float turn = GameControls.Turn.ReadValue<float>() * KeyboardTurn;
+            bool keyboardActive = thr != 0f || turn != 0f;
+
+            Vector2 ls = GameControls.LeftStick.ReadValue<Vector2>(), rs = GameControls.RightStick.ReadValue<Vector2>();
+            bool padActive = false;
+            switch (GameSettings.Layout)
+            {
+                case StickLayout.SingleStick:
+                {
+                    float y = Shape(ls.y), x = -Shape(ls.x); // stick right = turn right = negative (left positive)
+                    if (y != 0f || x != 0f) { thr = y; turn = x; padActive = true; }
+                    break;
+                }
+                case StickLayout.Tank:
+                {
+                    float l = Shape(ls.y), r = Shape(rs.y);
+                    if (l != 0f || r != 0f) { input.tank = true; input.left = l; input.right = r; padActive = true; }
+                    break;
+                }
+                default:
+                {
+                    float y = Shape(ls.y), x = -Shape(rs.x);
+                    if (y != 0f || x != 0f) { thr = y; turn = x; padActive = true; }
+                    break;
+                }
+            }
+            if (padActive) LastSource = Source.Gamepad;
+            else if (keyboardActive) LastSource = Source.Keyboard;
+
+            float scale = GameControls.Precision.IsPressed() ? PrecisionScale : 1f;
+            input.throttle = Mathf.Clamp(thr, -1f, 1f) * scale;
+            input.turn = Mathf.Clamp(turn, -1f, 1f) * scale;
+            input.left = Mathf.Clamp(input.left, -1f, 1f) * scale;
+            input.right = Mathf.Clamp(input.right, -1f, 1f) * scale;
+
+            NextCamera = GameControls.NextCamera.WasPressedThisFrame();
+            FlipChase = GameControls.FlipChase.WasPressedThisFrame();
+            ResetRobot = GameControls.ResetRobot.WasPressedThisFrame();
+            RestartMatch = GameControls.RestartMatch.WasPressedThisFrame();
+            Pause = GameControls.Pause.WasPressedThisFrame();
+
+            // Fixed keys: menu back, and practice helpers
+            Cancel = ToggleDefender = ReloadRobots = false;
             var k = Keyboard.current;
             if (k != null)
             {
-                if (k.wKey.isPressed || k.upArrowKey.isPressed) thr += 1f;
-                if (k.sKey.isPressed || k.downArrowKey.isPressed) thr -= 1f;
-                if (k.aKey.isPressed || k.leftArrowKey.isPressed) turn += KeyboardTurn;
-                if (k.dKey.isPressed || k.rightArrowKey.isPressed) turn -= KeyboardTurn;
-                precise |= k.shiftKey.isPressed;
-                kbActive = thr != 0f || turn != 0f;
-                NextCamera |= k.cKey.wasPressedThisFrame;
-                FlipChase |= k.vKey.wasPressedThisFrame;
-                ResetRobot |= k.rKey.wasPressedThisFrame;
-                ToggleDefender |= k.bKey.wasPressedThisFrame;
-                NextAlliance |= k.f1Key.wasPressedThisFrame;
-                NextStation |= k.f2Key.wasPressedThisFrame;
-                NextRobot |= k.f3Key.wasPressedThisFrame;
-                ReloadRobots |= k.f5Key.wasPressedThisFrame;
+                Cancel |= k.escapeKey.wasPressedThisFrame;
+                ToggleDefender = k.bKey.wasPressedThisFrame;
+                ReloadRobots = k.f5Key.wasPressedThisFrame;
             }
             var g = Gamepad.current;
-            if (g != null)
-            {
-                float gy = Shape(g.leftStick.ReadValue().y);
-                float gx = -Shape(g.rightStick.ReadValue().x); // stick right = turn right = negative (left positive)
-                if (gy != 0f || gx != 0f) { thr = gy; turn = gx; LastSource = Source.Gamepad; }
-                else if (kbActive) LastSource = Source.Keyboard;
-                precise |= g.leftShoulder.isPressed;
-                NextCamera |= g.buttonNorth.wasPressedThisFrame;
-                FlipChase |= g.leftStickButton.wasPressedThisFrame;
-                ResetRobot |= g.selectButton.wasPressedThisFrame;
-            }
-            else if (kbActive) LastSource = Source.Keyboard;
-#else
-            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) thr += 1f;
-            if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) thr -= 1f;
-            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) turn += KeyboardTurn;
-            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) turn -= KeyboardTurn;
-            precise = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            NextCamera = Input.GetKeyDown(KeyCode.C); FlipChase = Input.GetKeyDown(KeyCode.V);
-            ResetRobot = Input.GetKeyDown(KeyCode.R); ToggleDefender = Input.GetKeyDown(KeyCode.B);
-            NextAlliance = Input.GetKeyDown(KeyCode.F1); NextStation = Input.GetKeyDown(KeyCode.F2);
-            NextRobot = Input.GetKeyDown(KeyCode.F3); ReloadRobots = Input.GetKeyDown(KeyCode.F5);
-#endif
-            float scale = precise ? Precision : 1f;
-            return new RobotInput { throttle = Mathf.Clamp(thr, -1f, 1f) * scale, turn = Mathf.Clamp(turn, -1f, 1f) * scale };
+            if (g != null) Cancel |= g.buttonEast.wasPressedThisFrame;
+            return input;
         }
     }
 }

@@ -52,12 +52,31 @@ namespace SteamworksSim.Cameras
 
         public void Snap() => snapped = false;
 
+        /// <summary>Slowly circling view for menus (free camera, no mouse control).</summary>
+        public void ShowOrbit(Vector3 target, float distance, float yaw, float pitch, float spin)
+        {
+            mode = Mode.Free; snapped = false;
+            if (orbit == null) return;
+            orbit.enabled = true;
+            orbit.Set(target, distance, yaw, pitch);
+            orbit.autoSpin = spin;
+            orbit.allowInput = false;
+        }
+
+        /// <summary>Mouse control of the free camera (off while paused).</summary>
+        public void AllowOrbitInput(bool allow)
+        {
+            if (orbit != null && orbit.autoSpin == 0f) orbit.allowInput = allow;
+        }
+
         void Apply()
         {
             if (orbit != null)
             {
                 // set the orbit target before enabling, because enabling snaps the orbit camera to its target
                 if (mode == Mode.Free && robot != null) orbit.target = robot.position + Vector3.up * 0.3f;
+                orbit.autoSpin = 0f;
+                orbit.allowInput = true;
                 orbit.enabled = mode == Mode.Free;
             }
         }

@@ -58,9 +58,20 @@ namespace SteamworksSim.Robots
             float tv = 0f, tw = 0f;
             if (!idle)
             {
-                tv = Mathf.Clamp(input.throttle, -1f, 1f) * TopSpeed;
-                tw = Mathf.Clamp(input.turn, -1f, 1f) * maxTurn;
-                float half = track / 2f, L = tv - tw * half, R = tv + tw * half;
+                float half = track / 2f;
+                if (input.tank)
+                {
+                    // each stick drives one side; spinning is still limited to the robot's max turn rate
+                    float l = Mathf.Clamp(input.left, -1f, 1f) * TopSpeed, r = Mathf.Clamp(input.right, -1f, 1f) * TopSpeed;
+                    tv = (l + r) / 2f;
+                    tw = Mathf.Clamp((r - l) / track, -maxTurn, maxTurn);
+                }
+                else
+                {
+                    tv = Mathf.Clamp(input.throttle, -1f, 1f) * TopSpeed;
+                    tw = Mathf.Clamp(input.turn, -1f, 1f) * maxTurn;
+                }
+                float L = tv - tw * half, R = tv + tw * half;
                 float m = Mathf.Max(Mathf.Abs(L), Mathf.Abs(R));
                 if (m > TopSpeed) { L *= TopSpeed / m; R *= TopSpeed / m; tv = (L + R) / 2f; tw = (R - L) / (2f * half); }
             }

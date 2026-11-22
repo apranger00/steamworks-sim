@@ -22,26 +22,39 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 4. In Unity Hub, choose **Add > Add project from disk** and select `UnityProject/`. Open it.
 5. In Unity, open the menu **Steamworks > Create Field in Scene**. The field appears in the Scene view.
 6. Press **Play**. Right-drag to orbit, middle-drag to pan, scroll to zoom, keys **1–4** for preset views.
-7. To drive: **Steamworks > Set Up Drive Test**, save the scene, and press **Play** (see *Driving* below).
+7. To play: **Steamworks > Set Up Drive Test**, save the scene, and press **Play** (see *Playing* below).
 8. Optional: **Steamworks > Toggle CAD Reference** overlays the official field CAD (translucent blue) to compare against the generated field. **Steamworks > Robots > List Robot Mods** checks the robot files.
 9. Commit the files Unity generated (`ProjectSettings/`, `Packages/`, `*.meta`). `.gitignore` already excludes `Library/`, `Temp/` and other caches.
 
-## Driving (step 2)
+## Playing
 
-**Steamworks > Set Up Drive Test** adds a `Sim` object (robot spawning, input, HUD) and camera rig to the open scene. Press Play.
+**Steamworks > Set Up Drive Test** adds a `Sim` object and the camera rig to the open scene (and, once the scene is saved, adds it to the build list). Press Play: the game opens on the main menu with the field behind it.
+
+- **Singleplayer** opens robot selection (robot, alliance, start position; your robot waits on its start line). **Start match** begins at once: 15 s AUTO, then 2:15 TELEOP, both driver-controlled.
+- **Multiplayer** is a placeholder until online play is built.
+- **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
+- The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
+
+Default controls (rebindable):
 
 | Action | Keyboard | Gamepad |
 |---|---|---|
-| Drive / turn | W S / A D (or arrows) | Left stick Y / right stick X |
+| Drive / turn | W S / A D (or arrows) | Split arcade: left stick Y, right stick X |
 | Precision (40%) | Shift | LB |
 | Next camera (chase, driver, free) | C | Y |
 | Flip chase camera (behind / in front) | V | L3 |
-| Reset robot to its start position | R | Back |
-| Add / remove a parked defender | B | |
-| Switch alliance / start station / robot | F1 / F2 / F3 | |
-| Reload robot files from disk | F5 | |
+| Reset robot to its start position | R | D-pad down |
+| **Restart match** (robot to start line, clock to 2:30, go) | Enter | **Start** |
+| **Pause menu** | Esc | **Select** (View / Back) |
+| Back out of a menu | Esc | B |
+| Practice: add / remove a parked defender | B | |
+| Practice: reload robot files from disk | F5 | |
 
-Edit a `robot.json` while playing and press **F5** to try the change immediately. The drive model is the prototype's (motor-limited acceleration, traction-limited pushing, side scrub, slowing when turning at speed), running on PhysX at 120 Hz.
+Edit a `robot.json` while playing and press **F5** (or **Reload robot files** on the robot screen) to try the change immediately. Tick **Skip Menus** on the `Sim` object to jump straight into a match while testing.
+
+### Match sounds
+
+The field cues (cavalry charge at the start, buzzer at the end of AUTO, steam whistle at 0:30, buzzer at 0:00) play from files in `UnityProject/Assets/StreamingAssets/Sounds/`. `sounds.json` there maps cues to files, and its `README.txt` lists the download links. A missing file plays a placeholder tone.
 
 ## Coordinate frames
 
@@ -51,6 +64,7 @@ All data files use the **spec frame**: inches, origin at field centre on the car
 
 - [x] Step 1: field built in Unity from the prototype's data, with static colliders and a CAD overlay
 - [x] Step 2: drivable robot from a robot mod file, tank drive, chase / driver / free cameras, gamepad
+- [x] Step 2.5: main menu, robot selection, options (rebinding, audio, graphics), pause menu, match clock with field sounds
 - [ ] Step 3: FUEL and GEARS on PhysX, goal sensors, shooter, gear placement, climbing, match timing and scoring (port of `prototype/web/game.js` with its tests)
 - [ ] Step 4: online multiplayer (Netcode for GameObjects + Multiplayer Services), HUD, sounds
 

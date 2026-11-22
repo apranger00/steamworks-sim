@@ -75,7 +75,19 @@ namespace SteamworksSim.EditorTools
             EditorUtility.SetDirty(boot);
             EditorUtility.SetDirty(cam.gameObject);
             Selection.activeObject = boot.gameObject;
-            Debug.Log("[Steamworks] Drive test ready. Press Play: WASD or a gamepad to drive, C for cameras, B for a defender. Save the scene (Ctrl+S).");
+
+            // A saved scene goes into the build list, so File > Build Profiles builds the game
+            var scenePath = boot.gameObject.scene.path;
+            if (!string.IsNullOrEmpty(scenePath))
+            {
+                var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+                if (!list.Exists(s => s.path == scenePath))
+                {
+                    list.Insert(0, new EditorBuildSettingsScene(scenePath, true));
+                    EditorBuildSettings.scenes = list.ToArray();
+                }
+            }
+            Debug.Log("[Steamworks] Game scene ready. Save the scene (Ctrl+S), run this menu once more to add it to the build list, then press Play.");
         }
 
         [MenuItem("Steamworks/Rebuild Field Preview", priority = 1)]
