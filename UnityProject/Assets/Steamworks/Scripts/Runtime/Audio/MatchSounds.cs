@@ -21,6 +21,7 @@ namespace SteamworksSim.Audio
         {
             public string matchStart = "frc-start-sound.mp3";
             public string autoEnd = "frc-end.mp3";
+            public string teleopStart = "frc-resume.mp3";
             public string endgame = "frc-warning.mp3";
             public string matchEnd = "frc-end.mp3";
 
@@ -30,6 +31,7 @@ namespace SteamworksSim.Audio
                 {
                     case MatchCue.MatchStart: return matchStart;
                     case MatchCue.AutoEnd: return autoEnd;
+                    case MatchCue.TeleopStart: return teleopStart;
                     case MatchCue.Endgame: return endgame;
                     default: return matchEnd;
                 }
@@ -51,7 +53,7 @@ namespace SteamworksSim.Audio
         /// <summary>One line per cue: which file plays, or why a placeholder tone plays instead.</summary>
         public string StatusText { get; private set; } = "Loading match sounds...";
 
-        static readonly string[] CueNames = { "Match start", "End of AUTO", "Endgame (0:30)", "Match end (0:00)" };
+        static readonly string[] CueNames = { "Match start", "End of AUTO", "TELEOP start", "Endgame (0:30)", "Match end (0:00)" };
 
         /// <summary>The file in the sounds folder with this name (any letter case), or null.</summary>
         static string FindFile(string name)
@@ -172,6 +174,12 @@ namespace SteamworksSim.Audio
                         int n = Mathf.Min(2, (int)(t / 0.25f));
                         float f = new[] { 523f, 659f, 784f }[n], lt = t - n * 0.25f;
                         return Mathf.Sin(2f * Mathf.PI * f * t) * Env(lt, 0.22f) * 0.5f;
+                    });
+                case MatchCue.TeleopStart: // two-note chime
+                    return Tone("resume (placeholder)", rate, 0.6f, t =>
+                    {
+                        float f = t < 0.2f ? 659f : 988f, lt = t < 0.2f ? t : t - 0.2f;
+                        return Mathf.Sin(2f * Mathf.PI * f * t) * Env(lt, t < 0.2f ? 0.18f : 0.4f) * 0.5f;
                     });
                 case MatchCue.Endgame: // whistle
                     return Tone("whistle (placeholder)", rate, 1.3f, t =>

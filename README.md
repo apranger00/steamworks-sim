@@ -30,7 +30,8 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 
 **Steamworks > Set Up Drive Test** adds a `Sim` object and the camera rig to the open scene (and, once the scene is saved, adds it to the build list). Press Play: the game opens on the main menu with the field behind it.
 
-- **Singleplayer** opens robot selection (robot, alliance, start position; your robot waits on its start line). **Start match** runs a 3-2-1 countdown (robots disabled), then 15 s AUTO and 2:15 TELEOP, both driver-controlled.
+- **Singleplayer** opens robot selection (robot, alliance, start position; your robot waits on its start line). **Start match** runs a 3-2-1 countdown, 15 s AUTO, a 3 s pause (timer 0:03 to 0:00), then 2:15 TELEOP; robots are disabled during the countdown and the pause. Both periods are driver-controlled.
+- At 0:00 the **final score** slides in over the field: totals, AUTO / TELEOP breakdown (mobility, fuel, rotors, takeoff, penalty), robots on each alliance, ranking points and the winner. AUTO mobility is scored now; fuel, rotors and takeoff arrive with game pieces (step 3).
 - **Multiplayer** is a placeholder until online play is built.
 - **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
 - The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
@@ -54,7 +55,11 @@ Edit a `robot.json` while playing and press **F5** (or **Reload robot files** on
 
 ### Match sounds
 
-The field cues (cavalry charge at the start, buzzer at the end of AUTO, steam whistle at 0:30, buzzer at 0:00) play from files in `UnityProject/Assets/StreamingAssets/Sounds/`. `sounds.json` there maps cues to files, and its `README.txt` lists the download links. A missing file plays a placeholder tone.
+The field cues (cavalry charge at the start, buzzer at the end of AUTO, resume sound when TELEOP starts, steam whistle at 0:30, buzzer at 0:00) play from files in `UnityProject/Assets/StreamingAssets/Sounds/`. `sounds.json` there maps cues to files, and its `README.txt` lists the download links. A missing file plays a placeholder tone.
+
+### Title screen and fonts
+
+The title screen wallpaper is `UnityProject/Assets/Steamworks/Resources/UI/TitleWallpaper.jpg` (replace it with a larger image of the same name for a sharper background). Fonts load from `Resources/Fonts`: drop a licensed **Brim Narrow** or **Haymaker** file in as `Title.ttf` / `Title.otf` for menus and headings; until then Anton is used. Body text is Fira Sans. Both defaults are under the SIL Open Font License (texts included).
 
 ## Coordinate frames
 

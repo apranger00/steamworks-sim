@@ -24,13 +24,14 @@ namespace SteamworksSim.UI
 
             var box = Ui.Anchor(Ui.Rect("Timer", canvas.transform), new Vector2(0.5f, 1f), new Vector2(340f, 116f), new Vector2(0f, -14f));
             timerBg = box.gameObject.AddComponent<Image>();
+            Ui.Round(timerBg, 16f);
             timerBg.color = Ui.Backdrop;
             period = Ui.Label(box, "", 22, Ui.Muted, TextAnchor.UpperCenter, FontStyle.Bold);
             Ui.Anchor(period.rectTransform, new Vector2(0.5f, 1f), new Vector2(340f, 30f), new Vector2(0f, -8f));
-            time = Ui.Label(box, "", 62, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            time = Ui.Title(box, "", 66, Ui.TextColor);
             Ui.Anchor(time.rectTransform, new Vector2(0.5f, 0f), new Vector2(340f, 80f), new Vector2(0f, 4f));
 
-            banner = Ui.Label(canvas.transform, "", 54, Ui.Gold, TextAnchor.MiddleCenter, FontStyle.Bold);
+            banner = Ui.Title(canvas.transform, "", 64, Ui.Gold);
             Ui.Anchor(banner.rectTransform, new Vector2(0.5f, 0.72f), new Vector2(1400f, 90f));
             banner.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(2f, -2f);
 
@@ -52,7 +53,7 @@ namespace SteamworksSim.UI
             countdownFill.fillMethod = Image.FillMethod.Radial360;
             countdownFill.fillOrigin = (int)Image.Origin360.Top;
             countdownFill.fillClockwise = false;
-            countdownNumber = Ui.Label(countdownRoot, "3", 180, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            countdownNumber = Ui.Title(countdownRoot, "3", 190, Ui.TextColor);
             Ui.Stretch(countdownNumber.rectTransform);
             countdownNumber.gameObject.AddComponent<Shadow>().effectDistance = new Vector2(3f, -3f);
             countdownRoot.gameObject.SetActive(false);
@@ -76,6 +77,7 @@ namespace SteamworksSim.UI
             {
                 case MatchPhase.Countdown: period.text = "GET READY"; period.color = Ui.Gold; break;
                 case MatchPhase.Auto: period.text = "AUTONOMOUS"; period.color = Ui.Gold; break;
+                case MatchPhase.AutoPause: period.text = "TELEOP"; period.color = Ui.Muted; break;
                 case MatchPhase.Teleop:
                     period.text = c.InEndgame ? "ENDGAME" : "TELEOPERATED";
                     period.color = c.InEndgame ? new Color(1f, 0.55f, 0.2f) : Ui.Muted;
@@ -109,8 +111,7 @@ namespace SteamworksSim.UI
                 hintRefresh = Time.unscaledTime + 1f;
                 cornerHint.text = $"{GameControls.Both(GameControls.RestartMatch)}: restart match   ·   {GameControls.Both(GameControls.Pause)}: pause";
             }
-            if (c.Phase == MatchPhase.Over) { if (centerHint.text.Length == 0) centerHint.text = $"Press {GameControls.Both(GameControls.RestartMatch)} to play again"; }
-            else if (centerHint.text.Length > 0) centerHint.text = "";
+            if (centerHint.text.Length > 0) centerHint.text = ""; // the final score screen takes over at 0:00
         }
 
         static string Format(float seconds)

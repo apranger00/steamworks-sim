@@ -1,6 +1,7 @@
 {
     "matchStart": "frc-start-sound.mp3",
     "autoEnd": "frc-end.mp3",
+    "teleopStart": "frc-resume.mp3",
     "endgame": "frc-warning.mp3",
     "matchEnd": "frc-end.mp3"
 }

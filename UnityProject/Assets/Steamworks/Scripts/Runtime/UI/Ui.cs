@@ -22,15 +22,19 @@ namespace SteamworksSim.UI
         public static readonly Color Red = new Color(0.86f, 0.2f, 0.18f);
         public static readonly Color Blue = new Color(0.2f, 0.45f, 0.9f);
 
-        static Font font;
-        public static Font Font
-        {
-            get
-            {
-                if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                return font;
-            }
-        }
+        public static readonly Color Ink = new Color(0.11f, 0.12f, 0.14f);          // text on light panels
+        public static readonly Color Paper = new Color(1f, 1f, 1f, 0.96f);          // white menu panel
+
+        static Font legacy, body, bold, title;
+        static Font Load(string name) { var f = Resources.Load<Font>(name); return f != null ? f : null; }
+        static Font Legacy => legacy != null ? legacy : legacy = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        /// <summary>Body text: Resources/Fonts/Body (Fira Sans), else Unity's built-in font.</summary>
+        public static Font Font => body != null ? body : body = Load("Fonts/Body") ?? Legacy;
+        /// <summary>Bold body text: Resources/Fonts/BodyBold, else Body.</summary>
+        public static Font BoldFont => bold != null ? bold : bold = Load("Fonts/BodyBold") ?? Font;
+        /// <summary>Menu and heading font: Resources/Fonts/Title (drop in Brim Narrow / Haymaker), else TitleDefault (Anton).</summary>
+        public static Font TitleFont => title != null ? title : title = Load("Fonts/Title") ?? Load("Fonts/TitleDefault") ?? BoldFont;
 
         static Sprite ring, disc;
         /// <summary>A soft-edged ring (generated once), for radial fills such as the countdown.</summary>
@@ -57,6 +61,41 @@ namespace SteamworksSim.UI
             var sp = Sprite.Create(tex, new Rect(0f, 0f, n, n), new Vector2(0.5f, 0.5f), 100f);
             sp.name = name;
             return sp;
+        }
+
+        static Sprite rounded;
+        /// <summary>9-sliced rounded rectangle (24 px corners at multiplier 1); set Image.pixelsPerUnitMultiplier to shrink the corners.</summary>
+        public static Sprite Rounded
+        {
+            get
+            {
+                if (rounded != null) return rounded;
+                const int n = 64; const float r = 24f;
+                var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+                var px = new Color32[n * n];
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        float cx = Mathf.Clamp(x + 0.5f, r, n - r), cy = Mathf.Clamp(y + 0.5f, r, n - r);
+                        float d = Mathf.Sqrt((x + 0.5f - cx) * (x + 0.5f - cx) + (y + 0.5f - cy) * (y + 0.5f - cy));
+                        float a = Mathf.Clamp01(r - d + 0.5f);
+                        px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                    }
+                tex.SetPixels32(px);
+                tex.Apply(false, true);
+                rounded = Sprite.Create(tex, new Rect(0f, 0f, n, n), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(r, r, r, r));
+                rounded.name = "Rounded";
+                return rounded;
+            }
+        }
+
+        /// <summary>Makes an Image a rounded rectangle with corners of about `radius` reference pixels.</summary>
+        public static Image Round(Image img, float radius)
+        {
+            img.sprite = Rounded;
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 24f / Mathf.Max(1f, radius);
+            return img;
         }
 
         public static Canvas Canvas(string name, int sortOrder, Transform parent)
@@ -147,14 +186,23 @@ namespace SteamworksSim.UI
         {
             var r = Rect("Text", parent);
             var t = r.gameObject.AddComponent<Text>();
-            t.font = Font; t.text = text; t.fontSize = size; t.color = color;
-            t.alignment = align; t.fontStyle = style;
+            bool useBoldFont = style == FontStyle.Bold && BoldFont != Font;
+            t.font = useBoldFont ? BoldFont : Font; t.text = text; t.fontSize = size; t.color = color;
+            t.alignment = align; t.fontStyle = useBoldFont ? FontStyle.Normal : style;
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.supportRichText = true;
             t.raycastTarget = false;
             var le = r.gameObject.AddComponent<LayoutElement>();
             if (height > 0f) { le.preferredHeight = height; le.minHeight = height; }
+            return t;
+        }
+
+        /// <summary>A label in the menu / heading font.</summary>
+        public static Text Title(Transform parent, string text, int size, Color color, TextAnchor align = TextAnchor.MiddleCenter, float height = -1f)
+        {
+            var t = Label(parent, text, size, color, align, FontStyle.Normal, height);
+            t.font = TitleFont;
             return t;
         }
 
@@ -178,18 +226,33 @@ namespace SteamworksSim.UI
             return c;
         }
 
-        public static Button Button(Transform parent, string text, UnityAction onClick, float height = 62f, int fontSize = 26)
+        /// <summary>Button colours for white panels (dark text).</summary>
+        public static ColorBlock LightColors()
+        {
+            var c = Colors();
+            c.normalColor = new Color(0.9f, 0.91f, 0.92f, 1f);
+            c.highlightedColor = new Color(0.82f, 0.84f, 0.86f, 1f);
+            c.selectedColor = new Color(0.97f, 0.76f, 0.2f, 1f);
+            c.pressedColor = new Color(0.86f, 0.64f, 0.1f, 1f);
+            return c;
+        }
+
+        /// <param name="light">styled for a white panel (dark text)</param>
+        /// <param name="menuFont">label in the menu / heading font</param>
+        public static Button Button(Transform parent, string text, UnityAction onClick, float height = 62f, int fontSize = 26,
+                                    bool light = false, bool menuFont = false)
         {
             var r = Rect(text, parent);
             var img = r.gameObject.AddComponent<Image>();
             img.color = Color.white; // tinted by the button colours
+            Round(img, 10f);
             var b = r.gameObject.AddComponent<Button>();
             b.targetGraphic = img;
-            b.colors = Colors();
+            b.colors = light ? LightColors() : Colors();
             if (onClick != null) b.onClick.AddListener(onClick);
             var le = r.gameObject.AddComponent<LayoutElement>();
             le.preferredHeight = height; le.minHeight = height;
-            var t = Label(r, text, fontSize, TextColor, TextAnchor.MiddleCenter);
+            var t = menuFont ? Title(r, text, fontSize, light ? Ink : TextColor) : Label(r, text, fontSize, light ? Ink : TextColor, TextAnchor.MiddleCenter);
             Stretch(t.rectTransform, 4f);
             return b;
         }
@@ -207,6 +270,7 @@ namespace SteamworksSim.UI
             var r = Rect("Value", row);
             var img = r.gameObject.AddComponent<Image>();
             img.color = Color.white;
+            Round(img, 10f);
             SetWidth(img, 300f, 1f);
             var opt = r.gameObject.AddComponent<OptionRow>();
             opt.targetGraphic = img;
