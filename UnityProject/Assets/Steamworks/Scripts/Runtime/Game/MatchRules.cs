@@ -360,6 +360,7 @@ namespace SteamworksSim.Game
                 s.bonusPressure = A.bonusPressure;
                 s.bonusRotors = A.bonusRotors;
                 s.kPa = (float)A.KPa;
+                s.ninths = A.ninths;
                 s.rotorsTurning = A.RotorsTurning;
             }
         }
