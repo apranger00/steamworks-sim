@@ -108,7 +108,7 @@ namespace SteamworksSim.Game
 
             // Scoring: rules (port of the prototype's game.js), FUEL, ROPES, moving field parts
             targets = TargetsFile.Load();
-            rules = new MatchRules(targets);
+            rules = new MatchRules(targets) { playoffs = true }; // playoff scoring: 40 kPa +20, four ROTORS +100
             rules.Log += (al, text) => Debug.Log($"[Match {Clock.Phase}] {(al != null ? al.ToUpper() + ": " : "")}{text}");
             fuel = gameObject.AddComponent<FuelPool>();
             fuel.GoalEntered = (al, goal) =>
@@ -119,8 +119,12 @@ namespace SteamworksSim.Game
             hud.Init(this);
             menus = gameObject.AddComponent<GameMenus>();
             menus.Init(this);
-            rules.RotorStarted += (al, k) => hud.Toast($"{al.ToUpper()} ROTOR {k + 1} IS ACTIVE", al == "red" ? new Color(1f, 0.45f, 0.42f) : new Color(0.45f, 0.65f, 1f));
+            // The only messages during a match: a ROTOR starting, and 40 kPa
+            rules.RotorStarted += (al, k) => hud.Toast($"{al.ToUpper()} ROTOR {k + 1} IS ACTIVE", AllianceTint(al));
+            rules.PressureReached += al => hud.Toast($"{al.ToUpper()} REACHED 40 kPa", AllianceTint(al));
         }
+
+        static Color AllianceTint(string al) => al == "red" ? new Color(1f, 0.45f, 0.42f) : new Color(0.45f, 0.65f, 1f);
 
         void Start()
         {
@@ -338,7 +342,6 @@ namespace SteamworksSim.Game
             playerDrive = player.GetComponent<TankDrive>();
             playerMech = player.AddComponent<RobotMechanisms>();
             playerMech.Init(current, alliance, 1, "Your robot", fuel, ropes, () => rules, targets);
-            playerMech.Toast += t => hud.Toast(t, Color.white);
             if (cameraRig != null) cameraRig.robot = player.transform;
             ResetPlayer();
         }
@@ -514,7 +517,7 @@ namespace SteamworksSim.Game
                 label = new GUIStyle(GUI.skin.label) { fontSize = 13, richText = true };
                 big = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, richText = true };
             }
-            float w = 330f, h = 205f, x = Screen.width - w - 16f, y = Screen.height - h - 16f;
+            float w = 330f, h = 175f, x = Screen.width - w - 16f, y = Screen.height - h - 16f;
             GUI.Box(new Rect(x, y, w, h), GUIContent.none, box);
             GUILayout.BeginArea(new Rect(x + 12f, y + 8f, w - 24f, h - 16f));
             float speedFt = playerDrive != null ? playerDrive.Speed / 0.3048f : 0f;
@@ -524,7 +527,7 @@ namespace SteamworksSim.Game
             GUILayout.Label($"{current.name}  <color=#8e99a3>({alliance}, {StationName[station]})</color>", label);
             GUILayout.Label($"Position {spec.x:0}, {spec.y:0} in   Heading {heading:0}°", label);
             if (playerMech != null)
-                GUILayout.Label($"Shooter: {playerMech.ShooterStatus}\nGear: {playerMech.GearStatus}\nClimb: {playerMech.ClimbStatus}", label);
+                GUILayout.Label($"Shooter: {playerMech.ShooterStatus}", label);
             GUILayout.Label($"Camera {cameraRig?.mode}{(cameraRig != null && cameraRig.chaseReversed && cameraRig.mode == RobotCameraRig.Mode.Chase ? " (front)" : "")}   Input {reader.LastSource}", label);
             if (!string.IsNullOrEmpty(message) && Time.unscaledTime - messageTime < 2.5f)
                 GUILayout.Label($"<color=#ffffff>{message}</color>", label);

@@ -33,9 +33,9 @@ namespace SteamworksSim.UI
         }
 
         // Breakdown rows (null label = section header)
-        static readonly string[] Rows = { "AUTONOMOUS", "Mobility", "Fuel", "Rotors", "TELEOPERATED", "Fuel", "Rotors", "Takeoff", "PENALTY" };
-        const int RowCount = 9;
-        static readonly bool[] Header = { true, false, false, false, true, false, false, false, true };
+        static readonly string[] Rows = { "AUTONOMOUS", "Mobility", "Fuel", "Rotors", "TELEOPERATED", "Fuel", "Rotors", "Takeoff", "Bonus", "PENALTY" };
+        const int RowCount = 10;
+        static readonly bool[] Header = { true, false, false, false, true, false, false, false, false, true };
 
         static readonly Color RedDark = new Color(0.45f, 0.07f, 0.08f, 0.94f), BlueDark = new Color(0.05f, 0.17f, 0.38f, 0.94f);
         static readonly Color RedBright = new Color(0.86f, 0.13f, 0.15f, 1f), BlueBright = new Color(0.06f, 0.36f, 0.72f, 1f);
@@ -69,7 +69,7 @@ namespace SteamworksSim.UI
             Ui.Anchor(table, new Vector2(0.5f, 1f), new Vector2(midW, colH - 190f), new Vector2(0f, -190f));
             for (int i = 0; i < RowCount; i++)
             {
-                var row = Ui.Row(table, Header[i] ? 50f : 52f, 0f);
+                var row = Ui.Row(table, Header[i] ? 48f : 46f, 0f);
                 row.gameObject.AddComponent<Image>().color = Header[i] ? RowHeader : RowLight;
                 var h = row.GetComponent<HorizontalLayoutGroup>();
                 h.padding = new RectOffset(28, 28, 0, 0);
@@ -126,12 +126,19 @@ namespace SteamworksSim.UI
                 var slot = Ui.Anchor(Ui.Rect("Robot " + (i + 1), r), new Vector2(0.5f, 1f), new Vector2(w - 60f, 62f), new Vector2(0f, -270f - i * 74f));
                 s.slots[i] = slot.gameObject.AddComponent<Image>();
                 s.slots[i].color = bright;
-                s.robots[i] = Ui.Title(slot, "", 34, Ui.TextColor);
-                Ui.Stretch(s.robots[i].rectTransform, 6f);
+                // robot name (or team number) shrinks to fit its slot
+                s.robots[i] = Ui.Label(slot, "", 28, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+                Ui.Stretch(s.robots[i].rectTransform, 8f);
+                s.robots[i].resizeTextForBestFit = true;
+                s.robots[i].resizeTextMinSize = 14;
+                s.robots[i].resizeTextMaxSize = 28;
+                s.robots[i].horizontalOverflow = HorizontalWrapMode.Wrap;
+                s.robots[i].verticalOverflow = VerticalWrapMode.Truncate;
             }
 
-            s.stats = Ui.Label(r, "", 22, Ui.TextColor, TextAnchor.UpperCenter);
-            Ui.Anchor(s.stats.rectTransform, new Vector2(0.5f, 0f), new Vector2(w - 40f, 130f), new Vector2(0f, 20f));
+            s.stats = Ui.Label(r, "", 30, Ui.TextColor, TextAnchor.UpperCenter, FontStyle.Bold);
+            s.stats.lineSpacing = 1.15f;
+            Ui.Anchor(s.stats.rectTransform, new Vector2(0.5f, 0f), new Vector2(w - 30f, 150f), new Vector2(0f, 24f));
             return s;
         }
 
@@ -152,7 +159,7 @@ namespace SteamworksSim.UI
 
         static void Fill(Text[] cells, AllianceScore a)
         {
-            int[] v = { a.Auto, a.mobility, a.autoFuel, a.autoRotors, a.Teleop, a.teleopFuel, a.teleopRotors, a.takeoff, a.penalty };
+            int[] v = { a.Auto, a.mobility, a.autoFuel, a.autoRotors, a.Teleop, a.teleopFuel, a.teleopRotors, a.takeoff, a.bonus, a.penalty };
             for (int i = 0; i < RowCount; i++) cells[i].text = v[i].ToString();
         }
 
@@ -166,9 +173,8 @@ namespace SteamworksSim.UI
                 s.robots[i].text = has ? a.robots[i] : "";
                 var c = s.slots[i].color; c.a = has ? 1f : 0.35f; s.slots[i].color = c;
             }
-            s.stats.text = $"Pressure {a.kPa:0.#} / 40 kPa{(a.PressureRp ? "  (+1 RP)" : "")}\n" +
-                           $"Rotors turning {a.rotorsTurning} / 4{(a.RotorsRp ? "  (+1 RP)" : "")}\n" +
-                           $"Ranking points: {score.RankingPoints(a)}";
+            s.stats.text = $"Pressure {Mathf.FloorToInt(a.kPa)} / 40 kPa{(a.bonusPressure > 0 ? $"  +{a.bonusPressure}" : "")}\n" +
+                           $"Rotors turning {a.rotorsTurning} / 4{(a.bonusRotors > 0 ? $"  +{a.bonusRotors}" : "")}";
         }
 
         void Update()

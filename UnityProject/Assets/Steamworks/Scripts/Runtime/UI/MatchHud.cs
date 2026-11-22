@@ -81,7 +81,7 @@ namespace SteamworksSim.UI
         /// <summary>A short message under the timer (rotor active, gear placed, ...).</summary>
         public void Toast(string text, Color color) { toast.text = text; toast.color = color; toastAt = Time.unscaledTime; }
 
-        // Alliance score next to the timer: total, pressure (x / 40 kPa until the ranking point, then an RP badge)
+        // Alliance score next to the timer: total, pressure (x / 40 kPa until 40 is reached, then a BONUS badge)
         // and four ROTOR dots.
         static ScoreBox BuildScore(Transform parent, int side, Color color)
         {
@@ -93,9 +93,9 @@ namespace SteamworksSim.UI
             b.kpa = Ui.Label(box, "0 / 40 kPa", 19, Ui.TextColor, TextAnchor.MiddleLeft, FontStyle.Bold);
             Ui.Anchor(b.kpa.rectTransform, new Vector2(0f, 0f), new Vector2(150f, 34f), new Vector2(14f, 8f));
             var rp = Ui.Rect("RP", box);
-            Ui.Anchor(rp, new Vector2(0f, 0f), new Vector2(42f, 24f), new Vector2(104f, 13f));
+            Ui.Anchor(rp, new Vector2(0f, 0f), new Vector2(66f, 24f), new Vector2(92f, 13f));
             Ui.Round(rp.gameObject.AddComponent<Image>(), 12f).color = new Color(1f, 0.87f, 0.1f);
-            var rpText = Ui.Label(rp, "RP", 15, Ui.Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
+            var rpText = Ui.Label(rp, "BONUS", 15, Ui.Ink, TextAnchor.MiddleCenter, FontStyle.Bold);
             Ui.Stretch(rpText.rectTransform);
             b.rp = rp.gameObject; b.rp.SetActive(false);
             b.rotors = new Image[4];

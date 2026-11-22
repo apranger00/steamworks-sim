@@ -18,7 +18,9 @@ namespace SteamworksSim.Game
         public int teleopRotors;    // TELEOP: 40 per ROTOR
         public int takeoff;         // TELEOP: 50 per robot ready for takeoff
         public int penalty;         // foul points awarded by the other alliance's fouls
-        public int bonus;           // playoff bonuses (40 kPa: 20, four ROTORS: 100)
+        public int bonusPressure;   // playoff BONUS: 20 for 40 kPa
+        public int bonusRotors;     // playoff BONUS: 100 for all four ROTORS
+        public int bonus => bonusPressure + bonusRotors;
 
         public float kPa;           // pressure accumulated
         public int rotorsTurning;   // 0..4
@@ -33,7 +35,7 @@ namespace SteamworksSim.Game
 
         public void Clear()
         {
-            mobility = autoFuel = autoRotors = teleopFuel = teleopRotors = takeoff = penalty = bonus = 0;
+            mobility = autoFuel = autoRotors = teleopFuel = teleopRotors = takeoff = penalty = bonusPressure = bonusRotors = 0;
             kPa = 0f; rotorsTurning = 0;
             robots.Clear();
         }
