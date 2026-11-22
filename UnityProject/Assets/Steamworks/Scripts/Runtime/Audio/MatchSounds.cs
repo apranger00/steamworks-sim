@@ -38,8 +38,31 @@ namespace SteamworksSim.Audio
 
         public static string Folder => Path.Combine(Application.streamingAssetsPath, "Sounds");
 
+        /// <summary>Opens the sounds folder in Explorer (creating it if needed).</summary>
+        public static void OpenFolder()
+        {
+            Directory.CreateDirectory(Folder);
+            Application.OpenURL(new Uri(Folder).AbsoluteUri);
+        }
+
         public readonly List<string> problems = new List<string>();
         public bool Loaded { get; private set; }
+
+        /// <summary>One line per cue: which file plays, or why a placeholder tone plays instead.</summary>
+        public string StatusText { get; private set; } = "Loading match sounds...";
+
+        static readonly string[] CueNames = { "Match start", "End of AUTO", "Endgame (0:30)", "Match end (0:00)" };
+
+        /// <summary>The file in the sounds folder with this name (any letter case), or null.</summary>
+        static string FindFile(string name)
+        {
+            string path = Path.Combine(Folder, name);
+            if (File.Exists(path)) return path;
+            if (!Directory.Exists(Folder)) return null;
+            foreach (var f in Directory.GetFiles(Folder))
+                if (string.Equals(Path.GetFileName(f), name, StringComparison.OrdinalIgnoreCase)) return f;
+            return null;
+        }
 
         readonly Dictionary<MatchCue, AudioClip> clips = new Dictionary<MatchCue, AudioClip>();
         AudioSource source;
@@ -83,15 +106,17 @@ namespace SteamworksSim.Audio
                 catch (Exception e) { problems.Add("sounds.json: " + e.Message); }
             }
 
+            if (!Directory.Exists(Folder)) problems.Add("the sounds folder does not exist: " + Folder);
             var byFile = new Dictionary<string, AudioClip>(StringComparer.OrdinalIgnoreCase);
+            var status = new List<string>();
             foreach (MatchCue cue in Enum.GetValues(typeof(MatchCue)))
             {
                 string file = map.Get(cue);
                 AudioClip clip = null;
                 if (!string.IsNullOrEmpty(file) && !byFile.TryGetValue(file, out clip))
                 {
-                    string path = Path.Combine(Folder, file);
-                    if (File.Exists(path))
+                    string path = FindFile(file);
+                    if (path != null)
                     {
                         using (var req = UnityWebRequestMultimedia.GetAudioClip(new Uri(path).AbsoluteUri, TypeOf(path)))
                         {
@@ -108,8 +133,17 @@ namespace SteamworksSim.Audio
                     byFile[file] = clip;
                 }
                 clips[cue] = clip != null ? clip : Placeholder(cue);
+                status.Add(clip != null
+                    ? $"{CueNames[(int)cue]}: {file} ({clip.length:0.0} s)"
+                    : $"{CueNames[(int)cue]}: placeholder tone ({(string.IsNullOrEmpty(file) ? "no file set" : file + " not loaded")})");
             }
+            StatusText = string.Join("\n", status);
             foreach (var p in problems) Debug.LogWarning("[Steamworks] Sounds: " + p);
+            Debug.Log("[Steamworks] Match sounds from " + Folder + "\n" + StatusText);
+#if UNITY_EDITOR
+            if (UnityEditor.EditorUtility.audioMasterMute)
+                Debug.LogWarning("[Steamworks] Unity's Game view audio is muted: click the speaker (Mute Audio) button on the Game view toolbar to hear sounds.");
+#endif
             Loaded = true;
             if (pending.HasValue && Time.unscaledTime - pendingAt < 1.5f) Play(pending.Value);
             pending = null;

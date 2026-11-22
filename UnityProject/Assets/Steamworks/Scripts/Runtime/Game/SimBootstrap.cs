@@ -82,6 +82,12 @@ namespace SteamworksSim.Game
             LoadLibrary(robotId);
 
             EnsureEventSystem();
+            if (FindAnyObjectByType<AudioListener>() == null)
+            {
+                var ears = Camera.main != null ? Camera.main.gameObject : gameObject;
+                ears.AddComponent<AudioListener>();
+                Debug.LogWarning("[Steamworks] The scene had no Audio Listener, so nothing could be heard; added one to " + ears.name + ".");
+            }
             sounds = gameObject.AddComponent<MatchSounds>();
             Clock.Cue += OnCue;
             hud = gameObject.AddComponent<MatchHud>();
@@ -213,6 +219,8 @@ namespace SteamworksSim.Game
             AudioListener.pause = frozen;
             if (cameraRig != null) cameraRig.AllowOrbitInput(!frozen);
         }
+
+        public string SoundStatus => sounds != null ? sounds.StatusText : "";
 
         public void PlayTestSound()
         {

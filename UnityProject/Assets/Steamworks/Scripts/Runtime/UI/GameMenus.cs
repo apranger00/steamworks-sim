@@ -39,7 +39,7 @@ namespace SteamworksSim.UI
             BuildMultiplayer();
             BuildPause();
             options = gameObject.AddComponent<OptionsScreen>();
-            pages[MenuPage.Options] = options.Build(canvas.transform, () => Back(), () => sim.PlayTestSound());
+            pages[MenuPage.Options] = options.Build(canvas.transform, () => Back(), () => sim.PlayTestSound(), () => sim.SoundStatus);
             firstSelect[MenuPage.Options] = options.First;
             Show(MenuPage.None);
         }
