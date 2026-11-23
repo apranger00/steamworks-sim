@@ -121,6 +121,18 @@ export function buildField(THREE, layoutData) {
       mesh.rotation.order = 'YXZ';
       mesh.rotation.y = it.rotZ * Math.PI / 180;
       if (it.tilt) mesh.rotation.x = it.tilt * Math.PI / 180;
+    } else if (it.type === 'slab') {
+      // flat convex polygon thickened along its normal
+      const p = it.pts.map((q) => v3(THREE, q[0], q[1], q[2]));
+      const nrm = new THREE.Vector3().subVectors(p[1], p[0]).cross(new THREE.Vector3().subVectors(p[2], p[0])).normalize().multiplyScalar(it.t * IN);
+      const q = p.map((v) => v.clone().add(nrm)), n = p.length, pos = [];
+      const tri = (a, b, c) => pos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z);
+      for (let k = 1; k + 1 < n; k++) { tri(p[0], p[k], p[k + 1]); tri(q[0], q[k + 1], q[k]); }
+      for (let k = 0; k < n; k++) { const a = p[k], b = p[(k + 1) % n]; tri(a, b, q[(k + 1) % n]); tri(a, q[(k + 1) % n], q[k]); }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.computeVertexNormals();
+      mesh = new THREE.Mesh(g, mat);
     } else if (it.type === 'tape') {
       const dx = it.b[0] - it.a[0], dy = it.b[1] - it.a[1];
       const len = Math.hypot(dx, dy);

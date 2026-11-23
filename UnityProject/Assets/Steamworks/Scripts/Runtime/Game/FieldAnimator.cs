@@ -74,12 +74,25 @@ namespace SteamworksSim.Game
         }
 
         /// <summary>An 11 in, 10-tooth GEAR, 2 in thick, centred on the origin, axis up.</summary>
+        static Mesh gearMesh, gearHull;
+
+        /// <summary>The GEAR as drawn: the real part's pocketed teeth, ring, five spokes and open slices (shared).</summary>
         public static Mesh GearMesh()
         {
+            if (gearMesh != null) return gearMesh;
+            var mb = new MeshBuilder();
+            MeshGen.DetailedGear(mb, Vector3.zero);
+            return gearMesh = mb.ToMesh("GEAR");
+        }
+
+        /// <summary>A simple solid gear outline for physics (a convex collider is a solid disc either way).</summary>
+        public static Mesh GearColliderMesh()
+        {
+            if (gearHull != null) return gearHull;
             var mb = new MeshBuilder();
             var ring = MeshGen.GearOutline(Vector2.zero, 11f, 10, 0f);
             MeshGen.Loft(mb, ring, -1f, ring, 1f, true, true);
-            return mb.ToMesh("GEAR");
+            return gearHull = mb.ToMesh("GEAR collider");
         }
 
         /// <summary>climbTop: per alliance and touchpad, how high the robot under it reaches (or -1).</summary>

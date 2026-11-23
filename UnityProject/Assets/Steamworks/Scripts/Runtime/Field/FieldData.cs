@@ -41,6 +41,9 @@ namespace SteamworksSim.Field
         public bool open;
         // helicoid / dome
         public float r, turns;
+        // slab: a flat convex polygon (x, y, z per corner) thickened by t along its normal
+        public float[] pts3;
+        public float t;
     }
 
     [Serializable]
@@ -56,6 +59,15 @@ namespace SteamworksSim.Field
     {
         public int version;
         public PrismCollider[] prisms;
+        public HullCollider[] hulls;
+    }
+
+    /// <summary>A convex hull of 3D points (x, y, z flattened): tilted panels such as the boiler nets.</summary>
+    [Serializable]
+    public class HullCollider
+    {
+        public string name;
+        public float[] pts;
     }
 
     [Serializable]

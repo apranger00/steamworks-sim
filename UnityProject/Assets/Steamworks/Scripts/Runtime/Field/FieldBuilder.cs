@@ -122,6 +122,14 @@ namespace SteamworksSim.Field
                     case "helicoid":
                         MeshGen.Helicoid(mb, new Vector2(it.c[0], it.c[1]), it.r0, it.r1, it.z0, it.z1, it.turns);
                         break;
+                    case "slab":
+                        if (it.pts3 != null && it.pts3.Length >= 9)
+                        {
+                            var sp = new Vector3[it.pts3.Length / 3];
+                            for (int k = 0; k < sp.Length; k++) sp[k] = new Vector3(it.pts3[3 * k], it.pts3[3 * k + 1], it.pts3[3 * k + 2]);
+                            MeshGen.Slab(mb, sp, it.t);
+                        }
+                        break;
                     case "dome":
                         MeshGen.Sphere(mb, Units.Spec(it.c), it.r, 16, 6, true);
                         break;
@@ -148,8 +156,7 @@ namespace SteamworksSim.Field
                 {
                     if (!string.IsNullOrEmpty(g.reserve) && !reserveGear) continue;
                     if (loadingLanesAtRuntime && string.IsNullOrEmpty(g.reserve) && InLoadingLane(g.c[0])) continue;
-                    var ring = MeshGen.GearOutline(new Vector2(g.c[0], g.c[1]), 11f, 10, g.rotZ);
-                    MeshGen.Loft(gears, ring, g.c[2] - 1f, ring, g.c[2] + 1f, true, true);
+                    MeshGen.DetailedGear(gears, new Vector3(g.c[0], g.c[1], g.c[2]), g.rotZ);
                 }
             }
 
@@ -239,6 +246,33 @@ namespace SteamworksSim.Field
                 var mc = go.AddComponent<MeshCollider>();
                 mc.sharedMesh = mb.ToMesh(p.name);
                 mc.convex = true; // every prism is convex by construction
+                go.isStatic = true;
+            }
+            BuildHulls(root, cols);
+        }
+
+        // convex hulls (tilted panels such as the boiler nets)
+        void BuildHulls(Transform root, ColliderFile cols)
+        {
+            if (cols.hulls == null) return;
+            foreach (var h in cols.hulls)
+            {
+                if (h.pts == null || h.pts.Length < 12) continue;
+                var v = new Vector3[h.pts.Length / 3];
+                for (int k = 0; k < v.Length; k++) v[k] = Units.ToUnity(h.pts[3 * k], h.pts[3 * k + 1], h.pts[3 * k + 2]);
+                // a mesh of the slab's faces (bottom polygon k, top polygon k + n): enough for PhysX to build the hull
+                int n = v.Length / 2;
+                var tris = new List<int>();
+                for (int k = 1; k + 1 < n; k++) { tris.AddRange(new[] { 0, k, k + 1 }); tris.AddRange(new[] { n, n + k + 1, n + k }); }
+                for (int k = 0; k < n; k++) { int j = (k + 1) % n; tris.AddRange(new[] { k, j, n + j, k, n + j, n + k }); }
+                var m = new Mesh { name = h.name };
+                m.vertices = v; m.triangles = tris.ToArray(); m.RecalculateBounds();
+                var go = new GameObject(h.name);
+                go.layer = colliderLayer;
+                go.transform.SetParent(root, false);
+                var mc = go.AddComponent<MeshCollider>();
+                mc.sharedMesh = m;
+                mc.convex = true;
                 go.isStatic = true;
             }
         }
@@ -346,7 +380,8 @@ namespace SteamworksSim.Field
                     root.SetParent(GeneratedRoot, false);
                 }
                 var mesh = new Mesh { name = "Logo " + it.name };
-                Vector3 V(float u, float v) => Units.ToUnity(new Vector3(c.x - along.x * (u - 0.5f) * w, c.y - along.y * (u - 0.5f) * w, zc + (v - 0.5f) * h));
+                // u runs left to right as seen from outside (it was mirrored before)
+                Vector3 V(float u, float v) => Units.ToUnity(new Vector3(c.x + along.x * (u - 0.5f) * w, c.y + along.y * (u - 0.5f) * w, zc + (v - 0.5f) * h));
                 mesh.vertices = new[] { V(0f, 0f), V(1f, 0f), V(1f, 1f), V(0f, 1f) };
                 mesh.uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
                 var nrm = Units.ToUnity(new Vector3(outward.x, outward.y, 0f)).normalized;
