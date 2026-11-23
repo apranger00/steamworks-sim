@@ -67,6 +67,7 @@ namespace SteamworksSim.Game
                          bool auto, bool lastThirty)
         {
             if (rules == null || rules.Ended) return;
+            current = robots;
             var still = new HashSet<string>();
             for (int i = 0; i < robots.Count; i++)
                 for (int j = 0; j < robots.Count; j++)
@@ -220,10 +221,14 @@ namespace SteamworksSim.Game
 
         static void Clear(Pin pin, float now) { pin.active = false; pin.state = PinState.Cleared; pin.clearedAt = now; }
 
-        static bool OtherContact(RobotMechanisms t, RobotMechanisms except)
+        IList<RobotMechanisms> current; // the robots of this step
+
+        // the pinned robot is also against another robot (pinning is transitive through robots)
+        bool OtherContact(RobotMechanisms t, RobotMechanisms except)
         {
-            foreach (var o in UnityEngine.Object.FindObjectsByType<RobotMechanisms>(FindObjectsSortMode.None))
-                if (o != t && o != except && t.Touching(o)) return true;
+            if (current == null) return false;
+            foreach (var o in current)
+                if (o != null && o != t && o != except && t.Touching(o)) return true;
             return false;
         }
 
