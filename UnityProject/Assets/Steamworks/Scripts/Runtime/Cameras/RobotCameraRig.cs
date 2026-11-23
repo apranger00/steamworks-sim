@@ -38,7 +38,7 @@ namespace SteamworksSim.Cameras
 
         public void SetMode(Mode m)
         {
-            mode = m; snapped = false;
+            mode = m; snapped = false; overhead = false;
             Apply();
         }
 
@@ -52,10 +52,19 @@ namespace SteamworksSim.Cameras
 
         public void Snap() => snapped = false;
 
+        bool overhead;
+        /// <summary>A fixed view straight down (SET AUTO): centre `at`, `height` m up, the screen's top toward yawDeg.</summary>
+        public void ShowOverhead(Vector3 at, float height, float yawDeg)
+        {
+            overhead = true; mode = Mode.Free;
+            if (orbit != null) orbit.enabled = false;
+            transform.SetPositionAndRotation(at + Vector3.up * height, Quaternion.Euler(90f, yawDeg, 0f));
+        }
+
         /// <summary>Slowly circling view for menus (free camera, no mouse control).</summary>
         public void ShowOrbit(Vector3 target, float distance, float yaw, float pitch, float spin)
         {
-            mode = Mode.Free; snapped = false;
+            mode = Mode.Free; snapped = false; overhead = false;
             if (orbit == null) return;
             orbit.enabled = true;
             orbit.Set(target, distance, yaw, pitch);
@@ -83,7 +92,7 @@ namespace SteamworksSim.Cameras
 
         void LateUpdate()
         {
-            if (mode == Mode.Free || robot == null) return;
+            if (overhead || mode == Mode.Free || robot == null) return;
             const float k = Units.Inch;
             Vector3 fwd = robot.forward; fwd.y = 0f;
             if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;

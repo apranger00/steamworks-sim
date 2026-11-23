@@ -21,7 +21,7 @@ namespace SteamworksSim.Game
     [DefaultExecutionOrder(-50)]
     public class SimBootstrap : MonoBehaviour
     {
-        public enum AppState { MainMenu, RobotSelect, Playing, Paused, Results }
+        public enum AppState { MainMenu, RobotSelect, SetAuto, Playing, Paused, Results }
 
         public FieldBuilder field;
         public RobotCameraRig cameraRig;
@@ -101,6 +101,7 @@ namespace SteamworksSim.Game
             robotId = PlayerPrefs.GetString(Prefs + "robot", robotId);
             alliance = PlayerPrefs.GetString(Prefs + "alliance", alliance) == "blue" ? "blue" : "red";
             station = Mathf.Clamp(PlayerPrefs.GetInt(Prefs + "station", station), 0, 2);
+            LoadAutoStart();
             LoadLibrary(robotId);
 
             EnsureEventSystem();
@@ -345,6 +346,85 @@ namespace SteamworksSim.Game
         public void SetStation(int s)
         {
             station = Mathf.Clamp(s, 0, 2);
+            CustomStart = false; // picking a station replaces the start set with SET AUTO
+            PlayerPrefs.SetInt(Prefs + "autoSet", 0);
+            ResetPlayer();
+        }
+
+        // ---------------------------------------------------------------- SET AUTO (starting position)
+        /// <summary>The match starts from the position saved with SET AUTO (else from the station's default).</summary>
+        public bool CustomStart { get; private set; }
+        public bool HasSavedAuto => PlayerPrefs.HasKey(Prefs + "autoD");
+        // saved in red's frame (mirrored for blue): distance of the robot centre from the alliance wall, Y, heading
+        float autoD, autoY, autoH;
+        const float AllianceWallX = 326f, WallYMin = -124f, WallYMax = 124.5f, WallTouch = 1.0f;
+
+        void LoadAutoStart()
+        {
+            CustomStart = PlayerPrefs.GetInt(Prefs + "autoSet", 0) != 0;
+            autoD = PlayerPrefs.GetFloat(Prefs + "autoD", 20f);
+            autoY = PlayerPrefs.GetFloat(Prefs + "autoY", 0f);
+            autoH = PlayerPrefs.GetFloat(Prefs + "autoH", 0f);
+        }
+
+        public void UseCustomStart()
+        {
+            if (PlayerPrefs.GetFloat(Prefs + "autoD", -1f) < 0f) return; // nothing saved yet
+            CustomStart = true;
+            PlayerPrefs.SetInt(Prefs + "autoSet", 1);
+            ResetPlayer();
+        }
+
+        /// <summary>2017: every robot starts touching its ALLIANCE WALL (some bumper within 1 in of it).</summary>
+        public bool AutoStartValid
+        {
+            get
+            {
+                if (playerMech == null) return false;
+                foreach (var c in playerMech.Corners())
+                    if (Side * c.x >= AllianceWallX - WallTouch && c.y >= WallYMin && c.y <= WallYMax) return true;
+                return false;
+            }
+        }
+
+        /// <summary>Robot selection > SET AUTO: a bird's-eye view of your end of the field; drive the robot where it should start.</summary>
+        public void EnterSetAuto()
+        {
+            if (player == null) return;
+            State = AppState.SetAuto;
+            RemoveDummy();
+            ResetPlayer();
+            if (playerMech != null) playerMech.enabledByMatch = false;
+            if (cameraRig != null) cameraRig.ShowOverhead(Units.ToUnity(Side * (AllianceWallX - 125f), 0f, 0f), 6.2f, Side < 0 ? 90f : -90f);
+            menus.Show(MenuPage.SetAuto);
+        }
+
+        /// <summary>SAVE: keeps the position only if the robot touches its alliance wall. False otherwise (nothing saved).</summary>
+        public bool SaveAuto()
+        {
+            if (State != AppState.SetAuto || !AutoStartValid) return false;
+            var p = Units.ToSpec(player.transform.position);
+            var f = player.transform.forward;
+            float h = Mathf.Atan2(f.z, f.x) * Mathf.Rad2Deg; // spec heading, CCW from +X
+            if (Side < 0) { autoD = p.x + AllianceWallX; autoY = p.y; autoH = h; }
+            else { autoD = AllianceWallX - p.x; autoY = p.y; autoH = 180f - h; } // mirrored into red's frame
+            PlayerPrefs.SetFloat(Prefs + "autoD", autoD); PlayerPrefs.SetFloat(Prefs + "autoY", autoY); PlayerPrefs.SetFloat(Prefs + "autoH", autoH);
+            PlayerPrefs.SetInt(Prefs + "autoSet", 1); PlayerPrefs.Save();
+            CustomStart = true;
+            LeaveSetAuto();
+            return true;
+        }
+
+        /// <summary>CANCEL: back to robot selection, nothing changed.</summary>
+        public void CancelSetAuto() { if (State == AppState.SetAuto) LeaveSetAuto(); }
+
+        /// <summary>RESET: the robot back where the match would start it now.</summary>
+        public void ResetSetAuto() { if (State == AppState.SetAuto) PlaceStart(); }
+
+        void LeaveSetAuto()
+        {
+            State = AppState.RobotSelect;
+            menus.Show(MenuPage.RobotSelect);
             ResetPlayer();
         }
 
@@ -380,14 +460,25 @@ namespace SteamworksSim.Game
         {
             if (player == null) return;
             if (playerMech != null) playerMech.ResetState(); // off the rope, back on the carpet
-            // Bumpers touching the alliance wall, facing the field (prototype startPose)
-            float x = Side * (326f - current.LengthWithBumpers / 2f - 0.5f);
-            Place(player, x, StationY[station], Side < 0 ? 0f : 180f);
-            if (cameraRig == null) return;
+            PlaceStart();
+            if (cameraRig == null || State == AppState.SetAuto) return;
             cameraRig.allianceSide = Side;
             cameraRig.stationY = StationY[station];
             if (State == AppState.RobotSelect) FocusPreview();
             else cameraRig.Snap();
+        }
+
+        /// <summary>The start: the SET AUTO position if one is saved and chosen, else bumpers against the alliance wall at
+        /// the station, facing the field (prototype startPose).</summary>
+        void PlaceStart()
+        {
+            if (CustomStart)
+            {
+                Place(player, Side < 0 ? autoD - AllianceWallX : AllianceWallX - autoD, autoY, Side < 0 ? autoH : 180f - autoH);
+                return;
+            }
+            float x = Side * (AllianceWallX - current.LengthWithBumpers / 2f - 0.5f);
+            Place(player, x, StationY[station], Side < 0 ? 0f : 180f);
         }
 
         void FocusPreview()
@@ -575,10 +666,10 @@ namespace SteamworksSim.Game
         void Update()
         {
             // title music while the menus are up (title, options, robot selection); fades out for a match
-            if (music != null) music.Wanted = State == AppState.MainMenu || State == AppState.RobotSelect;
+            if (music != null) music.Wanted = State == AppState.MainMenu || State == AppState.RobotSelect || State == AppState.SetAuto;
             var input = reader.Read();
             bool driving = State == AppState.Playing && Clock.Running; // disabled during the countdown and after 0:00
-            if (playerDrive != null) playerDrive.input = driving ? input : RobotInput.Idle;
+            if (playerDrive != null) playerDrive.input = driving || State == AppState.SetAuto ? input : RobotInput.Idle;
             if (playerMech != null)
             {
                 playerMech.shootHeld = driving && input.shoot;
