@@ -55,7 +55,7 @@ namespace SteamworksSim.InputHandling
             Intake = Button(map, "Intake FUEL (hold)", "<Keyboard>/q", "<Gamepad>/leftTrigger");
             Dump = Button(map, "Dump (low goal)", "<Keyboard>/z", "<Gamepad>/buttonNorth");
             PlaceGear = Button(map, "Place GEAR", "<Keyboard>/e", "<Gamepad>/buttonSouth");
-            Climb = Button(map, "Climb / let go", "<Keyboard>/t", "<Gamepad>/buttonWest");
+            Climb = Button(map, "Climb (hold)", "<Keyboard>/t", "<Gamepad>/buttonWest");
             ChuteFuel = Button(map, "Loading station: FUEL", "<Keyboard>/f", "<Gamepad>/leftShoulder");
             ChuteGear = Button(map, "Loading station: GEAR", "<Keyboard>/g", "<Gamepad>/rightShoulder");
             Precision = Button(map, "Precision", "<Keyboard>/shift", "<Gamepad>/rightStickPress");

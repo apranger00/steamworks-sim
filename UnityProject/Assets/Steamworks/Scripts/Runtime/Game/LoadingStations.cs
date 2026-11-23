@@ -5,19 +5,21 @@ using UnityEngine;
 namespace SteamworksSim.Game
 {
     /// <summary>
-    /// Return LOADING STATIONS (manual 3.11.3): two chutes each, fed by the alliance's human players. A robot with
-    /// any part of its bumpers in its RETRIEVAL ZONE asks for a game piece (L1 / F: FUEL, R1 / G: GEAR) and the
-    /// chute nearest the robot drops it: 20 FUEL at a time (or whatever is left), one GEAR at a time. A GEAR goes
-    /// straight into the robot only if it can take one and is lined up close to the chute (GearReach,
-    /// GearOverlap); otherwise it slides out onto the carpet.
-    ///
-    /// Stock (manual 4.1): each LOADING LANE starts with 20 FUEL and 18 GEARS, plus every preload its three teams
-    /// don't put in a robot (10 FUEL and 1 GEAR per team). GEARS are never restocked; FUEL is: every FUEL a boiler
-    /// counts goes to the other alliance's station (AddFuel).
+    /// Where robots get game pieces from the human players (L1 / F: FUEL, R1 / G: GEAR; the chute nearest the robot
+    /// drops it: 20 FUEL at a time or whatever is left, one GEAR at a time). Two kinds, by the user's names:
+    ///  - LOADING STATION: the return loading station in the far corner (two chutes, RETRIEVAL ZONE 42 in deep).
+    ///    Starts with 20 FUEL and 18 GEARS (manual 4.1). GEARS are never restocked; every FUEL a boiler counts comes
+    ///    back to the other alliance's station (AddFuel).
+    ///  - LOADING LANE: the opening in the alliance's own wall (one chute). Starts with every game piece that
+    ///    doesn't start in a robot: 10 FUEL and 1 GEAR per team, less the robots' preloads.
+    /// A chute does one thing at a time. A GEAR goes straight into the robot only if it can take one and its gear
+    /// slot is lined up close to the chute (GearReach, GearOverlap); otherwise it slides out onto the carpet, each a
+    /// little differently (about 15 %), so they don't land on top of each other.
     /// </summary>
     public class LoadingStations : MonoBehaviour
     {
-        public const int LaneFuel = 20, LaneGears = 18, TeamsPerAlliance = 3, PreloadFuel = 10, PreloadGears = 1, FuelPerDrop = 20;
+        public const int StationFuel = 20, StationGears = 18, TeamsPerAlliance = 3, PreloadFuel = 10, PreloadGears = 1, FuelPerDrop = 20;
+        const float DropVariance = 0.15f; // GEARS sliding out of a chute: speed, direction and spot vary this much
         /// <summary>For every robot: to take a GEAR straight from a chute its front must be within this many inches of
         /// the chute, and its front must cover at least this fraction of the chute's width, left to right.</summary>
         public const float GearReach = 8f, GearOverlap = 0.5f;
@@ -26,20 +28,29 @@ namespace SteamworksSim.Game
         public class Station
         {
             public string alliance;
+            public bool lane;                     // LOADING LANE (alliance wall) rather than LOADING STATION
+            public string Label => lane ? "Loading lane" : "Loading station";
             public LoadingSpec spec;
+            public int Chutes => spec.chutes.Length / 2;
             public GameObject[] gearStack;        // lane GEARS, shown one per GEAR left (top of the last stack goes first)
             public GameObject[] boxes;            // FUEL boxes of 50 in the lane
             public GameObject[][] boxFuel;        // the balls in each box
             public int shownFuel = -1, shownGears = -1;
             public int fuel, gears;
-            public readonly int[] pouring = new int[2];   // FUEL still to come out of each chute
-            public readonly float[] acc = new float[2];
-            public readonly float[] gearWait = new float[2];
+            public readonly int[] pouring = new int[4];   // FUEL still to come out of each chute
+            public readonly float[] acc = new float[4];
+            public readonly float[] gearWait = new float[4];
         }
 
         public Station Red { get; private set; }
         public Station Blue { get; private set; }
+        public Station RedLane { get; private set; }
+        public Station BlueLane { get; private set; }
+        /// <summary>The alliance's LOADING STATION (corner).</summary>
         public Station Of(string alliance) => alliance == "blue" ? Blue : Red;
+        /// <summary>The alliance's LOADING LANE (its own wall).</summary>
+        public Station LaneOf(string alliance) => alliance == "blue" ? BlueLane : RedLane;
+        IEnumerable<Station> All() { foreach (var s in new[] { Red, Blue, RedLane, BlueLane }) if (s != null) yield return s; }
 
         FuelPool fuel;
         GearPool gearPool;
@@ -51,7 +62,13 @@ namespace SteamworksSim.Game
             if (t == null || t.loading == null) return;
             Red = new Station { alliance = "red", spec = t.loading.red };
             Blue = new Station { alliance = "blue", spec = t.loading.blue };
-            if (mats != null) { BuildLane(Red, mats); BuildLane(Blue, mats); }
+            if (t.lanes != null && t.lanes.red != null && t.lanes.blue != null)
+            {
+                RedLane = new Station { alliance = "red", lane = true, spec = t.lanes.red };
+                BlueLane = new Station { alliance = "blue", lane = true, spec = t.lanes.blue };
+            }
+            else Debug.LogWarning("[Steamworks] targets.json has no loading lanes: re-export the field data (node tools/export_unity_data.mjs).");
+            if (mats != null) foreach (var s in All()) BuildStock(s, mats);
         }
 
         // ---------------------------------------------------------------- loading lane visuals
@@ -59,28 +76,31 @@ namespace SteamworksSim.Game
         const int GearStacks = 3, GearsPerStack = 7, MaxBoxes = 6;
 
         /// <summary>
-        /// The lane behind the station's alliance wall (red's at the +X end): three GEAR stacks against the wall
-        /// and a row of FUEL boxes (RETURN BINS, 50 FUEL each) behind them, as many as the stock needs.
+        /// The stock behind the wall, as the human players have it: GEAR stacks against the wall and FUEL boxes
+        /// (RETURN BINS, 50 FUEL each) behind them, as many as the stock needs. Station (corner): three stacks of 7 and
+        /// up to six boxes. Lane (alliance wall, beside the opening): one stack of 3 and one box.
         /// </summary>
-        void BuildLane(Station s, FieldMaterials mats)
+        void BuildStock(Station s, FieldMaterials mats)
         {
             float sx = Mathf.Sign(s.spec.a[0]);
-            var root = new GameObject($"{s.alliance.ToUpper()} loading lane").transform;
+            int stacks = s.lane ? 1 : GearStacks, perStack = s.lane ? TeamsPerAlliance * PreloadGears : GearsPerStack, maxBoxes = s.lane ? 1 : MaxBoxes;
+            float[] stackY = s.lane ? new[] { s.spec.chutes[1] - 18f } : new[] { 135f, 150f, 165f };
+            float boxY = s.lane ? s.spec.chutes[1] + 4f : 150f;
+            var root = new GameObject($"{s.alliance.ToUpper()} {s.Label.ToLower()} stock").transform;
             root.SetParent(transform, false);
 
             var gearMesh = FieldAnimator.GearMesh();
             var gearMat = mats.Get("gear");
-            s.gearStack = new GameObject[GearStacks * GearsPerStack];
-            float[] stackY = { 135f, 150f, 165f };
-            for (int k = 0; k < GearStacks; k++)
-                for (int h = 0; h < GearsPerStack; h++)
+            s.gearStack = new GameObject[stacks * perStack];
+            for (int k = 0; k < stacks; k++)
+                for (int h = 0; h < perStack; h++)
                 {
                     var g = new GameObject("Lane GEAR");
                     g.transform.SetParent(root, false);
                     g.transform.SetPositionAndRotation(Units.ToUnity(sx * 332f, stackY[k], 1f + 2f * h), Quaternion.Euler(0f, 18f * h, 0f));
                     g.AddComponent<MeshFilter>().sharedMesh = gearMesh;
                     g.AddComponent<MeshRenderer>().sharedMaterial = gearMat;
-                    s.gearStack[k * GearsPerStack + h] = g;
+                    s.gearStack[k * perStack + h] = g;
                 }
 
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -92,13 +112,13 @@ namespace SteamworksSim.Game
             var binMat = mats.Get("bin");
             var fuelMat = mats.Get("fuel");
             const float bl = 18f, bw = 33.5f, bh = 13f, wall = 0.4f; // RETURN BIN, manual 3.11.5
-            s.boxes = new GameObject[MaxBoxes];
-            s.boxFuel = new GameObject[MaxBoxes][];
-            for (int b = 0; b < MaxBoxes; b++)
+            s.boxes = new GameObject[maxBoxes];
+            s.boxFuel = new GameObject[maxBoxes][];
+            for (int b = 0; b < maxBoxes; b++)
             {
                 var box = new GameObject($"FUEL box {b + 1}").transform;
                 box.SetParent(root, false);
-                box.position = Units.ToUnity(sx * (347f + 20f * b), 150f, 0f);
+                box.position = Units.ToUnity(sx * (347f + 20f * b), boxY, 0f);
                 void Slab(Vector3 c, Vector3 size)
                 {
                     var w = new GameObject("Bin");
@@ -154,44 +174,69 @@ namespace SteamworksSim.Game
 
         void Update()
         {
-            if (Red != null) ShowLane(Red);
-            if (Blue != null) ShowLane(Blue);
+            foreach (var s in All()) ShowLane(s);
         }
 
-        /// <summary>Start of a match: lane stock plus the preloads the alliance's robots didn't take.</summary>
+        /// <summary>Start of a match: station stock, and the lanes get the preloads the alliance's robots didn't take.</summary>
         public void Reset(IEnumerable<RobotMechanisms> robots)
         {
-            foreach (var s in new[] { Red, Blue })
+            foreach (var s in All())
             {
-                if (s == null) continue;
                 int fuelIn = 0, gearsIn = 0;
                 foreach (var r in robots) if (r.alliance == s.alliance && r.participates) { fuelIn += r.PreloadedFuel; gearsIn += r.PreloadedGears; }
-                s.fuel = LaneFuel + TeamsPerAlliance * PreloadFuel - fuelIn;
-                s.gears = LaneGears + TeamsPerAlliance * PreloadGears - gearsIn;
-                for (int c = 0; c < 2; c++) { s.pouring[c] = 0; s.acc[c] = 0f; s.gearWait[c] = 0f; }
+                if (s.lane)
+                {
+                    s.fuel = Mathf.Max(0, TeamsPerAlliance * PreloadFuel - fuelIn);
+                    s.gears = Mathf.Max(0, TeamsPerAlliance * PreloadGears - gearsIn);
+                }
+                else { s.fuel = StationFuel; s.gears = StationGears; }
+                for (int c = 0; c < s.pouring.Length; c++) { s.pouring[c] = 0; s.acc[c] = 0f; s.gearWait[c] = 0f; }
             }
         }
 
         /// <summary>FUEL processed by the other alliance's boiler comes back here.</summary>
         public void AddFuel(string alliance, int n) { var s = Of(alliance); if (s != null) s.fuel += n; }
 
-        /// <summary>Any bumper corner within the RETRIEVAL ZONE (the far edge of its tape is 42 in from the station face).</summary>
-        public bool InZone(RobotMechanisms r)
+        /// <summary>Any bumper corner within the station's RETRIEVAL ZONE (its tape's far edge is 42 in from the face).</summary>
+        public bool InZone(RobotMechanisms r) => InZone(Of(r.alliance), r);
+
+        /// <summary>Any bumper corner within the zone of this station or lane (a lane's zone also ends along the wall).</summary>
+        public static bool InZone(Station s, RobotMechanisms r)
         {
-            var s = Of(r.alliance);
             if (s == null) return false;
+            var L = s.spec;
+            var along = new Vector2(-L.inward[1], L.inward[0]);
+            var c0 = new Vector2(L.chutes[0], L.chutes[1]);
             foreach (var c in r.Corners())
-                if (Depth(s.spec, c) <= s.spec.zoneDepth) return true;
+            {
+                float d = Depth(L, c);
+                if (d < -2f || d > L.zoneDepth) continue;
+                if (L.zoneHalfW > 0f && Mathf.Abs(Vector2.Dot(c - c0, along)) > L.zoneHalfW) continue;
+                return true;
+            }
             return false;
+        }
+
+        /// <summary>The station or lane this robot is in the zone of (its own alliance's), or null.</summary>
+        public Station ZoneOf(RobotMechanisms r)
+        {
+            var lane = LaneOf(r.alliance);
+            if (lane != null && InZone(lane, r)) return lane;
+            var st = Of(r.alliance);
+            return st != null && InZone(st, r) ? st : null;
         }
 
         static float Depth(LoadingSpec L, Vector2 p) => (p.x - L.a[0]) * L.inward[0] + (p.y - L.a[1]) * L.inward[1];
 
-        int NearestChute(Station s, Vector2 p)
+        static int NearestChute(Station s, Vector2 p)
         {
-            float d0 = (p - new Vector2(s.spec.chutes[0], s.spec.chutes[1])).sqrMagnitude;
-            float d1 = (p - new Vector2(s.spec.chutes[2], s.spec.chutes[3])).sqrMagnitude;
-            return d0 <= d1 ? 0 : 1;
+            int best = 0; float bd = float.MaxValue;
+            for (int c = 0; c < s.Chutes; c++)
+            {
+                float d = (p - new Vector2(s.spec.chutes[2 * c], s.spec.chutes[2 * c + 1])).sqrMagnitude;
+                if (d < bd) { bd = d; best = c; }
+            }
+            return best;
         }
 
         /// <summary>
@@ -200,11 +245,11 @@ namespace SteamworksSim.Game
         /// </summary>
         static bool Busy(Station s, int c) => s.pouring[c] > 0 || s.gearWait[c] > 0f;
 
-        /// <summary>L1 / F: 20 FUEL (or what's left) out of the nearest chute. False if not allowed or empty.</summary>
+        /// <summary>L1 / F: 20 FUEL (or what's left) out of the nearest chute of the lane or station the robot is at.</summary>
         public bool RequestFuel(RobotMechanisms r)
         {
-            var s = Of(r.alliance);
-            if (s == null || !InZone(r)) return false;
+            var s = ZoneOf(r);
+            if (s == null) return false;
             int c = NearestChute(s, r.Center);
             if (Busy(s, c) || s.fuel < 1) return false;
             int n = Mathf.Min(FuelPerDrop, s.fuel);
@@ -212,11 +257,11 @@ namespace SteamworksSim.Game
             return true;
         }
 
-        /// <summary>R1 / G: one GEAR out of the nearest chute. False if not allowed or none left.</summary>
+        /// <summary>R1 / G: one GEAR out of the nearest chute of the lane or station the robot is at.</summary>
         public bool RequestGear(RobotMechanisms r)
         {
-            var s = Of(r.alliance);
-            if (s == null || !InZone(r) || gearPool == null) return false;
+            var s = ZoneOf(r);
+            if (s == null || gearPool == null) return false;
             int c = NearestChute(s, r.Center);
             if (Busy(s, c) || s.gears < 1) return false;
             s.gears--; s.gearWait[c] = GearCooldown;
@@ -224,22 +269,27 @@ namespace SteamworksSim.Game
             var inward = new Vector2(L.inward[0], L.inward[1]);
             var chute = new Vector2(L.chutes[2 * c], L.chutes[2 * c + 1]);
             if (r.TakeGearFromChute(L, chute, GearReach, GearOverlap)) return true; // straight into the gear slot
-            // GEARS fit through the 7.5 in slot lying flat: it slides out of the opening onto the carpet
-            float yaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg;
-            gearPool.Spawn(new Vector3(chute.x, chute.y, L.chuteZ0 + 1.5f), new Vector3(inward.x, inward.y, 0f) * 35f, yaw);
+            // GEARS fit through the 7.5 in slot lying flat: it slides out of the opening onto the carpet, a little
+            // differently each time (speed, direction and spot within about 15 %) so they don't stack up
+            var along = new Vector2(-inward.y, inward.x);
+            float V() => 1f + ((float)rnd.NextDouble() * 2f - 1f) * DropVariance;
+            float speed = 35f * V(), side = ((float)rnd.NextDouble() * 2f - 1f) * DropVariance;
+            var dir = (inward + along * side).normalized;
+            var at = chute + along * (((float)rnd.NextDouble() * 2f - 1f) * DropVariance * 2f * Mathf.Max(0f, L.chuteHalfW - 5.5f) + side * 3f);
+            float yaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg + (float)rnd.NextDouble() * 36f;
+            gearPool.Spawn(new Vector3(at.x, at.y, L.chuteZ0 + 1.5f), new Vector3(dir.x, dir.y, 0f) * speed, yaw);
             return true;
         }
 
         void FixedUpdate()
         {
             float dt = Time.fixedDeltaTime;
-            foreach (var s in new[] { Red, Blue })
+            foreach (var s in All())
             {
-                if (s == null) continue;
                 var L = s.spec;
                 var inward = new Vector2(L.inward[0], L.inward[1]);
                 var along = new Vector2(-inward.y, inward.x);
-                for (int c = 0; c < 2; c++)
+                for (int c = 0; c < s.Chutes; c++)
                 {
                     if (s.gearWait[c] > 0f) s.gearWait[c] -= dt;
                     if (s.pouring[c] <= 0 || fuel == null) continue;

@@ -51,7 +51,7 @@ Default controls (rebindable):
 | **Intake** FUEL off the carpet (hold; robots with a floor intake) | Q | LT |
 | **Dump** into the low goal (hold, front of the robot against the boiler) | Z | Y |
 | **Place GEAR** on the lift peg your front slot is lined up with | E | A |
-| **Climb** your rope (front bumper against it) / let go | T | X |
+| **Climb**: hold to climb your rope (front bumper against it); let go and it slides back down | T (hold) | X (hold) |
 | **FUEL from the loading station** (in your retrieval zone; nearest chute) | F | LB (L1) |
 | **GEAR from the loading station** (in your retrieval zone; nearest chute) | G | RB (R1) |
 | Precision (40%) | Shift | R3 (hold) |

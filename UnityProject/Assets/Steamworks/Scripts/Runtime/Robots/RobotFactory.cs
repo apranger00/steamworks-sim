@@ -63,16 +63,31 @@ namespace SteamworksSim.Robots
                 // can fall in from above (a closed box would act like a lid)
                 float floorZ = HopperFloor(d) * In;
                 float hl = HopperLength(d) * In, hw = HopperWidth(d) * In;
-                var col = root.AddComponent<BoxCollider>();
-                col.size = new Vector3(W, floorZ - clearance, L);
-                col.center = new Vector3(0f, clearance + (floorZ - clearance) / 2f, 0f);
-                col.sharedMaterial = bumperMaterial;
+                float baseH = floorZ - clearance, baseY = clearance + baseH / 2f;
+                if (HasFloorIntake(d))
+                {
+                    // the base, with a notch in the front where the bumper gap is: FUEL rolls in under the intake roller
+                    float front = hl / 2f, bayL = L / 2f - front, gap = IntakeGapHalf(d) * In, notch = NotchTop * In;
+                    Wall(root, "base", new Vector3(0f, baseY, (front - L / 2f) / 2f), new Vector3(W, baseH, L / 2f + front));
+                    float sideW = W / 2f - gap;
+                    Wall(root, "base front left", new Vector3(-(gap + sideW / 2f), baseY, front + bayL / 2f), new Vector3(sideW, baseH, bayL));
+                    Wall(root, "base front right", new Vector3(gap + sideW / 2f, baseY, front + bayL / 2f), new Vector3(sideW, baseH, bayL));
+                    if (floorZ > notch)
+                        Wall(root, "base over intake", new Vector3(0f, (notch + floorZ) / 2f, front + bayL / 2f), new Vector3(2f * gap, floorZ - notch, bayL));
+                }
+                else
+                {
+                    var col = root.AddComponent<BoxCollider>();
+                    col.size = new Vector3(W, baseH, L);
+                    col.center = new Vector3(0f, baseY, 0f);
+                    col.sharedMaterial = bumperMaterial;
+                }
                 float wallH = H - floorZ, cy = floorZ + wallH / 2f;
                 float ringL = (L - hl) / 2f, ringW = (W - hw) / 2f;
-                Wall(root, "front", new Vector3(0f, cy, (hl + ringL) / 2f), new Vector3(W, wallH, ringL));
-                Wall(root, "back", new Vector3(0f, cy, -(hl + ringL) / 2f), new Vector3(W, wallH, ringL));
-                Wall(root, "left", new Vector3(-(hw + ringW) / 2f, cy, 0f), new Vector3(ringW, wallH, hl));
-                Wall(root, "right", new Vector3((hw + ringW) / 2f, cy, 0f), new Vector3(ringW, wallH, hl));
+                Wall(root, "hopper front", new Vector3(0f, cy, (hl + ringL) / 2f), new Vector3(W, wallH, ringL));
+                Wall(root, "hopper back", new Vector3(0f, cy, -(hl + ringL) / 2f), new Vector3(W, wallH, ringL));
+                Wall(root, "hopper left", new Vector3(-(hw + ringW) / 2f, cy, 0f), new Vector3(ringW, wallH, hl));
+                Wall(root, "hopper right", new Vector3((hw + ringW) / 2f, cy, 0f), new Vector3(ringW, wallH, hl));
             }
             else
             {
@@ -100,23 +115,49 @@ namespace SteamworksSim.Robots
 
         static void Wall(GameObject root, string side, Vector3 center, Vector3 size)
         {
-            var go = new GameObject("Collider (hopper " + side + ")");
+            var go = new GameObject("Collider (" + side + ")");
             go.transform.SetParent(root.transform, false);
             var c = go.AddComponent<BoxCollider>();
             c.center = center; c.size = size;
             c.sharedMaterial = bumperMaterial;
         }
 
+        /// <summary>The FUEL count the open-top hopper is sized for (intake.hopperBalls, else shooter.capacity), or 0.</summary>
+        public static int DesignFill(RobotDefinition d)
+        {
+            if (d.intake != null && d.intake.hopperBalls > 0) return d.intake.hopperBalls;
+            return d.shooter != null && d.shooter.capacity > 0 ? d.shooter.capacity : 0;
+        }
+
         /// <summary>
-        /// Height (in) of the open-top hopper's floor: set so that `shooter.capacity` FUEL, piled loosely (HopperPile),
-        /// come up to the rim. A full hopper is full to the top, and more FUEL spills over the sides.
+        /// Height (in) of the open-top hopper's floor: set so that DesignFill FUEL, piled loosely (HopperPile), come up
+        /// to the rim.
         /// </summary>
         public static float HopperFloor(RobotDefinition d)
         {
-            if (d.shooter == null || d.shooter.capacity <= 0) return 4.5f;
+            int n = DesignFill(d);
+            if (n <= 0) return 4.5f;
+            var pile = HopperPile(d);
             float top = 0f;
-            foreach (var p in HopperPile(d)) top = Mathf.Max(top, p.z + 2.5f);
+            for (int i = 0; i < n && i < pile.Count; i++) top = Mathf.Max(top, pile[i].z + 2.5f);
             return Mathf.Clamp(d.frame.height - top, 4.5f, d.frame.height - 6f);
+        }
+
+        static readonly Dictionary<RobotDefinition, int> fits = new Dictionary<RobotDefinition, int>();
+
+        /// <summary>
+        /// How much FUEL the open-top hopper physically holds: every ball of the loose pile whose centre is still at or
+        /// below the rim. More than that rolls off the top (no number in robot.json caps it).
+        /// </summary>
+        public static int PhysicalCapacity(RobotDefinition d)
+        {
+            if (fits.TryGetValue(d, out var c)) return c;
+            if (DesignFill(d) <= 0) return 0;
+            float rim = d.frame.height - HopperFloor(d);
+            c = 0;
+            foreach (var p in HopperPile(d)) if (p.z <= rim + 0.01f) c++;
+            fits[d] = c;
+            return c;
         }
 
         static readonly Dictionary<RobotDefinition, List<Vector3>> piles = new Dictionary<RobotDefinition, List<Vector3>>();
@@ -129,7 +170,9 @@ namespace SteamworksSim.Robots
         public static List<Vector3> HopperPile(RobotDefinition d)
         {
             if (piles.TryGetValue(d, out var cached)) return cached;
-            int count = d.shooter != null && d.shooter.capacity > 0 ? d.shooter.capacity : 60;
+            // twice the design fill: the first DesignFill balls are the same whatever the count (same seed, one by
+            // one), and the rest show the pile heaping up to the rim before it overflows
+            int count = Mathf.Max(60, 2 * DesignFill(d));
             float r = 2.5f, ax = HopperLength(d) / 2f - r, ay = HopperWidth(d) / 2f - r, touch = 4f * r * r;
             var rnd = new System.Random(2017);
             var pts = new List<Vector3>(count);
@@ -151,6 +194,14 @@ namespace SteamworksSim.Robots
             piles[d] = pts;
             return pts;
         }
+
+        // ---- floor intake in a gap in the front bumper
+        /// <summary>The robot has an open-top hopper and a floor intake for FUEL (in a gap in the front bumper).</summary>
+        public static bool HasFloorIntake(RobotDefinition d) => d.intake != null && d.intake.fuelFromChute && d.intake.fuelFromFloor;
+        /// <summary>Half the width (in) of the gap in the front bumper where the intake is.</summary>
+        public static float IntakeGapHalf(RobotDefinition d) => Mathf.Clamp(d.frame.width / 2f - 4f, 4f, 10f);
+        /// <summary>Height (in) of the opening under the intake roller.</summary>
+        public const float NotchTop = 8f;
 
         /// <summary>Inside of the open-top hopper (in): the frame less 2 in each side.</summary>
         public static float HopperLength(RobotDefinition d) => d.frame.length - 4f;
@@ -182,11 +233,8 @@ namespace SteamworksSim.Robots
             var yellow = mats.Get("gear");
             var hub = mats.Get("steel");
 
-            // Bumpers (alliance colour) around the frame perimeter
-            Part(t, cubeMesh, bump, V(0, -W / 2 + bt / 2, bz), V(L, bt, bh), "Bumper left");
-            Part(t, cubeMesh, bump, V(0, W / 2 - bt / 2, bz), V(L, bt, bh), "Bumper right");
-            Part(t, cubeMesh, bump, V(L / 2 - bt / 2, 0, bz), V(bt, fw, bh), "Bumper front");
-            Part(t, cubeMesh, bump, V(-L / 2 + bt / 2, 0, bz), V(bt, fw, bh), "Bumper back");
+            // Bumpers (alliance colour) around the frame perimeter, with a gap in the front for a floor intake
+            RobotDetail.Bumpers(t, d, bump);
             // Frame, belly pan, superstructure
             Part(t, cubeMesh, alu, V(0, 0, 3.5f), V(fl, fw, 2f), "Frame");
             Part(t, cubeMesh, dark, V(0, 0, 2.6f), V(fl - 4f, fw - 6f, 0.25f), "Belly pan");
@@ -211,14 +259,12 @@ namespace SteamworksSim.Robots
                 float towerH = Mathf.Max(2f, H - 4.5f - 1.5f);
                 Part(t, cubeMesh, dark, V(-3f, 0, 4.5f + towerH / 2f), V(Mathf.Max(4f, fl - 10f), Mathf.Max(4f, fw - 8f), towerH), "Superstructure");
             }
-            // Yellow bar across the front so you can always tell which way the robot faces
-            Part(t, cubeMesh, yellow, V(fl / 2f - 3f, 0, 9f), V(4f, fw - 2f, 3f), "Front marker");
-            if (d.shooter != null && d.shooter.enabled)
-            {
-                var off = d.shooter.exitOffset != null && d.shooter.exitOffset.Length >= 2 ? d.shooter.exitOffset : new[] { 0f, 0f };
-                // Unity's cylinder is 2 units tall: y scale = half the height
-                Part(t, cylinderMesh, mats.Get("steel"), V(off[0], -off[1], H - 1.5f), new Vector3(10f * In, 1.5f * In, 10f * In), "Shooter turret");
-            }
+            // Mechanisms: floor intake and conveyor (front), turret, gear slot. Without an intake, a yellow bar across
+            // the front shows which way the robot faces.
+            if (RobotFactory.HasFloorIntake(d)) RobotDetail.Intake(t, d, mats);
+            else Part(t, cubeMesh, yellow, V(fl / 2f - 3f, 0, 9f), V(4f, fw - 2f, 3f), "Front marker");
+            if (d.shooter != null && d.shooter.enabled) RobotDetail.Turret(t, d, mats);
+            if (d.gear != null && d.gear.enabled) RobotDetail.GearSlot(t, d, mats);
 
             // Wheels (drop-centre look comes from the frame; wheels are evenly spaced along the frame)
             leftWheels = new List<Transform>(); rightWheels = new List<Transform>();

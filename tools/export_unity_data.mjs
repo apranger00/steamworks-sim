@@ -11,7 +11,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { layout, colliders, targets, ropes, hoppers, loadingStations, DIM } from '../prototype/web/field.js';
+import { layout, colliders, targets, ropes, hoppers, loadingStations, loadingLanes, DIM } from '../prototype/web/field.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'UnityProject/Assets/Steamworks/Data');
@@ -58,7 +58,7 @@ const alliance = (a) => ({
   lifts: a.lifts.map((l) => ({ name: l.name, u: l.u, tip: l.tip, z: l.z })),
   touchpads: a.touchpads.map((t) => ({ c: t.c, z: t.z })),
 });
-writeFileSync(join(outRes, 'targets.json'), JSON.stringify(clean({ version: 1, red: alliance(tg.red), blue: alliance(tg.blue), hoppers: hoppers(), loading: Object.fromEntries(Object.entries(loadingStations()).map(([k, v]) => [k, { ...v, chutes: v.chutes.flat() }])) })));
+writeFileSync(join(outRes, 'targets.json'), JSON.stringify(clean({ version: 1, red: alliance(tg.red), blue: alliance(tg.blue), hoppers: hoppers(), loading: Object.fromEntries(Object.entries(loadingStations()).map(([k, v]) => [k, { ...v, chutes: v.chutes.flat() }])), lanes: Object.fromEntries(Object.entries(loadingLanes()).map(([k, v]) => [k, { ...v, chutes: v.chutes.flat() }])) })));
 
 writeFileSync(join(outRes, 'ropes.json'), JSON.stringify(clean({ version: 1, ropes: ropes(lay).map((r) => ({
   name: r.name, anchor: r.anchor, pin: r.pin, pinR: r.pinR, length: r.length, radius: r.radius, out: r.out })) })));

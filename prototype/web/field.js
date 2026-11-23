@@ -288,7 +288,8 @@ export function layout() {
       push(segBox(`${OWN} DAVIT arm`, 'steel', pr, pc, 2, A.railZ + 4, A.railZ + 6));
       push(box(`${OWN} DAVIT channel`, 'steel', [pc[0], pc[1], (A.touchpadZ - 2 + A.railZ + 6) / 2], [2, 2, A.railZ + 8 - A.touchpadZ], ang));
       push(cyl(`${OWN} ROPE`, 'rope', [p[0], p[1], A.railZ + 6], [p[0], p[1], 0.5], 0.5, 0.5, 10));
-      push(box(`${OWN} TOUCHPAD`, 'touchpad', [p[0], p[1], A.touchpadZ], [10, 10, 0.25], ang));
+      // round plate (user, 2026-11-22), 10 in across, the rope through its centre
+      push(cyl(`${OWN} TOUCHPAD`, 'touchpad', [p[0], p[1], A.touchpadZ - 0.125], [p[0], p[1], A.touchpadZ + 0.125], 5, 5, 32));
       push({ type: 'dome', name: `${OWN} TOUCHPAD dome`, mat: 'dome', c: [pc[0], pc[1], A.touchpadZ + 6], r: 2.5, group: 'field' });
     }
     // Reserve gear at the base of the steam tank (official rule; off by default in the sim)
@@ -362,6 +363,20 @@ export function loadingStations() {
     if (inward[0] * mid[0] + inward[1] * mid[1] > 0) inward = [-inward[0], -inward[1]];
     const chutes = L.openings.map((o) => { const t = pad + (o[0] + o[1]) / 2; return [a[0] + dir[0] * t, a[1] + dir[1] * t]; });
     out[al] = { a, b, inward, chutes, chuteHalfW: (L.openings[0][1] - L.openings[0][0]) / 2, chuteZ0: L.openZ[0], chuteZ1: L.openZ[1], zoneDepth: 42 };
+  }
+  return out;
+}
+
+// LOADING LANES (the user's name for the overflow opening in each alliance's own wall): where every game piece that
+// doesn't start in a robot goes (manual 4.1: up to 10 FUEL and 1 GEAR per team). Same shape as loadingStations(),
+// one chute; zoneHalfW limits the zone along the wall (a robot within zoneDepth of the wall and this close to the
+// opening's centre, measured along the wall).
+export function loadingLanes() {
+  const O = DIM.overflow, out = {};
+  for (const [al, s] of [['red', -1], ['blue', 1]]) {
+    const x = s * DIM.field.halfX, cy = (O.open[0] + O.open[1]) / 2;
+    out[al] = { a: [x, O.y0], b: [x, O.y1], inward: [-s, 0], chutes: [[x, cy]], chuteHalfW: (O.open[1] - O.open[0]) / 2,
+                chuteZ0: O.openZ[0], chuteZ1: O.openZ[1], zoneDepth: 36, zoneHalfW: 40 };
   }
   return out;
 }

@@ -4,13 +4,19 @@
   "name": "Rookie Bot",
   "author": "Steamworks Sim",
   "team": 0,
-  "description": "The test robot from the browser prototype: 6-wheel tank drive, an open-top 50-FUEL hopper (fills from a chute, a field hopper or the floor intake at the front) feeding a turret shooter in the back corner and a low-goal dump, a front gear slot that takes one GEAR from a chute, and a rope climber.",
+  "description": "The test robot from the browser prototype: 6-wheel tank drive, a roller intake in a gap in the front bumper that lifts FUEL up into an open-top hopper (it also fills from a chute or a field hopper, and overflows when full), a turret shooter in the back corner, a low-goal dump out of the front, a gear slot on the back that takes one GEAR from a chute, and a rope climber.",
   "version": "1.0",
-
-  "frame":   { "length": 32, "width": 28, "height": 24 },
-  "bumpers": { "thickness": 3.25, "bottom": 2, "top": 7 },
+  "frame": {
+    "length": 32,
+    "width": 28,
+    "height": 24
+  },
+  "bumpers": {
+    "thickness": 3.25,
+    "bottom": 2,
+    "top": 7
+  },
   "mass": 140,
-
   "drivetrain": {
     "type": "tank",
     "topSpeed": 12,
@@ -23,31 +29,70 @@
     "wheelDiameter": 6,
     "wheelsPerSide": 3
   },
-
   "shooter": {
     "enabled": true,
     "type": "turret",
-    "rate": 6,
+    "rate": 2.5,
     "exitHeight": 30,
-    "exitOffset": [-10, -8],
+    "exitOffset": [
+      -10,
+      -8
+    ],
     "maxExitSpeed": 40,
     "minRange": 2.5,
     "maxRange": 25,
     "entryAngle": 55,
-    "aimError": 0.45,
-    "speedError": 0.9,
-    "capacity": 50
+    "aimError": 0.2,
+    "speedError": 0.4,
+    "capacity": 0
   },
-
-  "lowGoalDump": { "enabled": true, "rate": 10, "height": 22, "speed": 5.83, "width": 14 },
-
-  "gear": { "enabled": true, "slotOffset": 0, "maxDistance": 4, "maxLateral": 3.5, "maxAngle": 15, "capacity": 1 },
-
-  "preload": { "fuel": 10, "gears": 1 },
-
-  "intake": { "fuelFromChute": true, "hopperDepth": 12, "gearFromChute": true, "fuelFromFloor": true, "gearFromFloor": false },
-
-  "climber": { "enabled": true, "rate": 12, "setback": 3, "reachForward": 10, "reachLateral": 12 },
-
-  "model": { "file": "", "scale": 1, "offset": [0, 0, 0], "rotation": [0, 0, 0] }
+  "lowGoalDump": {
+    "enabled": true,
+    "rate": 10,
+    "height": 22,
+    "speed": 5.83,
+    "width": 14
+  },
+  "gear": {
+    "enabled": true,
+    "slotOffset": 6,
+    "maxDistance": 4,
+    "maxLateral": 3.5,
+    "maxAngle": 15,
+    "capacity": 1,
+    "back": true
+  },
+  "preload": {
+    "fuel": 10,
+    "gears": 1
+  },
+  "intake": {
+    "fuelFromChute": true,
+    "hopperDepth": 12,
+    "gearFromChute": true,
+    "fuelFromFloor": true,
+    "gearFromFloor": false,
+    "hopperBalls": 50
+  },
+  "climber": {
+    "enabled": true,
+    "rate": 12,
+    "setback": 3,
+    "reachForward": 10,
+    "reachLateral": 12
+  },
+  "model": {
+    "file": "",
+    "scale": 1,
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ]
+  }
 }

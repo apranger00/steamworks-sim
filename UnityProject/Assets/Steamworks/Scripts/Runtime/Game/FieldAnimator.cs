@@ -18,6 +18,7 @@ namespace SteamworksSim.Game
         readonly Dictionary<string, Transform[]> pegGears = new Dictionary<string, Transform[]>();
         TargetsFile targets;
         static readonly Color Red = new Color(1f, 0.08f, 0.1f), Blue = new Color(0.08f, 0.32f, 1f);
+        const float MaxPress = 3.5f; // in: a fully climbed robot pushes the plate (and dome) up this far
         readonly Dictionary<Material, Color> baseColours = new Dictionary<Material, Color>();
 
         public void Init(FieldBuilder field, TargetsFile t, FieldMaterials mats)
@@ -108,17 +109,17 @@ namespace SteamworksSim.Game
                     gears[i].position = Units.ToUnity(L.tip[0] - L.u[0] * (49.4f - rr), L.tip[1] - L.u[1] * (49.4f - rr), 13f + rise * 32f);
                 }
 
-                // TOUCHPADS: pressed by the robot under them; lit once held 1 s (or credited at 0:00)
+                // TOUCHPADS: pressed by the robot under them (pushed up as it climbs); lit while touched
                 var list = pads[al];
                 for (int i = 0; i < list.Length; i++)
                 {
                     var pad = list[i];
                     float top = climbTop != null ? climbTop(al, i) : -1f;
-                    float press = top < 0f ? 0f : Mathf.Clamp(top - targets.Of(al).touchpads[i].z, 0f, 1.5f);
+                    float press = top < 0f ? 0f : Mathf.Clamp(top - targets.Of(al).touchpads[i].z, 0f, MaxPress);
                     if (pad.plate != null) pad.plate.localPosition = pad.plate0 + Vector3.up * (press * Units.Inch);
                     if (pad.dome != null) pad.dome.localPosition = pad.dome0 + Vector3.up * (press * Units.Inch);
                     var tp = A.touch[i];
-                    bool lit = tp.credited || (tp.pressed && tp.held >= MatchRules.TouchpadHold);
+                    bool lit = tp.credited || tp.pressed; // lights at the first touch
                     if (lit == pad.lit) continue;
                     pad.lit = lit;
                     var glow = al == "red" ? Red : Blue;

@@ -27,14 +27,21 @@ namespace SteamworksSim.Game
 
         public int Fuel { get; private set; }
         public int Gears { get; private set; }
-        public int FuelCapacity => def.shooter != null ? def.shooter.capacity : 0;   // 0 = unlimited
+        /// <summary>
+        /// FUEL it can hold: shooter.capacity if robot.json sets one, else what its open-top hopper physically holds
+        /// (RobotFactory.PhysicalCapacity; more overflows), else 0 = unlimited (testing).
+        /// </summary>
+        public int FuelCapacity => fuelCap >= 0 ? fuelCap : fuelCap = def.shooter != null && def.shooter.capacity > 0 ? def.shooter.capacity
+                                   : def.intake != null && def.intake.fuelFromChute ? RobotFactory.PhysicalCapacity(def) : 0;
+        int fuelCap = -1;
+        bool HopperRobot => def.shooter != null && def.shooter.capacity <= 0 && FuelCapacity > 0;
         public int GearCapacity => def.gear != null ? def.gear.capacity : 0;
         bool HasFuel => FuelCapacity <= 0 || Fuel > 0;
         bool HasGear => GearCapacity <= 0 || Gears > 0;
         public int PreloadedFuel => def.preload == null ? 0 : (FuelCapacity > 0 ? Mathf.Min(def.preload.fuel, FuelCapacity) : def.preload.fuel);
         public int PreloadedGears => def.preload == null ? 0 : (GearCapacity > 0 ? Mathf.Min(def.preload.gears, GearCapacity) : def.preload.gears);
-        public string LoadStatus => $"{(FuelCapacity > 0 ? $"{Fuel} / {FuelCapacity}" : "unlimited")} FUEL, {(GearCapacity > 0 ? $"{Gears} / {GearCapacity}" : "unlimited")} GEAR";
-        public bool shootHeld, dumpHeld, intakeHeld;
+        public string LoadStatus => $"{(HopperRobot ? $"{Fuel}{(Fuel >= FuelCapacity ? " (full: overflowing)" : "")}" : FuelCapacity > 0 ? $"{Fuel} / {FuelCapacity}" : "unlimited")} FUEL, {(GearCapacity > 0 ? $"{Gears} / {GearCapacity}" : "unlimited")} GEAR";
+        public bool shootHeld, dumpHeld, intakeHeld, climbHeld;
 
         public enum ClimbPhase { None, Attach, Up, Hold, Down }
         public ClimbPhase Climb { get; private set; }
@@ -116,29 +123,18 @@ namespace SteamworksSim.Game
             var cubeMesh = cube.GetComponent<MeshFilter>().sharedMesh;
             Destroy(cube);
 
-            // A hood on the turret that turns to face the goal
-            if (def.shooter != null && def.shooter.enabled)
-            {
-                var off = def.shooter.exitOffset != null && def.shooter.exitOffset.Length >= 2 ? def.shooter.exitOffset : new[] { 0f, 0f };
-                turret = new GameObject("Turret aim").transform;
-                turret.SetParent(visual, false);
-                turret.localPosition = new Vector3(-off[1] * In, Height * In, off[0] * In);
-                var hood = new GameObject("Hood");
-                hood.transform.SetParent(turret, false);
-                hood.transform.localPosition = new Vector3(0f, 2f * In, 4f * In);
-                hood.transform.localRotation = Quaternion.Euler(-35f, 0f, 0f);
-                hood.transform.localScale = new Vector3(6f * In, 2.5f * In, 9f * In);
-                hood.AddComponent<MeshFilter>().sharedMesh = cubeMesh;
-                var hm = transform.Find("Visual/Shooter turret");
-                hood.AddComponent<MeshRenderer>().sharedMaterial = hm != null ? hm.GetComponent<MeshRenderer>().sharedMaterial : dark;
-            }
+            // moving parts of the generated model (RobotDetail): turret, flywheel, hood, intake and conveyor rollers
+            turret = visual.Find("Turret yaw");
+            if (turret != null) { flywheel = turret.Find("Flywheel"); hood = turret.Find("Hood"); }
+            intakeRoller = visual.Find("Intake roller");
+            var conv = new System.Collections.Generic.List<Transform>();
+            for (int k = 0; k < 8; k++) { var c = visual.Find($"Conveyor roller {k}"); if (c != null) conv.Add(c); }
+            conveyor = conv.ToArray();
             // FUEL in the open-top hopper, so you can see how full the robot is. The balls lie loose, as a real pile
             // does: each one settles into the lowest gap it can find on top of the ones already there.
             if (def.intake != null && def.intake.fuelFromChute && fuel != null)
             {
-                var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                var sphereMesh = sphere.GetComponent<MeshFilter>().sharedMesh;
-                Destroy(sphere);
+                var sphereMesh = BallMesh;
                 var holder = new GameObject("Hopper FUEL").transform;
                 holder.SetParent(visual, false);
                 float hl = RobotFactory.HopperLength(def), hw = RobotFactory.HopperWidth(def), floor = RobotFactory.HopperFloor(def);
@@ -176,22 +172,43 @@ namespace SteamworksSim.Game
                     frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Maximum,
                 };
             }
-            // The GEAR it carries, standing in the front slot
+            // The GEAR it carries, standing in the gear slot (front or back)
             if (def.gear != null && def.gear.enabled)
             {
                 heldGear = new GameObject("Held GEAR").transform;
                 heldGear.SetParent(visual, false);
-                heldGear.localPosition = new Vector3(-def.gear.slotOffset * In, 13f * In, (HalfL - 3f) * In);
+                heldGear.localPosition = new Vector3(-def.gear.slotOffset * In, 13f * In, GearSign * (HalfL - 3.25f) * In);
                 heldGear.localRotation = Quaternion.FromToRotation(Vector3.up, Vector3.forward);
                 heldGear.gameObject.AddComponent<MeshFilter>().sharedMesh = FieldAnimator.GearMesh();
-                var fm = transform.Find("Visual/Front marker");
+                var fm = transform.Find("Visual/Gear marker") ?? transform.Find("Visual/Front marker");
                 heldGear.gameObject.AddComponent<MeshRenderer>().sharedMaterial = fm != null ? fm.GetComponent<MeshRenderer>().sharedMaterial : dark;
+            }
+            // FUEL riding up the intake conveyor (visual; counted when it drops into the hopper)
+            if (RobotFactory.HasFloorIntake(def) && fuel != null)
+            {
+                var holder = new GameObject("Intake FUEL").transform;
+                holder.SetParent(visual, false);
+                riders = new Rider[10];
+                for (int i = 0; i < riders.Length; i++)
+                {
+                    var b = new GameObject("FUEL");
+                    b.transform.SetParent(holder, false);
+                    b.transform.localScale = Vector3.one * (2f * FuelPool.RadiusIn * In);
+                    b.AddComponent<MeshFilter>().sharedMesh = BallMesh;
+                    b.AddComponent<MeshRenderer>().sharedMaterial = fuel.BallMaterial;
+                    b.SetActive(false);
+                    riders[i] = new Rider { go = b };
+                }
             }
         }
 
         // ---------------------------------------------------------------- reset
         /// <summary>Start of a match: just the preload on board.</summary>
-        public void Reload() { Fuel = PreloadedFuel; Gears = PreloadedGears; overflow = 0; }
+        public void Reload()
+        {
+            Fuel = PreloadedFuel; Gears = PreloadedGears; overflow = 0;
+            if (riders != null) foreach (var r in riders) { r.active = false; r.go.SetActive(false); }
+        }
 
         /// <summary>Off the rope and back on the carpet (the load stays as it is).</summary>
         public void ResetState()
@@ -211,6 +228,7 @@ namespace SteamworksSim.Game
             rules = getRules != null ? getRules() : null;
             if (gearCooldown > 0f) gearCooldown -= dt;
             if (heldGear != null) heldGear.gameObject.SetActive(gearCooldown <= 0f && Climb == ClimbPhase.None && HasGear);
+            StepRiders(dt);
             ShowHopperFuel();
             Overflow();
 
@@ -277,6 +295,8 @@ namespace SteamworksSim.Game
         {
             shot = Aim(out var reason);
             ShooterStatus = reason;
+            // the hood tilts with the shot: steeper close in, flatter far out
+            if (shot != null) hoodTilt = Mathf.Lerp(hoodTilt, -(shot.Value.pitch * Mathf.Rad2Deg - 60f) * 0.5f, 0.2f);
             if (turret == null) return;
             // point the hood at the goal (yaw only)
             var hg = targets.Of(alliance).highGoal;
@@ -297,8 +317,8 @@ namespace SteamworksSim.Game
             float pitch = s.pitch + Gauss() * S.aimError * Mathf.Deg2Rad;
             float sp = s.speed * (1f + Gauss() * S.speedError / 100f);
             float vh = sp * Mathf.Cos(pitch);
-            var rv = SpecVelocity; // shooting on the move is not compensated: a driver skill
-            fuel.Spawn(s.p0, new Vector3(vh * Mathf.Cos(yaw) + rv.x, vh * Mathf.Sin(yaw) + rv.y, sp * Mathf.Sin(pitch)), body);
+            // the turret leads for the robot's own motion, so the ball leaves the robot with exactly the solved velocity
+            fuel.Spawn(s.p0, new Vector3(vh * Mathf.Cos(yaw), vh * Mathf.Sin(yaw), sp * Mathf.Sin(pitch)), body);
             if (FuelCapacity > 0) Fuel--;
             return true;
         }
@@ -315,12 +335,16 @@ namespace SteamworksSim.Game
         }
 
         // ---------------------------------------------------------------- gear slot
+        float GearSign => def.gear != null && def.gear.back ? -1f : 1f;
+        /// <summary>The direction the gear slot faces (forward, or backward for a slot on the back).</summary>
+        Vector2 GearDir => Forward * GearSign;
+
         int GearAlign(out bool ok, out float dist, out float lat, out float angle)
         {
             ok = false; dist = lat = angle = 0f;
             var G = def.gear;
             if (G == null || !G.enabled) return -1;
-            Vector2 f = Forward;
+            Vector2 f = GearDir;
             var front = Center + f * HalfL + Left * G.slotOffset;
             var lifts = targets.Of(alliance).lifts;
             int best = -1; float bestScore = float.MaxValue;
@@ -356,7 +380,7 @@ namespace SteamworksSim.Game
         {
             if (!enabledByMatch || Climb != ClimbPhase.None || def.gear == null || !def.gear.enabled || gearCooldown > 0f || !HasGear) return;
             int i = GearAlign(out bool ok, out float dist, out float lat, out float angle);
-            if (i < 0 || !ok) { Toast?.Invoke("Not lined up with a peg: drive the front slot onto it"); return; }
+            if (i < 0 || !ok) { Toast?.Invoke(def.gear.back ? "Not lined up with a peg: back the gear slot onto it" : "Not lined up with a peg: drive the gear slot onto it"); return; }
             if (rules == null) return;
             if (rules.DeliverGear(alliance, i, out var msg)) { gearCooldown = 0.6f; if (GearCapacity > 0) Gears--; }
             Toast?.Invoke(msg);
@@ -408,16 +432,119 @@ namespace SteamworksSim.Game
             float hl = RobotFactory.HopperLength(def) / 2f, hw = RobotFactory.HopperWidth(def) / 2f;
             if (!full && def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= hl && Mathf.Abs(ly) <= hw
                 && p.z >= Lift + RobotFactory.HopperFloor(def) && p.z <= TopZ + 1f) caught = true;
-            // floor intake across the front bumper
-            if (!caught && def.intake.fuelFromFloor && enabledByMatch && intakeHeld && p.z <= FuelPool.RadiusIn + 2f
-                && lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f) caught = true;
-            // the floor intake keeps feeding a full hopper: each extra ball forces one out over the top
-            if (caught && full) overflow++;
-            else if (caught && FuelCapacity > 0) Fuel++;
-            return caught;
+            if (caught) { if (FuelCapacity > 0) Fuel++; return true; }
+            // floor intake in the gap in the front bumper: the ball is pulled in under the roller, rides up the
+            // conveyor and drops into the hopper (counted then; if the hopper is full, one rolls off the top)
+            if (def.intake.fuelFromFloor && enabledByMatch && intakeHeld && p.z <= FuelPool.RadiusIn + 2f && RideFree() >= 0)
+            {
+                bool inMouth = RobotFactory.HasFloorIntake(def)
+                    ? lx >= hl + FuelPool.RadiusIn - 0.5f && lx <= HalfL + 1.5f && Mathf.Abs(ly) <= RobotFactory.IntakeGapHalf(def) - FuelPool.RadiusIn + 1f
+                    : lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f;
+                if (inMouth)
+                {
+                    if (riders == null) { if (full) overflow++; else if (FuelCapacity > 0) Fuel++; }
+                    else Ride(ly);
+                    return true;
+                }
+            }
+            return false;
         }
 
         int overflow; // balls to push out over the top of a full hopper (spawned next physics step, not mid-loop)
+
+        // ---- FUEL riding the intake conveyor (visual), counted when it drops into the hopper
+        class Rider { public GameObject go; public bool active; public float s; public Vector3[] path; }
+        Rider[] riders;
+        const float RideSpeed = 75f; // in/s along the path
+
+        int RideFree() { if (riders == null) return 0; for (int i = 0; i < riders.Length; i++) if (!riders[i].active) return i; return -1; }
+
+        void Ride(float left)
+        {
+            int i = RideFree();
+            if (i < 0) return;
+            var r = riders[i];
+            r.active = true; r.s = 0f;
+            var path = RobotDetail.IntakePath(def, left);
+            // last leg: down into the pile where the next ball goes (or the middle when it's heaped up)
+            var pile = RobotFactory.HopperPile(def);
+            int slot = Mathf.Min(Fuel + Riding() - 1, pile.Count - 1); // Riding() already counts this one
+            float floor = RobotFactory.HopperFloor(def);
+            var end = slot >= 0 && slot < pile.Count ? new Vector3(pile[slot].x, pile[slot].y, floor + pile[slot].z) : new Vector3(0f, 0f, Height);
+            r.path = new Vector3[path.Length + 1];
+            path.CopyTo(r.path, 0);
+            r.path[path.Length] = end;
+            r.go.SetActive(true);
+            Place(r);
+        }
+
+        int Riding() { int n = 0; if (riders != null) foreach (var r in riders) if (r.active) n++; return n; }
+
+        void Place(Rider r)
+        {
+            float s = r.s;
+            for (int k = 0; k + 1 < r.path.Length; k++)
+            {
+                float len = Vector3.Distance(r.path[k], r.path[k + 1]);
+                if (s <= len || k + 2 == r.path.Length)
+                {
+                    var p = Vector3.Lerp(r.path[k], r.path[k + 1], len > 0f ? Mathf.Clamp01(s / len) : 1f);
+                    r.go.transform.localPosition = RobotDetail.V(p.x, -p.y, p.z);
+                    return;
+                }
+                s -= len;
+            }
+        }
+
+        static float PathLength(Vector3[] p) { float l = 0f; for (int k = 0; k + 1 < p.Length; k++) l += Vector3.Distance(p[k], p[k + 1]); return l; }
+
+        void StepRiders(float dt)
+        {
+            if (riders == null) return;
+            foreach (var r in riders)
+            {
+                if (!r.active) continue;
+                r.s += RideSpeed * dt;
+                if (r.s >= PathLength(r.path))
+                {
+                    r.active = false; r.go.SetActive(false);
+                    if (FuelCapacity > 0 && Fuel >= FuelCapacity) overflow++; // full: one rolls off the top
+                    else if (FuelCapacity > 0) Fuel++;
+                    continue;
+                }
+                Place(r);
+            }
+        }
+
+        static Mesh ballMesh;
+        static Mesh BallMesh
+        {
+            get
+            {
+                if (ballMesh != null) return ballMesh;
+                var mb = new MeshBuilder();
+                mb.SmoothSphere(Vector3.zero, 0.5f / Units.Inch, 20, 12);
+                return ballMesh = mb.ToMesh("Robot FUEL");
+            }
+        }
+
+        // ---- moving parts
+        Transform flywheel, hood, intakeRoller;
+        Transform[] conveyor;
+        float spinIntake, spinFly, hoodTilt;
+
+        void LateUpdate()
+        {
+            float dt = Time.deltaTime;
+            bool feeding = enabledByMatch && (intakeHeld || dumpHeld) || Riding() > 0;
+            spinIntake = Mathf.MoveTowards(spinIntake, feeding ? (dumpHeld && !intakeHeld ? -1f : 1f) : 0f, dt * 4f);
+            spinFly = Mathf.MoveTowards(spinFly, enabledByMatch && shootHeld ? 1f : 0f, dt * 1.5f);
+            float deg = 900f * dt;
+            if (intakeRoller != null) intakeRoller.Rotate(-spinIntake * deg, 0f, 0f, Space.Self);
+            if (conveyor != null) foreach (var c in conveyor) c.Rotate(spinIntake * deg, 0f, 0f, Space.Self);
+            if (flywheel != null) flywheel.Rotate(-spinFly * 2.5f * deg, 0f, 0f, Space.Self);
+            if (hood != null) hood.localRotation = Quaternion.Euler(hoodTilt, 0f, 0f);
+        }
 
         /// <summary>One ball spills over the left, right or back edge of the full hopper (never the intake side).</summary>
         void Overflow()
@@ -446,7 +573,7 @@ namespace SteamworksSim.Game
             if (def.intake == null || !def.intake.gearFromFloor || !enabledByMatch || !intakeHeld || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
             if (GearCapacity > 0 && Gears >= GearCapacity) return false;
             var d = new Vector2(p.x, p.y) - Center;
-            float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left) - def.gear.slotOffset;
+            float lx = Vector2.Dot(d, GearDir), ly = Vector2.Dot(d, Left) - def.gear.slotOffset;
             bool caught = p.z < 6f && lx >= HalfL - 2f && lx <= HalfL + 8f && Mathf.Abs(ly) <= 8f;
             if (caught && GearCapacity > 0) Gears++;
             return caught;
@@ -463,9 +590,9 @@ namespace SteamworksSim.Game
             if (GearCapacity > 0 && Gears >= GearCapacity) return false;
             var inward = new Vector2(L.inward[0], L.inward[1]);
             var along = new Vector2(-inward.y, inward.x);
-            if (Vector2.Dot(Forward, -inward) < Mathf.Cos(30f * Mathf.Deg2Rad)) return false; // the slot is on the front
-            Vector2 c = Center, f = Forward * HalfL, l = Left * HalfW;
-            float depth = Vector2.Dot(c + f - new Vector2(L.a[0], L.a[1]), inward);       // front face to the station face
+            if (Vector2.Dot(GearDir, -inward) < Mathf.Cos(30f * Mathf.Deg2Rad)) return false; // the slot side faces the chute
+            Vector2 c = Center, f = GearDir * HalfL, l = Left * HalfW;
+            float depth = Vector2.Dot(c + f - new Vector2(L.a[0], L.a[1]), inward);       // slot-side face to the station face
             if (depth > reach) return false;
             float s1 = Vector2.Dot(c + f + l - chute, along), s2 = Vector2.Dot(c + f - l - chute, along);
             float covered = Mathf.Min(Mathf.Max(s1, s2), L.chuteHalfW) - Mathf.Max(Mathf.Min(s1, s2), -L.chuteHalfW);
@@ -482,10 +609,10 @@ namespace SteamworksSim.Game
             {
                 case ClimbPhase.Attach: ClimbStatus = "Latching..."; return;
                 case ClimbPhase.Up: ClimbStatus = $"Climbing {TopZ:0} in"; return;
-                case ClimbPhase.Hold: ClimbStatus = "Pressing TOUCHPAD"; return;
-                case ClimbPhase.Down: ClimbStatus = "Lowering"; return;
+                case ClimbPhase.Hold: ClimbStatus = "Pressing TOUCHPAD (keep holding Climb)"; return;
+                case ClimbPhase.Down: ClimbStatus = "Sliding down: hold Climb"; return;
             }
-            ClimbStatus = FindRope() != null ? "Rope in reach: press Climb" : AnyRopeDeployed() ? "-" : "Ropes drop at 0:30";
+            ClimbStatus = FindRope() != null ? "Rope in reach: hold Climb" : AnyRopeDeployed() ? "-" : "Ropes drop at 0:30";
         }
 
         bool AnyRopeDeployed() { if (ropes == null) return false; foreach (var R in ropes.ropes) if (R.deployed) return true; return false; }
@@ -499,15 +626,19 @@ namespace SteamworksSim.Game
             return null;
         }
 
-        /// <summary>Climb (T / X): latch onto an own rope in front of the bumper, or let go.</summary>
-        public void ToggleClimb()
+        /// <summary>
+        /// Climb (T / X), pressed: latch onto an own rope in front of the bumper. Climbing then follows climbHeld:
+        /// held, the robot winches up until it pushes the TOUCHPAD up; released, it slowly slides back down
+        /// (CreepRate) and lets go of the rope at the carpet.
+        /// </summary>
+        public void StartClimb()
         {
             if (!enabledByMatch || def.climber == null || !def.climber.enabled) return;
-            if (Climb != ClimbPhase.None) { if (Climb != ClimbPhase.Down) { Climb = ClimbPhase.Down; Toast?.Invoke("Letting go of the rope"); } return; }
+            if (Climb != ClimbPhase.None) return; // already on the rope: holding the button is what climbs
             var R = FindRope();
             if (R == null) { Toast?.Invoke(AnyRopeDeployed() ? "Drive your front bumper into one of your ropes first" : "ROPES drop with 30 seconds left"); return; }
             ClimbRope = R;
-            climbTopZ = targets.Of(alliance).touchpads[R.touchpad].z + 1f;
+            climbTopZ = targets.Of(alliance).touchpads[R.touchpad].z + FullClimbPress;
             Climb = ClimbPhase.Attach;
             drive.enabled = false;
             rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
@@ -516,6 +647,9 @@ namespace SteamworksSim.Game
             rb.isKinematic = true;
             Toast?.Invoke($"Latched: climbing to TOUCHPAD {R.touchpad + 1}");
         }
+
+        const float FullClimbPress = 3.5f; // in: a full climb pushes the TOUCHPAD up this far (visible)
+        const float CreepRate = 2f;        // in/s: sliding back down the rope when Climb isn't held
 
         void ClimbStep(float dt)
         {
@@ -529,15 +663,19 @@ namespace SteamworksSim.Game
                 if (d.magnitude <= step) { c += d; Climb = ClimbPhase.Up; }
                 else c += d.normalized * step;
             }
-            else if (Climb == ClimbPhase.Up)
+            else if (enabledByMatch) // after 0:00 the robot stays where it is
             {
                 float target = climbTopZ - Height;
-                Lift = Mathf.Min(target, Lift + rate * dt);
-                if (Lift >= target) Climb = ClimbPhase.Hold;
-            }
-            else if (Climb == ClimbPhase.Down)
-            {
-                Lift = Mathf.Max(0f, Lift - rate * 1.5f * dt);
+                if (climbHeld)
+                {
+                    Lift = Mathf.Min(target, Lift + rate * dt);
+                    Climb = Lift >= target ? ClimbPhase.Hold : ClimbPhase.Up;
+                }
+                else
+                {
+                    Lift = Mathf.Max(0f, Lift - CreepRate * dt);
+                    Climb = ClimbPhase.Down;
+                }
             }
             rb.MovePosition(Units.ToUnity(c.x, c.y, Lift));
             if (Climb == ClimbPhase.Down && Lift <= 0f)
