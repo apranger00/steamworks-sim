@@ -37,7 +37,7 @@ namespace SteamworksSim.Game
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = material;
             var mc = go.AddComponent<MeshCollider>();
-            mc.sharedMesh = mesh; mc.convex = true; mc.sharedMaterial = physics;
+            mc.sharedMesh = FieldAnimator.GearColliderMesh(); mc.convex = true; mc.sharedMaterial = physics;
             var rb = go.AddComponent<Rigidbody>();
             rb.mass = MassKg;
             rb.angularDamping = 0.5f;

@@ -33,6 +33,7 @@ const items = lay.items.map((it) => {
   if (it.type === 'cyl') Object.assign(o, { p0: it.p0, p1: it.p1, r0: it.r0, r1: it.r1, seg: it.seg, open: !!it.open });
   if (it.type === 'helicoid') Object.assign(o, { c: it.c, r0: it.r0, r1: it.r1, z0: it.z0, z1: it.z1, turns: it.turns });
   if (it.type === 'dome') Object.assign(o, { c: it.c, r: it.r });
+  if (it.type === 'slab') Object.assign(o, { pts3: flat(it.pts), t: it.t });
   return o;
 });
 const field = {
@@ -46,7 +47,17 @@ const field = {
 };
 writeFileSync(join(out, 'field.json'), JSON.stringify(clean(field)));
 
-const cols = { version: 1, prisms: colliders(lay).map((c) => ({ name: c.name, pts: flat(c.pts), z0: c.z0, z1: c.z1, ...(c.pts0 ? { pts0: flat(c.pts0), pts1: flat(c.pts1) } : {}) })) };
+// slabs (tilted flat panels: the boiler nets) collide in Unity as convex hulls: the polygon and its copy offset by t
+const slabNormal = (p) => {
+  const a = [p[1][0] - p[0][0], p[1][1] - p[0][1], p[1][2] - p[0][2]], b = [p[2][0] - p[0][0], p[2][1] - p[0][1], p[2][2] - p[0][2]];
+  const n = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], l = Math.hypot(...n);
+  return n.map((v) => v / l);
+};
+const hulls = lay.items.filter((it) => it.type === 'slab' && it.group === 'field').map((it) => {
+  const n = slabNormal(it.pts);
+  return { name: it.name, pts: flat([...it.pts, ...it.pts.map((p) => p.map((v, k) => v + n[k] * it.t))]) };
+});
+const cols = { version: 1, prisms: colliders(lay).map((c) => ({ name: c.name, pts: flat(c.pts), z0: c.z0, z1: c.z1, ...(c.pts0 ? { pts0: flat(c.pts0), pts1: flat(c.pts1) } : {}) })), hulls };
 writeFileSync(join(out, 'colliders.json'), JSON.stringify(clean(cols)));
 
 const tg = targets();

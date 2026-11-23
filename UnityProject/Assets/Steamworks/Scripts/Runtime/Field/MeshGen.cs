@@ -154,6 +154,78 @@ namespace SteamworksSim.Field
             Box(mb, new Vector3((a.x + b.x) / 2f, (a.y + b.y) / 2f, (z0 + z1) / 2f), new Vector3(len, width, z1 - z0), ang);
         }
 
+        /// <summary>A flat convex polygon (3D corners, spec frame) thickened by t along its normal.</summary>
+        public static void Slab(MeshBuilder mb, Vector3[] p, float t)
+        {
+            int n = p.Length;
+            if (n < 3) return;
+            var nrm = Vector3.Cross(p[1] - p[0], p[2] - p[0]).normalized * t;
+            var q = new Vector3[n];
+            for (int k = 0; k < n; k++) q[k] = p[k] + nrm;
+            var mid = Vector3.zero;
+            for (int k = 0; k < n; k++) mid += p[k] + q[k];
+            mid /= 2 * n;
+            for (int k = 1; k + 1 < n; k++) { mb.TriOutward(p[0], p[k], p[k + 1], mid); mb.TriOutward(q[0], q[k], q[k + 1], mid); }
+            for (int k = 0; k < n; k++)
+            {
+                int j = (k + 1) % n;
+                mb.TriOutward(p[k], p[j], q[j], mid);
+                mb.TriOutward(p[k], q[j], q[k], mid);
+            }
+        }
+
+        /// <summary>
+        /// A 2017 GEAR (the real part): 10 pocketed teeth on an outer ring, five spokes to a hub with a centre hole,
+        /// and open slices between the spokes. Centre c (spec frame, inches), lying flat (axis along spec Z), turned
+        /// rotDeg; OD 11 in, 2 in thick.
+        /// </summary>
+        public static void DetailedGear(MeshBuilder mb, Vector3 c, float rotDeg = 0f)
+        {
+            float rot = rotDeg * Mathf.Deg2Rad, h = 1f;
+            Vector2 P(float r, float a) => new Vector2(c.x + r * Mathf.Cos(a + rot), c.y + r * Mathf.Sin(a + rot));
+            void Quad(Vector2 a, Vector2 b, Vector2 d, Vector2 e, float z0, float z1)
+            {
+                var ring = new[] { a, b, d, e };
+                float area = 0f;
+                for (int k = 0; k < 4; k++) { var p = ring[k]; var q = ring[(k + 1) % 4]; area += p.x * q.y - q.x * p.y; }
+                if (area < 0f) System.Array.Reverse(ring);
+                Loft(mb, ring, c.z + z0, ring, c.z + z1, true, true);
+            }
+            void Annulus(float r0, float r1, int seg, float z0, float z1)
+            {
+                for (int k = 0; k < seg; k++)
+                {
+                    float a0 = k * Mathf.PI * 2f / seg, a1 = (k + 1) * Mathf.PI * 2f / seg;
+                    Quad(P(r0, a0), P(r1, a0), P(r1, a1), P(r0, a1), z0, z1);
+                }
+            }
+            const float ringIn = 3.55f, ringOut = 4.35f, tipR = 5.5f;
+            Annulus(ringIn, ringOut, 40, -h, h);     // outer ring
+            Annulus(0.45f, 1.0f, 16, -h, h);         // hub, with the centre hole
+            for (int k = 0; k < 5; k++)              // five spokes (a little thinner than the ring)
+            {
+                float a = k * Mathf.PI * 2f / 5f + Mathf.PI / 10f, w = 0.24f;
+                var dir = new Vector2(Mathf.Cos(a + rot), Mathf.Sin(a + rot));
+                var nrm = new Vector2(-dir.y, dir.x) * w;
+                Vector2 p0 = new Vector2(c.x, c.y) + dir * 0.9f, p1 = new Vector2(c.x, c.y) + dir * (ringIn + 0.1f);
+                Quad(p0 - nrm, p1 - nrm, p1 + nrm, p0 + nrm, -0.75f, 0.75f);
+            }
+            for (int k = 0; k < 10; k++)             // pocketed teeth: a rim of four walls round a thin centre web
+            {
+                float a = k * Mathf.PI * 2f / 10f;
+                float hb = 0.95f / 4.25f, ht = 0.72f / tipR; // half-widths (rad) at the base and at the tip
+                Vector2 b0 = P(4.2f, a - hb), b1 = P(4.2f, a + hb), t1 = P(tipR, a + ht), t0 = P(tipR, a - ht);
+                Vector2 m = (b0 + b1 + t1 + t0) / 4f;
+                Vector2 In(Vector2 v) => v + (m - v).normalized * 0.32f;
+                Vector2 i0 = In(b0), i1 = In(b1), j1 = In(t1), j0 = In(t0);
+                Quad(b0, b1, i1, i0, -h, h);
+                Quad(b1, t1, j1, i1, -h, h);
+                Quad(t1, t0, j0, j1, -h, h);
+                Quad(t0, b0, i0, j0, -h, h);
+                Quad(i0, i1, j1, j0, -0.25f, 0.25f); // web in the middle of the pocket
+            }
+        }
+
         // ---- cylinder / cone between two 3D points (r1 at p1) ------------------------------------
         public static void Cylinder(MeshBuilder mb, Vector3 p0, Vector3 p1, float r0, float r1, int seg, bool open)
         {

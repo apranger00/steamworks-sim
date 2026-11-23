@@ -26,7 +26,7 @@ export const DIM = {
   loadStation: { a: [326, 124.5], b: [254, 162.4], h: 78.4,
                  openings: [[1.375, 25.375], [50.125, 74.125]], openZ: [25, 32.5] },
   sideRail: { h: 20.2, scoringHalfLen: 252.6, farHalfLen: 288.7 },
-  boiler: { cx: 322, cy: -160.5, size: 42, bodyH: 54, roofH: 72,
+  boiler: { cx: 322, cy: -160.5, size: 42, bodyH: 54, roofH: 72, roofRise: 18, frameH: 119, frameW: 58, frameD: 54.75,
             goalOffset: 3.5, stackR: 9, funnelR: 11.5, goalZ: 97,
             lowGoal: { w: 25, h: 8.75, z: 18 } },
   airship: { cx: 176.7, deckZ: 36.5, deckFlat: 70.5, railFlat: 101, railZ: 79,
@@ -70,6 +70,8 @@ function segBox(name, mat, a, b, w, z0, z1, group = 'field') {
     [len, w, z1 - z0], Math.atan2(dy, dx) / D2R, group);
 }
 // loft: ring0 at z0 to ring1 at z1 (same vertex count), optional caps.
+// a flat convex polygon (3 or 4 coplanar 3D points) thickened by t along its normal: tilted panels (boiler nets)
+const slab = (name, mat, pts, t, group = 'field') => ({ type: 'slab', name, mat, pts, t, group });
 const loft = (name, mat, ring0, z0, ring1, z1, caps = [true, true], group = 'field') =>
   ({ type: 'loft', name, mat, ring0, z0, ring1, z1, caps, group });
 // cylinder / cone between two 3D points.
@@ -199,7 +201,19 @@ export function layout() {
     const half = B.size / 2, rDiag = half * Math.SQRT2;
     const sq = (r) => ring(bc[0], bc[1], r, 4, 0); // vertices on axes => square rotated 45 deg
     push(loft(`${OWN} BOILER`, own + 'Dark', sq(rDiag), 0, sq(rDiag), B.bodyH));
-    push(loft(`${OWN} BOILER roof`, own + 'Dark', sq(rDiag), B.bodyH, sq(13), B.roofH));
+    // boiler-local frame (manual figure 3-33): u across the field face, d toward the field (face at d = +half)
+    const u2 = [-n2[1], n2[0]];
+    const P = (u, d, z) => [bc[0] + u2[0] * u + n2[0] * d, bc[1] + u2[1] * u + n2[1] * d, z];
+    const P2 = (u, d) => P(u, d, 0).slice(0, 2);
+    const ccw = (r) => { let a = 0; for (let k = 0; k < r.length; k++) { const p = r[k], q = r[(k + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return a > 0; };
+    // ROOF: the tapered top the net hangs from, sloping down toward the field (front edge at the body top, 54 in;
+    // back edge 18 in higher), so misses roll forward and drop off the front onto the field
+    {
+      let r0 = [P2(-half, -half), P2(half, -half), P2(half, half), P2(-half, half)];
+      let r1 = [P2(-half, -half), P2(half, -half), P2(half, -half + 0.5), P2(-half, -half + 0.5)];
+      if (!ccw(r0)) { r0 = r0.reverse(); r1 = r1.reverse(); }
+      push(loft(`${OWN} BOILER roof`, own + 'Dark', r0, B.bodyH, r1, B.bodyH + B.roofRise));
+    }
     const gc = [bc[0] + n2[0] * B.goalOffset, bc[1] + n2[1] * B.goalOffset];
     push(cyl(`${OWN} BOILER stack`, 'copper', [gc[0], gc[1], B.bodyH], [gc[0], gc[1], 88], B.stackR, B.stackR, 24));
     push(cyl(`${OWN} HIGH EFFICIENCY GOAL`, 'copper', [gc[0], gc[1], 88], [gc[0], gc[1], B.goalZ], B.stackR, B.funnelR, 24, true));
@@ -209,12 +223,27 @@ export function layout() {
     const face = [bc[0] + n2[0] * (half + 0.15), bc[1] + n2[1] * (half + 0.15)];
     push(box(`${OWN} LOW EFFICIENCY GOAL`, 'hole', [face[0], face[1], B.lowGoal.z + B.lowGoal.h / 2],
       [0.3, B.lowGoal.w, B.lowGoal.h], Math.atan2(n2[1], n2[0]) / D2R));
-    // Boiler net: hung on the two side faces and the back face of the boiler, from the top of the body
-    // up, so misses drop onto the sloped roof and roll back over it onto the field
-    for (const k of [1, 2, 3]) {
-      const a = Math.atan2(n2[1], n2[0]) + k * Math.PI / 2, nn = [Math.cos(a), Math.sin(a)];
-      const p = [bc[0] + nn[0] * (half + 0.4), bc[1] + nn[1] * (half + 0.4)];
-      push(box(`${OWN} BOILER net`, 'net', [p[0], p[1], (B.bodyH + 152) / 2], [0.5, B.size + 1, 152 - B.bodyH], a / D2R));
+    // NET (figure 3-33): a funnel open toward the field, from the roof's back and side edges out to a frame
+    // 9 ft 11 in tall, 4 ft 10 in across and 4 ft 6-3/4 in deep (its front posts in the field-face plane).
+    // Misses hit it, roll down onto the roof and off its front.
+    {
+      const top = B.frameH, W = B.frameW / 2, back = half - B.frameD, roofBack = B.bodyH + B.roofRise, t = 0.6;
+      push(slab(`${OWN} BOILER net`, 'net', [P(-half, -half, roofBack), P(half, -half, roofBack), P(W, back, top), P(-W, back, top)], t));
+      for (const s2 of [-1, 1]) {
+        // each side is two flat triangles (its bottom edge follows the sloping roof edge)
+        push(slab(`${OWN} BOILER net`, 'net', [P(s2 * half, -half, roofBack), P(s2 * half, half, B.bodyH), P(s2 * W, half, top)], t));
+        push(slab(`${OWN} BOILER net`, 'net', [P(s2 * half, -half, roofBack), P(s2 * W, half, top), P(s2 * W, back, top)], t));
+      }
+      // frame: four posts, top rails and side rails at body height
+      const ang = Math.atan2(n2[1], n2[0]) / D2R;
+      const posts = [[-W, half], [W, half], [W, back], [-W, back]];
+      for (const [u, d] of posts) push(box(`${OWN} BOILER frame post`, own + 'Dark', [...P2(u, d), top / 2], [2, 2, top], ang));
+      for (let k = 0; k < 4; k++) {
+        const [ua, da] = posts[k], [ub, db] = posts[(k + 1) % 4];
+        if (k === 0) continue; // nothing across the open front
+        push(segBox(`${OWN} BOILER frame rail`, own + 'Dark', P2(ua, da), P2(ub, db), 1.5, top - 1.5, top));
+        if (k !== 2) push(segBox(`${OWN} BOILER frame rail`, own + 'Dark', P2(ua, da), P2(ub, db), 1.5, B.bodyH - 1.5, B.bodyH));
+      }
     }
 
     // Airship ------------------------------------------------------------------

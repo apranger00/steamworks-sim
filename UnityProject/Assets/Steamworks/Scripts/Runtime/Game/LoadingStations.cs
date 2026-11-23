@@ -23,7 +23,7 @@ namespace SteamworksSim.Game
         /// <summary>For every robot: to take a GEAR straight from a chute its front must be within this many inches of
         /// the chute, and its front must cover at least this fraction of the chute's width, left to right.</summary>
         public const float GearReach = 8f, GearOverlap = 0.5f;
-        const float FuelPerSecond = 12f, GearCooldown = 1.2f; // a GEAR takes about this long to slide down the chute
+        const float FuelPerSecond = 3f, GearCooldown = 1.2f; // a GEAR takes about this long to slide down the chute
 
         public class Station
         {
@@ -371,17 +371,16 @@ namespace SteamworksSim.Game
                 {
                     if (s.gearWait[c] > 0f) s.gearWait[c] -= dt;
                     if (s.pouring[c] <= 0 || fuel == null) continue;
-                    s.acc[c] += dt * FuelPerSecond;
-                    while (s.acc[c] >= 1f && s.pouring[c] > 0)
-                    {
-                        s.acc[c] -= 1f; s.pouring[c]--;
-                        // set in the chute part way up and rolls down and out of the opening
-                        float lat = ((float)rnd.NextDouble() - 0.5f) * 2f * (L.chuteHalfW - FuelPool.RadiusIn - 0.4f);
-                        var at = OnChute(s, c, 12f + 10f * (float)rnd.NextDouble(), lat, FuelPool.RadiusIn + 0.1f);
-                        ChuteFrame(s, c, out _, out var upC, out _, out _);
-                        var v = -upC * (15f + 10f * (float)rnd.NextDouble()) + new Vector3(along.x, along.y, 0f) * (((float)rnd.NextDouble() - 0.5f) * 6f);
-                        fuel.Spawn(at, v);
-                    }
+                    s.acc[c] = Mathf.Min(s.acc[c] + dt * FuelPerSecond, 1f);
+                    if (s.acc[c] < 1f) continue;
+                    // the human player sets one ball at a time in the chute, half way up, and lets it roll down and
+                    // out of the opening; only where it won't land on the last one (each drop is exactly its count)
+                    float lat = ((float)rnd.NextDouble() - 0.5f) * 2f * (L.chuteHalfW - FuelPool.RadiusIn - 0.6f);
+                    var at = OnChute(s, c, 18f, lat, FuelPool.RadiusIn + 0.1f);
+                    if (Physics.CheckSphere(Units.ToUnity(at), FuelPool.RadiusIn * 0.98f * Units.Inch, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    s.acc[c] -= 1f; s.pouring[c]--;
+                    ChuteFrame(s, c, out _, out var upC, out _, out _);
+                    fuel.Spawn(at, -upC * 6f);
                 }
             }
         }
