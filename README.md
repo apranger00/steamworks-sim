@@ -66,6 +66,10 @@ Default controls (rebindable):
 
 Edit a `robot.json` while playing and press **F5** (or **Reload robot files** on the robot screen) to try the change immediately. Tick **Skip Menus** on the `Sim` object to jump straight into a match while testing.
 
+### Rules and violations
+
+The referees (`Violations.cs`) call FOULS (+5 to the other alliance) and TECH FOULS (+25) for G07 (touching an opponent on its own rope: it gets a free climb, +50), G11 (5-count on pins, with a pin-count bubble), G13 (contact while in the opponent's RETRIEVAL ZONE), G17 (more than 5 s in the opponent's KEY), G20 (touching an opponent's rope in the last 30 s) and A04 (entering the opponent's LAUNCHPAD in AUTO). Each call shows a VIOLATION card in the lower right. Robots can only shoot with part of their bumpers in their own LAUNCHPAD. Try them in practice with the parked defender (B).
+
 ### Match sounds
 
 The field cues (cavalry charge at the start, buzzer at the end of AUTO, resume sound when TELEOP starts, steam whistle at 0:30, buzzer at 0:00) play from files in `UnityProject/Assets/StreamingAssets/Sounds/`. `sounds.json` there maps cues to files, and its `README.txt` lists the download links. A missing file plays a placeholder tone.

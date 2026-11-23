@@ -46,6 +46,8 @@ namespace SteamworksSim.Field
     {
         public int side;            // -1 red (-X), +1 blue (+X)
         public float baseLineX;
+        public float launchpadX;    // signed X of the launchpad's field-centre edge (red -139, blue +139)
+        public float[] key;         // KEY tape a.x, a.y, b.x, b.y; the boiler's side of it is the KEY
         public HighGoalSpec highGoal;
         public LowGoalSpec lowGoal;
         public float[] airship;     // centre x, y

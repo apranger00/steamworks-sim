@@ -69,6 +69,8 @@ namespace SteamworksSim.Game
         TankDrive playerDrive;
         FieldMaterials ownMaterials;
         MatchSounds sounds;
+        /// <summary>The referees (FOULS, TECH FOULS, free climbs, pin counts).</summary>
+        public Violations Referee { get; } = new Violations();
         TitleMusic music;
         GameMenus menus;
         MatchHud hud;
@@ -133,6 +135,7 @@ namespace SteamworksSim.Game
             // The only messages during a match: a ROTOR starting, and 40 kPa
             rules.RotorStarted += (al, k) => hud.Toast($"{al.ToUpper()} ROTOR {k + 1} IS ACTIVE", AllianceTint(al));
             rules.PressureReached += al => hud.Toast($"{al.ToUpper()} REACHED 40 kPa", AllianceTint(al));
+            Referee.Called += c => hud.ShowViolation(c);
         }
 
         static Color AllianceTint(string al) => al == "red" ? new Color(1f, 0.45f, 0.42f) : new Color(0.45f, 0.65f, 1f);
@@ -223,6 +226,8 @@ namespace SteamworksSim.Game
             sounds.StopAll();
             Score.Clear();
             rules.Reset();
+            Referee.Reset();
+            hud.ClearViolations();
             fuel.Clear();
             gearPool.Clear();
             hoppers.Refill();
@@ -442,6 +447,10 @@ namespace SteamworksSim.Game
                     rules.Advance(dt, phase == MatchPhase.Auto ? Period.Auto : Period.Teleop, RobotsForRules(),
                                   phase == MatchPhase.AutoPause ? Period.Auto : (Period?)null);
                 Clock.Tick(dt);
+                // the referees watch while robots are enabled (AUTO and TELEOP)
+                if (Clock.Running)
+                    Referee.Step(dt, new List<RobotMechanisms>(Mechs()), rules, loading, ropes,
+                                 phase == MatchPhase.Auto, Clock.Phase == MatchPhase.Teleop && Clock.PeriodLeft <= MatchClock.EndgameLength);
                 rules.Fill(Score);
             }
             bool on = State == AppState.Playing && Clock.Running;

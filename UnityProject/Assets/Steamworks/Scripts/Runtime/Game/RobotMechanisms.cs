@@ -103,9 +103,62 @@ namespace SteamworksSim.Game
             return new[] { c - f - l, c + f - l, c + f + l, c - f + l };
         }
 
+        // ---------------------------------------------------------------- for the referees (Violations)
+        readonly System.Collections.Generic.Dictionary<RobotMechanisms, float> robotContact = new System.Collections.Generic.Dictionary<RobotMechanisms, float>();
+        float staticContact = -100f;
+        const float ContactHold = 0.06f; // s: a contact counts until this long after the last report
+
+        void OnCollisionStay(Collision c) => NoteContact(c);
+        void OnCollisionEnter(Collision c) => NoteContact(c);
+        void NoteContact(Collision c)
+        {
+            var other = c.rigidbody != null ? c.rigidbody.GetComponent<RobotMechanisms>() : null;
+            if (other != null && other != this) robotContact[other] = Time.fixedTime;
+            else if (c.rigidbody == null && c.collider != FieldBuilder.Carpet) staticContact = Time.fixedTime; // wall or field element
+        }
+
+        /// <summary>In contact with that robot (bumper to bumper, either way).</summary>
+        public bool Touching(RobotMechanisms o) =>
+            (robotContact.TryGetValue(o, out var t) && Time.fixedTime - t <= ContactHold) ||
+            (o.robotContact.TryGetValue(this, out var u) && Time.fixedTime - u <= ContactHold);
+        /// <summary>Against a wall or a field element.</summary>
+        public bool TouchingField => Time.fixedTime - staticContact <= ContactHold;
+        /// <summary>Spec velocity (in/s) on the carpet.</summary>
+        public Vector2 Velocity => SpecVelocity;
+        /// <summary>The driver is driving it (a pinner has to be pushing).</summary>
+        public bool Driving
+        {
+            get
+            {
+                if (drive == null || !drive.enabled || !enabledByMatch) return false;
+                var i = drive.input;
+                return i.tank ? Mathf.Abs(i.left) + Mathf.Abs(i.right) > 0.25f : Mathf.Abs(i.throttle) + Mathf.Abs(i.turn) > 0.25f;
+            }
+        }
+        /// <summary>Some part of its bumpers is in that alliance's LAUNCHPAD (wall to the launchpad line, tape included).</summary>
+        public bool InLaunchpad(string al)
+        {
+            var T = targets != null ? targets.Of(al) : null;
+            if (T == null) return false;
+            float edge = Mathf.Abs(T.launchpadX);
+            foreach (var c in Corners()) if (T.side * c.x >= edge) return true;
+            return false;
+        }
+        /// <summary>Some part of its bumpers is in that alliance's KEY (the boiler corner behind the key tape).</summary>
+        public bool InKey(string al)
+        {
+            var T = targets != null ? targets.Of(al) : null;
+            if (T == null || T.key == null || T.key.Length < 4) return false;
+            Vector2 a = new Vector2(T.key[0], T.key[1]), b = new Vector2(T.key[2], T.key[3]), boiler = new Vector2(T.highGoal.c[0], T.highGoal.c[1]);
+            float Side(Vector2 p) { var d = b - a; var q = p - a; return d.x * q.y - d.y * q.x; }
+            float sb = Side(boiler);
+            foreach (var c in Corners()) if (Side(c) * sb >= 0f) return true;
+            return false;
+        }
+
         public RopeSystem.Body AsBody() => new RopeSystem.Body
         {
-            center = Center, fwd = Forward, halfL = HalfL, halfW = HalfW, lift = Lift, height = Height,
+            center = Center, fwd = Forward, halfL = HalfL, halfW = HalfW, lift = Lift, height = Height, id = id,
             climbing = Climb != ClimbPhase.None ? ClimbRope : null, climber = ClimberPoint(),
         };
 
@@ -296,6 +349,7 @@ namespace SteamworksSim.Game
             reason = "-";
             var S = def.shooter;
             if (S == null || !S.enabled) { reason = "No shooter"; return null; }
+            if (!InLaunchpad(alliance)) { reason = "Not in your LAUNCHPAD"; return null; } // shoot only from your own launchpad
             var hg = targets.Of(alliance).highGoal;
             var goal = new Vector3(hg.c[0], hg.c[1], hg.z + FuelPool.RadiusIn);
             var dir = (new Vector2(goal.x, goal.y) - TurretCenter()).normalized;

@@ -521,6 +521,10 @@ export function targets() {
     out[al] = {
       side: s,
       baseLineX: s * (DIM.baseLine - DIM.tapeW / 2),
+      // LAUNCHPAD: from the alliance wall to the field-centre edge of its launchpad line (the tape is in it)
+      launchpadX: s * (DIM.launchpadLine - DIM.tapeW / 2),
+      // KEY: the boiler corner cut off by the key tape (a -> b); the boiler's side of the line is inside
+      key: [s * 325.0, -43.7, s * 202.5, -161.4],
       highGoal: { c: gc, z: B.goalZ, r: 21.5 / 2, capture: 21.5 / 2 - DIM.fuelR + 1 },
       lowGoal: { face, n: n2, u: [-n2[1], n2[0]], halfW: B.lowGoal.w / 2, z0: B.lowGoal.z, z1: B.lowGoal.z + B.lowGoal.h },
       airship: ac,
