@@ -428,6 +428,7 @@ export const FIELD_OUTLINE = [
   [288.7, -162.4], [292.3, -160.5], [322, -130.8], [326, -124],
   [326, 124.5], [254, 162.4], [-254, 162.4], [-326, 124.5],
 ];
+const CHUTE_EDGES = new Set([7, 8, 10, 11]), CHUTE_Z = 25; // edges whose openings have chutes behind them
 const OUTLINE_H = [78.4, 54, 54, 20.2, 54, 54, 78.4, 78.4, 78.4, 20.2, 78.4, 78.4]; // boiler edges: body height (54)
 
 function obb(c, sx, sy, rotZ) {
@@ -447,7 +448,10 @@ export function colliders(lay = layout()) {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
     const ux = dx / L, uy = dy / L, nx = uy, ny = -ux; // outward for a CCW outline
     const a2 = [a[0] - ux * EXT, a[1] - uy * EXT], b2 = [b[0] + ux * EXT, b[1] + uy * EXT];
-    add('Field perimeter', [a2, [a2[0] + nx * T, a2[1] + ny * T], [b2[0] + nx * T, b2[1] + ny * T], b2], -10, OUTLINE_H[i]);
+    // Alliance walls and loading-station faces have chutes behind their openings (z from CHUTE_Z up): the slab
+    // stops below them, and above that the wall's own panels (with their open holes) are the boundary
+    const top = CHUTE_EDGES.has(i) ? CHUTE_Z - 1 : OUTLINE_H[i];
+    add('Field perimeter', [a2, [a2[0] + nx * T, a2[1] + ny * T], [b2[0] + nx * T, b2[1] + ny * T], b2], -10, top);
   }
 
   const skipMat = new Set(['carpet', 'hole', 'retro', 'rope', 'dome']);

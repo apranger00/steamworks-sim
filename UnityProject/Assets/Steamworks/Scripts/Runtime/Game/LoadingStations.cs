@@ -359,6 +359,15 @@ namespace SteamworksSim.Game
             return true;
         }
 
+        static readonly Collider[] overlap = new Collider[16];
+        /// <summary>A loose FUEL or GEAR (anything with a rigidbody) already where the next ball would go.</summary>
+        static bool PieceAt(Vector3 spec)
+        {
+            int n = Physics.OverlapSphereNonAlloc(Units.ToUnity(spec), FuelPool.RadiusIn * 0.98f * Units.Inch, overlap, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++) if (overlap[i].attachedRigidbody != null) return true;
+            return false;
+        }
+
         void FixedUpdate()
         {
             float dt = Time.fixedDeltaTime;
@@ -377,7 +386,7 @@ namespace SteamworksSim.Game
                     // out of the opening; only where it won't land on the last one (each drop is exactly its count)
                     float lat = ((float)rnd.NextDouble() - 0.5f) * 2f * (L.chuteHalfW - FuelPool.RadiusIn - 0.6f);
                     var at = OnChute(s, c, 18f, lat, FuelPool.RadiusIn + 0.1f);
-                    if (Physics.CheckSphere(Units.ToUnity(at), FuelPool.RadiusIn * 0.98f * Units.Inch, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    if (PieceAt(at)) continue;
                     s.acc[c] -= 1f; s.pouring[c]--;
                     ChuteFrame(s, c, out _, out var upC, out _, out _);
                     fuel.Spawn(at, -upC * 6f);
