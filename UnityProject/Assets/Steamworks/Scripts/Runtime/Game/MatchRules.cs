@@ -33,6 +33,7 @@ namespace SteamworksSim.Game
     {
         // ---------------------------------------------------------------- rules constants
         public const int MobilityPoints = 5, TakeoffPoints = 50, PressureThreshold = 40;
+        public const int FoulPoints = 5, TechFoulPoints = 25;
         public const double BoilerRate = 5.0, TouchpadPress = 0.0; // user rule: any touch counts, no hold time
         public static readonly int[] GearsNeeded = { 1, 2, 4, 6 };     // pilot-placed GEARS per ROTOR set
         static readonly int[] Capacity = { 150, 70 };                    // high, low
@@ -47,7 +48,7 @@ namespace SteamworksSim.Game
         internal enum TaskKind { Crank, Gear, Reserve }
 
         public class Peg { public string name; public PegState state; public double t; }
-        public class Touchpad { public bool pressed, credited; public double held; }
+        public class Touchpad { public bool pressed, credited; public double held; public int robot = -1; }
         internal class PilotTask { public TaskKind kind; public int rotor, peg; }
 
         public class Side
@@ -72,6 +73,9 @@ namespace SteamworksSim.Game
             public ReserveState reserve;
             public readonly Touchpad[] touch;
             public int takeoff, bonusPressure, bonusRotors;
+            public int foulPts;                       // points from the OTHER alliance's FOULS and TECH FOULS
+            public int fouls, techFouls;              // committed by this alliance
+            public readonly HashSet<int> freeClimbs = new HashSet<int>(); // robots credited a climb by a violation (G07, G20)
             public bool pressureFlag, rotorsFlag;
             public string result; // win | tie | loss, after the match
 
@@ -194,19 +198,22 @@ namespace SteamworksSim.Game
                 {
                     var tp = A.touch[i];
                     double tz = A.tg.touchpads[i].z + TouchpadPress;
-                    bool pressed = false;
+                    bool pressed = false; int who = -1;
                     if (robots != null)
                         foreach (var r in robots)
-                            if (r.alliance == A.name && r.climbTouchpad == i && r.topZ >= tz - 1e-6) { pressed = true; break; }
+                            if (r.alliance == A.name && r.climbTouchpad == i && r.topZ >= tz - 1e-6) { pressed = true; who = r.id; break; }
+                    tp.robot = who;
                     if (pressed && !tp.pressed) Say(A.name, $"TOUCHPAD {i + 1} touched (+{TakeoffPoints})");
                     else if (!pressed && tp.pressed) Say(A.name, $"TOUCHPAD {i + 1} released (-{TakeoffPoints})");
                     tp.pressed = pressed;
                     tp.held = pressed ? tp.held + dt : 0;
                     tp.credited = pressed; // user rule: scores while touched, unscores when let go; frozen at T=0
                 }
-                int n = 0;
-                foreach (var tp in A.touch) if (tp.credited) n++;
-                A.takeoff = n * TakeoffPoints;
+                // 50 per robot that is touching a TOUCHPAD or was given a free climb (never twice for one robot)
+                var climbed = new HashSet<int>(A.freeClimbs);
+                int unknown = 0;
+                foreach (var tp in A.touch) if (tp.credited) { if (tp.robot >= 0) climbed.Add(tp.robot); else unknown++; }
+                A.takeoff = (climbed.Count + unknown) * TakeoffPoints;
             }
         }
 
@@ -322,6 +329,29 @@ namespace SteamworksSim.Game
             }
         }
 
+        // ---------------------------------------------------------------- violations
+        /// <summary>A FOUL (5) or TECH FOUL (25) by `offender`: the points go to the other alliance.</summary>
+        public int Foul(string offender, bool tech, string rule)
+        {
+            if (Ended) return 0;
+            var me = Of(offender); var other = Of(offender == "red" ? "blue" : "red");
+            int pts = tech ? TechFoulPoints : FoulPoints;
+            other.foulPts += pts;
+            if (tech) me.techFouls++; else me.fouls++;
+            Say(offender, $"{(tech ? "TECH FOUL" : "FOUL")} ({rule}): +{pts} to {other.name.ToUpper()}");
+            return pts;
+        }
+
+        /// <summary>A robot is credited a climb by a violation (G07, G20). False if it already had one.</summary>
+        public bool FreeClimb(string alliance, int robotId, string rule)
+        {
+            if (Ended) return false;
+            var A = Of(alliance);
+            if (!A.freeClimbs.Add(robotId)) return false;
+            Say(alliance, $"Free climb ({rule}): robot {robotId} counts as having climbed (+{TakeoffPoints})");
+            return true;
+        }
+
         public void EndMatch()
         {
             if (Ended) return;
@@ -345,7 +375,7 @@ namespace SteamworksSim.Game
         public static int TotalPressure(Side A) => A.ninths / 9;
         public static int AutoPoints(Side A) => A.mobility + AutoPressure(A) + A.rotorPts[0];
         public static int TeleopPoints(Side A) => (TotalPressure(A) - AutoPressure(A)) + A.rotorPts[1] + A.takeoff + A.bonusPressure + A.bonusRotors;
-        public static int Total(Side A) => AutoPoints(A) + TeleopPoints(A);
+        public static int Total(Side A) => AutoPoints(A) + TeleopPoints(A) + A.foulPts;
 
         /// <summary>Qualification ranking points (null in playoffs).</summary>
         public int? RankingPoints(Side A)
@@ -369,6 +399,7 @@ namespace SteamworksSim.Game
                 s.teleopFuel = TotalPressure(A) - AutoPressure(A);
                 s.teleopRotors = A.rotorPts[1];
                 s.takeoff = A.takeoff;
+                s.penalty = A.foulPts;
                 s.bonusPressure = A.bonusPressure;
                 s.bonusRotors = A.bonusRotors;
                 s.kPa = (float)A.KPa;

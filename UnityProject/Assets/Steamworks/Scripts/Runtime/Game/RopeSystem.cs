@@ -23,6 +23,7 @@ namespace SteamworksSim.Game
             public float seg;
             public Vector3[] p, prev;
             public bool deployed = true;
+            public readonly HashSet<int> touchedBy = new HashSet<int>(); // robots in contact with it this step (ids)
             public LineRenderer line;
             public Vector3 Anchor => new Vector3(spec.anchor[0], spec.anchor[1], spec.anchor[2]);
         }
@@ -33,6 +34,7 @@ namespace SteamworksSim.Game
             public Vector2 center, fwd;   // fwd: unit heading
             public float halfL, halfW, lift, height;
             public Rope climbing;         // the rope this robot is climbing, if any
+            public int id;                // the robot (RobotMechanisms.id)
             public Vector2 climber;       // where it grips the rope
         }
 
@@ -141,6 +143,7 @@ namespace SteamworksSim.Game
 
         void FixedUpdate()
         {
+            foreach (var R in ropes) R.touchedBy.Clear();
             float dt = Time.fixedDeltaTime;
             foreach (var R in ropes) { if (R.deployed) Step(R, dt); }
         }
@@ -198,6 +201,7 @@ namespace SteamworksSim.Game
                 {
                     if (b.climbing == R)
                     {
+                        R.touchedBy.Add(b.id);
                         // a climbing robot holds its rope at the climber, at the robot's top
                         float hz = b.lift + b.height;
                         int kk = Mathf.Max(R.pinIndex + 1, Mathf.Min(n - 1, Mathf.RoundToInt((R.spec.anchor[2] - hz) / seg)));
@@ -213,6 +217,7 @@ namespace SteamworksSim.Game
                         float px = b.halfL + rr - Mathf.Abs(lx), py = b.halfW + rr - Mathf.Abs(ly);
                         float top = b.lift + b.height + rr - p[i].z, bottom = p[i].z - (b.lift - rr);
                         if (px <= 0f || py <= 0f || top <= 0f || bottom <= 0f) continue;
+                        R.touchedBy.Add(b.id);
                         if (top <= px && top <= py) p[i].z += top;
                         else if (px <= py) { var push = b.fwd * (Mathf.Sign(lx) * px); p[i].x += push.x; p[i].y += push.y; }
                         else { var push = left * (Mathf.Sign(ly) * py); p[i].x += push.x; p[i].y += push.y; }

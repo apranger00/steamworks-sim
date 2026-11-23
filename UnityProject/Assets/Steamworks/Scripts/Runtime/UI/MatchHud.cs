@@ -69,7 +69,113 @@ namespace SteamworksSim.UI
 
             cornerHint = Ui.Label(canvas.transform, "", 18, Ui.Muted, TextAnchor.LowerLeft);
             Ui.Anchor(cornerHint.rectTransform, new Vector2(0f, 0f), new Vector2(900f, 30f), new Vector2(20f, 14f));
+            BuildViolationCard(canvas.transform);
+            BuildPinBubble(canvas.transform);
             SetVisible(false);
+        }
+
+        // ---------------------------------------------------------------- VIOLATION card (lower right)
+        RectTransform violationRoot;
+        CanvasGroup violationGroup;
+        Text violationText;
+        readonly System.Collections.Generic.Queue<string> violations = new System.Collections.Generic.Queue<string>();
+        float violationAt = -100f;
+        const float ViolationShow = 3.5f;
+
+        // alliance colours that read on the dark card
+        static string Hex(string alliance) => alliance == "blue" ? "4f8dff" : "ff5a64";
+
+        void BuildViolationCard(Transform parent)
+        {
+            violationRoot = Ui.Anchor(Ui.Rect("Violation", parent), new Vector2(1f, 0f), new Vector2(600f, 118f), new Vector2(-24f, 24f));
+            violationGroup = violationRoot.gameObject.AddComponent<CanvasGroup>();
+            violationGroup.blocksRaycasts = false;
+            // body: the timer box's transparent charcoal; banner: black, on top of the body's top edge
+            var body = Ui.Rect("Body", violationRoot);
+            Ui.Stretch(body); body.offsetMax = new Vector2(0f, -24f);
+            Ui.Round(body.gameObject.AddComponent<Image>(), 14f).color = Ui.Backdrop;
+            var bar = Ui.Rect("Banner", violationRoot);
+            bar.anchorMin = new Vector2(0f, 1f); bar.anchorMax = new Vector2(1f, 1f); bar.pivot = new Vector2(0.5f, 1f);
+            bar.sizeDelta = new Vector2(0f, 42f); bar.anchoredPosition = Vector2.zero;
+            Ui.Round(bar.gameObject.AddComponent<Image>(), 14f).color = new Color(0f, 0f, 0f, 0.97f);
+            var head = Ui.Label(bar, "VIOLATION", 22, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Stretch(head.rectTransform);
+            violationText = Ui.Label(violationRoot, "", 25, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Stretch(violationText.rectTransform); violationText.rectTransform.offsetMax = new Vector2(-14f, -44f);
+            violationText.rectTransform.offsetMin = new Vector2(14f, 6f);
+            violationText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            violationRoot.gameObject.SetActive(false);
+        }
+
+        /// <summary>"G11: There's a 5-count on pins (+5)", the points in the colour of the alliance that gets them.</summary>
+        public void ShowViolation(Violations.Call c)
+        {
+            string to = c.offender == "red" ? "blue" : "red";
+            string what = c.freeClimb ? $"{c.title}" : c.title;
+            violations.Enqueue($"{c.rule}: {what} <color=#{Hex(to)}>(+{c.points})</color>");
+        }
+
+        public void ClearViolations() { violations.Clear(); violationAt = -100f; if (violationRoot != null) violationRoot.gameObject.SetActive(false); }
+
+        // ---------------------------------------------------------------- pin count bubble (above the card)
+        RectTransform pinRoot;
+        Image pinFill, pinBg;
+        Text pinText;
+
+        void BuildPinBubble(Transform parent)
+        {
+            pinRoot = Ui.Anchor(Ui.Rect("Pin count", parent), new Vector2(1f, 0f), new Vector2(420f, 66f), new Vector2(-24f, 158f));
+            pinBg = Ui.Round(pinRoot.gameObject.AddComponent<Image>(), 14f);
+            pinBg.color = Ui.Backdrop; pinBg.raycastTarget = false;
+            pinText = Ui.Label(pinRoot, "", 20, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Anchor(pinText.rectTransform, new Vector2(0.5f, 1f), new Vector2(400f, 30f), new Vector2(0f, -6f));
+            var track = Ui.Anchor(Ui.Rect("Track", pinRoot), new Vector2(0.5f, 0f), new Vector2(380f, 12f), new Vector2(0f, 12f));
+            Ui.Round(track.gameObject.AddComponent<Image>(), 6f).color = new Color(1f, 1f, 1f, 0.15f);
+            var fill = Ui.Rect("Fill", track);
+            Ui.Stretch(fill);
+            pinFill = fill.gameObject.AddComponent<Image>();
+            pinFill.type = Image.Type.Filled; pinFill.fillMethod = Image.FillMethod.Horizontal; pinFill.raycastTarget = false;
+            pinRoot.gameObject.SetActive(false);
+        }
+
+        static readonly Color PinCounting = new Color(1f, 0.78f, 0.2f), PinBad = new Color(0.95f, 0.25f, 0.25f), PinOk = new Color(0.3f, 0.85f, 0.4f);
+
+        void LateUpdate()
+        {
+            if (root == null || !root.activeSelf) return;
+            float now = Time.unscaledTime;
+            // VIOLATION card: one at a time, slides in from the right, fades at the end
+            if (now - violationAt > ViolationShow && violations.Count > 0) { violationText.text = violations.Dequeue(); violationAt = now; }
+            float t = now - violationAt;
+            bool showing = t <= ViolationShow;
+            if (violationRoot.gameObject.activeSelf != showing) violationRoot.gameObject.SetActive(showing);
+            if (showing)
+            {
+                float slide = 1f - Mathf.Clamp01(t / 0.25f);
+                violationRoot.anchoredPosition = new Vector2(-24f + slide * slide * 640f, 24f);
+                violationGroup.alpha = Mathf.Clamp01((ViolationShow - t) / 0.4f);
+            }
+
+            // pin bubble: the running pin count, else a pin that just cleared
+            var refs = sim != null ? sim.Referee : null;
+            Violations.Pin pin = null;
+            if (refs != null)
+            {
+                foreach (var p in refs.pins) if (p.active) { pin = p; break; }
+                if (pin == null) foreach (var p in refs.pins) if (p.state == Violations.PinState.Cleared && Time.fixedTime - p.clearedAt < 1.5f) { pin = p; break; }
+            }
+            pinRoot.gameObject.SetActive(pin != null);
+            if (pin == null) return;
+            string who = $"<color=#{Hex(pin.pinner.alliance)}>{pin.pinner.alliance.ToUpper()}</color> on <color=#{Hex(pin.pinned.alliance)}>{pin.pinned.alliance.ToUpper()}</color>";
+            switch (pin.state)
+            {
+                case Violations.PinState.Cleared:
+                    pinText.text = "PIN CLEARED"; pinFill.color = PinOk; pinFill.fillAmount = 1f; break;
+                case Violations.PinState.Violation:
+                    pinText.text = $"PINNING VIOLATION  {who}"; pinFill.color = PinBad; pinFill.fillAmount = pin.PeriodFraction; break;
+                default:
+                    pinText.text = $"PIN COUNT {pin.count:0.0} s  {who}"; pinFill.color = PinCounting; pinFill.fillAmount = pin.PeriodFraction; break;
+            }
         }
 
         public void SetVisible(bool v) { if (root != null) root.SetActive(v); }

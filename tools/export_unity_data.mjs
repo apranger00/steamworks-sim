@@ -62,7 +62,7 @@ writeFileSync(join(out, 'colliders.json'), JSON.stringify(clean(cols)));
 
 const tg = targets();
 const alliance = (a) => ({
-  side: a.side, baseLineX: a.baseLineX,
+  side: a.side, baseLineX: a.baseLineX, launchpadX: a.launchpadX, key: a.key,
   highGoal: { c: a.highGoal.c, z: a.highGoal.z, r: a.highGoal.r, capture: a.highGoal.capture },
   lowGoal: { face: a.lowGoal.face, n: a.lowGoal.n, u: a.lowGoal.u, halfW: a.lowGoal.halfW, z0: a.lowGoal.z0, z1: a.lowGoal.z1 },
   airship: a.airship,
