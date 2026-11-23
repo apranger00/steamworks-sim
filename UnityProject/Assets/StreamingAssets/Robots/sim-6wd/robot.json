@@ -42,8 +42,8 @@
     "minRange": 2.5,
     "maxRange": 25,
     "entryAngle": 55,
-    "aimError": 0.2,
-    "speedError": 0.4,
+    "aimError": 0.1,
+    "speedError": 0.2,
     "capacity": 0
   },
   "lowGoalDump": {

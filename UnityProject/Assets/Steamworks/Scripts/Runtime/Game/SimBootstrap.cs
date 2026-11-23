@@ -234,7 +234,8 @@ namespace SteamworksSim.Game
             ropes.StowAll(); // the PILOTS drop them with 30 s left
             resultsAt = -1f;
             ResetPlayer();
-            if (defender != null) PlaceDefender();
+            EnsureDummy();
+            PlaceDefender();
             foreach (var m in Mechs()) m.Reload();
             loading.Reset(Mechs()); // station stock; the lanes get the preloads the robots didn't take
             Clock.Start();
@@ -411,26 +412,90 @@ namespace SteamworksSim.Game
             }
         }
 
+        // ---------------------------------------------------------------- dummy opponent (for trying the fouls)
+        /// <summary>Where the dummy opponent stands. B cycles through them (and off).</summary>
+        public enum DummySpot { Midfield, Launchpad, RetrievalZone, Guardrail, Rope, Off }
+        DummySpot dummySpot = DummySpot.Midfield;
+        static readonly string[] DummyNames =
+        {
+            "parked in midfield", "in its LAUNCHPAD beside its airship (A04)", "in its RETRIEVAL ZONE (G13)",
+            "against the guardrail, to pin (G11)", "under its ROPE: climbs when the ropes drop (G07, G20)", "off",
+        };
+
+        /// <summary>B: next dummy spot (creating or removing the dummy as needed).</summary>
         void ToggleDefender()
         {
-            if (defender != null) { Destroy(defender); defender = null; defenderMech = null; Say("Defender removed"); return; }
+            dummySpot = (DummySpot)(((int)dummySpot + 1) % DummyNames.Length);
+            PlayerPrefs.SetInt(Prefs + "dummy", (int)dummySpot);
+            if (dummySpot == DummySpot.Off) { RemoveDummy(); Say("Dummy opponent removed"); return; }
+            if (defender == null) CreateDummy();
+            PlaceDefender();
+            Say("Dummy opponent " + DummyNames[(int)dummySpot]);
+        }
+
+        void RemoveDummy() { if (defender != null) Destroy(defender); defender = null; defenderMech = null; }
+
+        void EnsureDummy()
+        {
+            dummySpot = (DummySpot)Mathf.Clamp(PlayerPrefs.GetInt(Prefs + "dummy", 0), 0, DummyNames.Length - 1);
+            if (dummySpot == DummySpot.Off) { RemoveDummy(); return; }
+            if (defender == null) CreateDummy();
+        }
+
+        void CreateDummy()
+        {
             var def = library.robots.Find(r => r.id == "sim-6wd") ?? current;
             string other = alliance == "red" ? "blue" : "red";
             defenderDef = def;
-            defender = RobotFactory.Build(def, other, Mats, "Defender (idle)");
+            defender = RobotFactory.Build(def, other, Mats, "Dummy opponent");
             defender.GetComponent<TankDrive>().idle = true;
             defenderMech = defender.AddComponent<RobotMechanisms>();
             defenderMech.Init(def, other, 2, "Defender", fuel, ropes, () => rules, targets);
-            defenderMech.participates = false; // a parked practice dummy: no preload, no loading station
-            PlaceDefender();
-            Say("Defender added: parked sideways, brakes on");
+            defenderMech.participates = false; // a dummy: no preload, no loading station
         }
 
-        // Parked sideways in front of your station, on your side of the field
+        /// <summary>Puts the dummy (brakes on, pushable) at its spot; all spots are the dummy's alliance's areas.</summary>
         void PlaceDefender()
         {
+            if (defender == null || defenderDef == null) return;
             if (defenderMech != null) defenderMech.ResetState();
-            Place(defender, Side * 60f, StationY[station], 90f);
+            string opp = alliance == "red" ? "blue" : "red";
+            var T = targets != null ? targets.Of(opp) : null;
+            float halfL = defenderDef.LengthWithBumpers / 2f, halfW = defenderDef.WidthWithBumpers / 2f;
+            switch (dummySpot)
+            {
+                case DummySpot.Launchpad when T != null:
+                    // beside its airship, on the scoring-table side, in its own LAUNCHPAD
+                    Place(defender, T.side * (Mathf.Abs(T.launchpadX) + 30f), 100f, 90f);
+                    return;
+                case DummySpot.RetrievalZone when loading != null && loading.Of(opp) != null:
+                {
+                    var L = loading.Of(opp).spec;
+                    var mid = new Vector2((L.chutes[0] + L.chutes[2]) / 2f, (L.chutes[1] + L.chutes[3]) / 2f);
+                    var inward = new Vector2(L.inward[0], L.inward[1]);
+                    var at = mid + inward * (halfL + 14f);
+                    Place(defender, at.x, at.y, Mathf.Atan2(-inward.y, -inward.x) * Mathf.Rad2Deg); // facing its station
+                    return;
+                }
+                case DummySpot.Guardrail:
+                    // lengthwise against the far-side guardrail, on your side of the field: push it into the rail
+                    Place(defender, Side * 100f, -162.4f + halfW + 0.3f, 0f);
+                    return;
+                case DummySpot.Rope when ropes != null:
+                    foreach (var R in ropes.ropes)
+                    {
+                        if (R.alliance != opp || T == null) continue;
+                        // facing the rope from outside the airship, its climber right at the rope
+                        var a = new Vector2(R.spec.anchor[0], R.spec.anchor[1]);
+                        var outDir = (a - new Vector2(T.airship[0], T.airship[1])).normalized;
+                        float setback = defenderDef.climber != null ? defenderDef.climber.setback : 3f;
+                        var c = a + outDir * (halfL - setback);
+                        Place(defender, c.x, c.y, Mathf.Atan2(-outDir.y, -outDir.x) * Mathf.Rad2Deg);
+                        return;
+                    }
+                    break;
+            }
+            Place(defender, Side * 60f, StationY[station], 90f); // midfield, in front of your station
         }
 
         // ---------------------------------------------------------------- loop
@@ -455,7 +520,14 @@ namespace SteamworksSim.Game
             }
             bool on = State == AppState.Playing && Clock.Running;
             if (playerMech != null) playerMech.enabledByMatch = on;
-            if (defenderMech != null) defenderMech.enabledByMatch = false; // parked
+            if (defenderMech != null)
+            {
+                // parked; the rope dummy may climb (its drive stays braked, it never shoots)
+                bool climber = dummySpot == DummySpot.Rope && on;
+                defenderMech.enabledByMatch = climber;
+                defenderMech.climbHeld = climber;
+                if (climber && Clock.InEndgame && defenderMech.Climb == RobotMechanisms.ClimbPhase.None) defenderMech.StartClimb();
+            }
             hoppers.Step(dt, Mechs(), on); // pushing a HOPPER panel pours its 100 FUEL onto the field
             ropes.SetBodies(Bodies());
             animator.Sync(rules, dt, ClimbTop);

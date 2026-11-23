@@ -15,6 +15,8 @@ namespace SteamworksSim.Game
     public class FuelPool : MonoBehaviour
     {
         public const float RadiusIn = 2.5f;
+        /// <summary>in: the high goal counts a ball whose centre drops through hg.z + r + this, inside the opening.</summary>
+        public const float HighGoalSenseLift = 1f;
         const float MassKg = 0.14f * 0.45359237f;     // a little under the real 0.1625 lb, so it gets pushed around more
         const float RollDecel = 6f * Units.Inch;       // m/s^2 on the carpet (prototype: 14 in/s^2; less so it rolls further)
         public int maxBalls = 1000; // 500 from the hoppers plus shots
@@ -208,9 +210,11 @@ namespace SteamworksSim.Game
             {
                 var t = targets.Of(al);
                 alliance = al;
-                // high goal: the ball centre drops through the opening plane (z + r) within the capture radius
+                // high goal: the ball centre drops through the opening plane within the capture radius. The plane is
+                // HighGoalSenseLift above the ball resting on the funnel's (solid) top, so it is counted on the way in
+                // instead of bouncing off the collider just short of the plane
                 var hg = t.highGoal;
-                float plane = hg.z + r;
+                float plane = hg.z + r + HighGoalSenseLift;
                 if (o.z >= plane && c.z < plane)
                 {
                     float k = (o.z - plane) / (o.z - c.z);

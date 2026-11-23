@@ -351,7 +351,7 @@ namespace SteamworksSim.Game
             if (S == null || !S.enabled) { reason = "No shooter"; return null; }
             if (!InLaunchpad(alliance)) { reason = "Not in your LAUNCHPAD"; return null; } // shoot only from your own launchpad
             var hg = targets.Of(alliance).highGoal;
-            var goal = new Vector3(hg.c[0], hg.c[1], hg.z + FuelPool.RadiusIn);
+            var goal = new Vector3(hg.c[0], hg.c[1], hg.z + FuelPool.RadiusIn + FuelPool.HighGoalSenseLift); // where the goal counts it
             var dir = (new Vector2(goal.x, goal.y) - TurretCenter()).normalized;
             // the exit point depends on the pitch: solve, move the exit to where that pitch leaves the hood, solve again
             Shot s = default; float pitch = 60f * Mathf.Deg2Rad; bool solved = false;
