@@ -23,7 +23,7 @@ namespace SteamworksSim.Game
         readonly Dictionary<string, Transform[][]> setGears = new Dictionary<string, Transform[][]>();
         // AIRSHIP geometry (prototype field.js DIM.airship): rail at 79 in on a 101 in hexagon, STEAM TANK top 108.5 in,
         // small ROTORS 2, 3, 4 at 90, 210 and 330 deg from the AIRSHIP centre (FieldBuilder.SmallRotorAngles)
-        const float RailZ = 79f, RailFlat = 101f, TankTop = 108.5f, TrayInset = 3.5f, GearPitch = 10.6f, FirstGear = 11f;
+        const float RailZ = 79f, RailFlat = 101f, TankTop = 108.5f, TrayInset = 3.5f, GearPitch = 11.2f, FirstGear = 11f;
         static readonly int[] SmallRotorAngles = { 90, 210, 330 };
         /// <summary>GEARS already on each set at the start (manual figure 3-11 "Pre-Populated"), drawn in front of the
         /// ones the PILOTS add; they turn with the set.</summary>
@@ -114,7 +114,7 @@ namespace SteamworksSim.Game
                 {
                     // alternate between the two rail sides that meet at the ROTOR's corner, working away from it
                     int side = j % 2 == 0 ? 1 : -1, along = j / 2;
-                    float b = a + side * 120f * Mathf.Deg2Rad; // toward the next corner on that side
+                    float b = a + side * 60f * Mathf.Deg2Rad; // the neighbouring corner along that rail side
                     var nextCorner = c + new Vector2(Mathf.Cos(b), Mathf.Sin(b)) * rr;
                     var dir = (nextCorner - corner).normalized;
                     var mid = (corner + nextCorner) / 2f;
