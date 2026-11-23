@@ -435,10 +435,12 @@ namespace SteamworksSim.Game
             float dt = Time.fixedDeltaTime;
             if (State == AppState.Playing)
             {
-                // the tick belongs to the phase it starts in; the 3 s pause after AUTO scores at TELEOP values
+                // the tick belongs to the phase it starts in. The 3 s pause after AUTO: FUEL the boilers count
+                // still scores at AUTO values (no mobility, pilots and ROTORS already on TELEOP)
                 var phase = Clock.Phase;
                 if (phase == MatchPhase.Auto || phase == MatchPhase.AutoPause || phase == MatchPhase.Teleop)
-                    rules.Advance(dt, phase == MatchPhase.Auto ? Period.Auto : Period.Teleop, RobotsForRules());
+                    rules.Advance(dt, phase == MatchPhase.Auto ? Period.Auto : Period.Teleop, RobotsForRules(),
+                                  phase == MatchPhase.AutoPause ? Period.Auto : (Period?)null);
                 Clock.Tick(dt);
                 rules.Fill(Score);
             }
@@ -479,6 +481,7 @@ namespace SteamworksSim.Game
             {
                 case MatchCue.MatchStart: hud.Banner("AUTONOMOUS"); break;
                 case MatchCue.AutoEnd: rules.EndAuto(); break;
+                case MatchCue.TeleopStart: rules.StartTeleop(); break;
                 case MatchCue.Endgame: ropes.DeployAll(); break; // PILOTS drop the ROPES
                 case MatchCue.MatchEnd:
                     rules.EndMatch();

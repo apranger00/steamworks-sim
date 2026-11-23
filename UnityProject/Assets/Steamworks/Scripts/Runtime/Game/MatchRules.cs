@@ -24,9 +24,10 @@ namespace SteamworksSim.Game
     /// pressure in ninths of a kPa, PILOTS (lift, install, crank) and ROTORS, AUTO mobility, TOUCHPADS and
     /// takeoff, ranking points. Engine-agnostic apart from Vector2.
     ///
-    /// Call Advance(dt, period, robots) every tick from AUTO start to 0:00 (the 3 s pause after AUTO is
-    /// advanced as TELEOP: FUEL still in the boiler after AUTO counts at TELEOP values), EndAuto() when AUTO
-    /// ends and EndMatch() at 0:00.
+    /// Call Advance(dt, period, robots) every tick from AUTO start to 0:00. The 3 s pause after AUTO is
+    /// advanced as TELEOP with fuelPeriod = Auto: FUEL the boiler counts during the pause still scores at AUTO
+    /// values (user rule); FUEL still in it when TELEOP starts counts at TELEOP values. EndAuto() when AUTO
+    /// ends, StartTeleop() when TELEOP starts, EndMatch() at 0:00.
     /// </summary>
     public class MatchRules
     {
@@ -150,14 +151,17 @@ namespace SteamworksSim.Game
         }
 
         // ---------------------------------------------------------------- time
-        public void Advance(double dt, Period period, IList<RulesRobot> robots)
+        /// <param name="fuelPeriod">The values FUEL counted this tick scores at, if not the period's own
+        /// (Auto during the pause after AUTO).</param>
+        public void Advance(double dt, Period period, IList<RulesRobot> robots, Period? fuelPeriod = null)
         {
             if (Ended || dt <= 0) return;
             Time += dt;
+            var fp = fuelPeriod ?? period;
             foreach (var A in Both)
             {
-                Boiler(A, Goal.High, dt, period);
-                Boiler(A, Goal.Low, dt, period);
+                Boiler(A, Goal.High, dt, fp);
+                Boiler(A, Goal.Low, dt, fp);
                 Pilot(A, dt, period);
             }
             // AUTO mobility: a BUMPER breaks the BASE LINE plane by the end of AUTO
@@ -298,8 +302,18 @@ namespace SteamworksSim.Game
             foreach (var A in Both)
             {
                 int q = A.queue[0] + A.queue[1];
-                if (q > 0) Say(A.name, $"{q} FUEL still in the BOILER at end of AUTO will count at TELEOP values");
+                if (q > 0) Say(A.name, $"{q} FUEL still in the BOILER at end of AUTO: AUTO values until TELEOP starts");
                 if (A.reserve == ReserveState.Staged) A.reserve = ReserveState.Available; // A05 only applies during AUTO
+            }
+        }
+
+        /// <summary>TELEOP starts (end of the 3 s pause): FUEL counted from now on scores at TELEOP values.</summary>
+        public void StartTeleop()
+        {
+            foreach (var A in Both)
+            {
+                int q = A.queue[0] + A.queue[1];
+                if (q > 0) Say(A.name, $"{q} FUEL still in the BOILER at TELEOP start will count at TELEOP values");
             }
         }
 

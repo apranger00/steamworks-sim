@@ -80,6 +80,16 @@ namespace SteamworksSim.Game
                 h.Load("red", Goal.High, 10); h.RunTo(30);
                 Check("10 high loaded at 14.0 s: 5 count in AUTO (5/s), 5 in TELEOP", h.R.fuel[0, 0] == 5 && h.R.fuel[1, 0] == 5, $"auto {h.R.fuel[0, 0]}, teleop {h.R.fuel[1, 0]}");
                 Check("...= 5 AUTO pts + 1 TELEOP pt", MatchRules.AutoPressure(h.R) == 5 && MatchRules.TotalPressure(h.R) - 5 == 1);
+                // the game's 3 s pause after AUTO: FUEL counted during it still scores at AUTO values
+                var pm = new MatchRules(tg);
+                for (int i = 0; i < 840; i++) pm.Advance(1 / 60.0, Period.Auto, null);          // to 14.0 s
+                for (int i = 0; i < 30; i++) pm.FuelLoaded("red", Goal.High);
+                for (int i = 0; i < 60; i++) pm.Advance(1 / 60.0, Period.Auto, null);           // AUTO ends at 15 s
+                pm.EndAuto();
+                for (int i = 0; i < 180; i++) pm.Advance(1 / 60.0, Period.Teleop, null, Period.Auto); // 3 s pause
+                pm.StartTeleop();
+                for (int i = 0; i < 300; i++) pm.Advance(1 / 60.0, Period.Teleop, null);
+                Check("30 high at 14.0 s with the 3 s pause: 20 at AUTO values (AUTO + pause), 10 at TELEOP", pm.red.fuel[0, 0] == 20 && pm.red.fuel[1, 0] == 10, $"auto {pm.red.fuel[0, 0]}, teleop {pm.red.fuel[1, 0]}");
                 var h2 = new Harness(tg); h2.RunTo(149.5);
                 h2.Load("blue", Goal.Low, 5); h2.RunTo(151);
                 Check("5 low loaded at T-0.5 s: 2 counted, 3 lost at T=0", h2.B.fuel[1, 1] == 2 && h2.B.lost == 3, $"counted {h2.B.fuel[1, 1]}, lost {h2.B.lost}");
