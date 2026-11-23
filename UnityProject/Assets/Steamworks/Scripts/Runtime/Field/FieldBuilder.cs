@@ -40,6 +40,8 @@ namespace SteamworksSim.Field
         public const string RootName = "Generated Field";
         public Transform GeneratedRoot { get; private set; }
         public FieldMaterials Materials { get; private set; }
+        /// <summary>The field data of the last build (staged FUEL positions and so on).</summary>
+        public FieldFile Data { get; private set; }
 
         void Awake()
         {
@@ -67,6 +69,7 @@ namespace SteamworksSim.Field
             Clear();
             if (fieldJson == null) { Debug.LogError("[Steamworks] FieldBuilder: assign Data/field.json."); return; }
             var data = JsonUtility.FromJson<FieldFile>(fieldJson.text);
+            Data = data;
             Materials = new FieldMaterials(litShader);
 
             GeneratedRoot = new GameObject(RootName).transform;
@@ -193,7 +196,7 @@ namespace SteamworksSim.Field
                         go.AddComponent<MeshFilter>().sharedMesh = m.Value.ToMesh($"{kv.Key}_{m.Key}");
                         var mr = go.AddComponent<MeshRenderer>();
                         mr.sharedMaterial = Materials.Get(m.Key);
-                        if (m.Key == "touchpad" || m.Key == "dome") mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                        if (m.Key == "touchpad" || m.Key == "dome" || m.Key == "polyHopper") mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                     }
                 }
             }
@@ -246,6 +249,13 @@ namespace SteamworksSim.Field
         {
             pivot = Vector3.zero;
             string n = it.name ?? "";
+            // each HOPPER pair's two DOORS are one part, hidden when the pair is dumped
+            if (n.StartsWith("HOPPER container") && n.EndsWith(" door") && it.c != null)
+            {
+                var tg = TargetsFile.Load();
+                int k = tg != null ? tg.HopperAt(it.c[0], it.c[1]) : -1;
+                if (k >= 0) return $"HOPPER {k} doors";
+            }
             int sp = n.IndexOf(' ');
             if (sp <= 0) return null;
             string al = n.Substring(0, sp);

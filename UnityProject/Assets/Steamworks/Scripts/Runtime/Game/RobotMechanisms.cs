@@ -73,8 +73,9 @@ namespace SteamworksSim.Game
             fuel = f; ropes = r; targets = t; getRules = rulesGetter;
             rb = GetComponent<Rigidbody>();
             drive = GetComponent<TankDrive>();
-            body = GetComponentsInChildren<Collider>();
             BuildVisuals();
+            // after the visuals: includes the full-hopper dome, so shots and dumps leaving a full robot don't hit it
+            body = GetComponentsInChildren<Collider>(true);
         }
         Func<MatchRules> getRules;
 
@@ -178,7 +179,7 @@ namespace SteamworksSim.Game
 
         // ---------------------------------------------------------------- reset
         /// <summary>Start of a match: just the preload on board.</summary>
-        public void Reload() { Fuel = PreloadedFuel; Gears = PreloadedGears; }
+        public void Reload() { Fuel = PreloadedFuel; Gears = PreloadedGears; overflow = 0; }
 
         /// <summary>Off the rope and back on the carpet (the load stays as it is).</summary>
         public void ResetState()
@@ -199,6 +200,7 @@ namespace SteamworksSim.Game
             if (gearCooldown > 0f) gearCooldown -= dt;
             if (heldGear != null) heldGear.gameObject.SetActive(gearCooldown <= 0f && Climb == ClimbPhase.None && HasGear);
             ShowHopperFuel();
+            Overflow();
 
             UpdateShooterStatus(out var shot);
             if (Climb != ClimbPhase.None) { ClimbStep(dt); UpdateClimbStatus(); return; }
@@ -385,19 +387,45 @@ namespace SteamworksSim.Game
         /// <summary>A FUEL at spec position p moving at v (in/s): true if this robot takes it.</summary>
         public bool TryCatchFuel(Vector3 p, Vector3 v)
         {
-            if (def.intake == null || (FuelCapacity > 0 && Fuel >= FuelCapacity) || Climb != ClimbPhase.None) return false;
+            if (def.intake == null || Climb != ClimbPhase.None) return false;
+            bool full = FuelCapacity > 0 && Fuel >= FuelCapacity;
             var d = new Vector2(p.x, p.y) - Center;
             float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left);
             bool caught = false;
             // open-top hopper: a ball that has dropped in over the rim (or rests inside it)
             float hl = RobotFactory.HopperLength(def) / 2f, hw = RobotFactory.HopperWidth(def) / 2f;
-            if (def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= hl && Mathf.Abs(ly) <= hw
+            if (!full && def.intake.fuelFromChute && v.z <= 1f && Mathf.Abs(lx) <= hl && Mathf.Abs(ly) <= hw
                 && p.z >= Lift + RobotFactory.HopperFloor(def) && p.z <= TopZ + 1f) caught = true;
             // floor intake across the front bumper
             if (!caught && def.intake.fuelFromFloor && enabledByMatch && intakeHeld && p.z <= FuelPool.RadiusIn + 2f
                 && lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f) caught = true;
-            if (caught && FuelCapacity > 0) Fuel++;
+            // the floor intake keeps feeding a full hopper: each extra ball forces one out over the top
+            if (caught && full) overflow++;
+            else if (caught && FuelCapacity > 0) Fuel++;
             return caught;
+        }
+
+        int overflow; // balls to push out over the top of a full hopper (spawned next physics step, not mid-loop)
+
+        /// <summary>One ball spills over the left, right or back edge of the full hopper (never the intake side).</summary>
+        void Overflow()
+        {
+            if (overflow <= 0 || fuel == null) return;
+            overflow--;
+            float hl = RobotFactory.HopperLength(def) / 2f, hw = RobotFactory.HopperWidth(def) / 2f;
+            const float inset = FuelPool.RadiusIn + 0.5f;
+            float u = (float)rnd.NextDouble() * 2f - 1f;
+            int edge = rnd.Next(3);
+            Vector2 local, outward; // (forward, left)
+            if (edge == 0) { local = new Vector2(u * (hl - inset), hw - inset); outward = new Vector2(0f, 1f); }
+            else if (edge == 1) { local = new Vector2(u * (hl - inset), -(hw - inset)); outward = new Vector2(0f, -1f); }
+            else { local = new Vector2(-(hl - inset), u * (hw - inset)); outward = new Vector2(-1f, 0f); }
+            Vector2 f = Forward, l = Left, c = Center;
+            var at = c + f * local.x + l * local.y;
+            var dir = f * outward.x + l * outward.y;
+            var rv = SpecVelocity;
+            // just above the full pile (the dome is 2.5 in over the rim at its peak), rolling outward
+            fuel.Spawn(new Vector3(at.x, at.y, TopZ + FuelPool.RadiusIn + 1.5f), new Vector3(dir.x * 30f + rv.x, dir.y * 30f + rv.y, 8f));
         }
 
         /// <summary>A loose GEAR on the carpet centred at spec position p: true if this robot's floor intake takes it.</summary>
