@@ -246,6 +246,58 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!1 &663780576
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 663780578}
+  - component: {fileID: 663780577}
+  m_Layer: 0
+  m_Name: Sim
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &663780577
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 663780576}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 064ea620f462138438a4f06e315a56e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SteamworksSim.Runtime::SteamworksSim.Game.SimBootstrap
+  field: {fileID: 1185261425}
+  cameraRig: {fileID: 961739755}
+  robotId: sim-6wd
+  alliance: red
+  station: 1
+  physicsRate: 120
+  skipMenus: 0
+  resultsDelay: 2
+--- !u!4 &663780578
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 663780576}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &961739749
 GameObject:
   m_ObjectHideFlags: 0
@@ -259,6 +311,7 @@ GameObject:
   - component: {fileID: 961739751}
   - component: {fileID: 961739750}
   - component: {fileID: 961739754}
+  - component: {fileID: 961739755}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -403,6 +456,31 @@ MonoBehaviour:
   orbitSpeed: 0.25
   panSpeed: 0.0025
   zoomSpeed: 0.0015
+  autoSpin: 0
+  allowInput: 1
+--- !u!114 &961739755
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 961739749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13566c37d2b84a54aaf3210ef8d08a81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SteamworksSim.Runtime::SteamworksSim.Cameras.RobotCameraRig
+  mode: 0
+  robot: {fileID: 0}
+  chaseReversed: 0
+  allianceSide: -1
+  stationY: -16
+  chaseBack: 130
+  chaseHeight: 94
+  chaseAhead: 28
+  chaseLookHeight: 8
+  driverEyeHeight: 66
+  driverBehindWall: 352
 --- !u!1 &1185261424
 GameObject:
   m_ObjectHideFlags: 0
@@ -440,6 +518,8 @@ MonoBehaviour:
   includeStagedPieces: 1
   reserveGear: 0
   colliderLayer: 0
+  separateAnimatedParts: 1
+  loadingLanesAtRuntime: 1
 --- !u!4 &1185261426
 Transform:
   m_ObjectHideFlags: 0
@@ -462,3 +542,4 @@ SceneRoots:
   - {fileID: 961739753}
   - {fileID: 203844589}
   - {fileID: 1185261426}
+  - {fileID: 663780578}
