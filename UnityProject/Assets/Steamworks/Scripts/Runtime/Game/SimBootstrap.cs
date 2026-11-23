@@ -357,7 +357,7 @@ namespace SteamworksSim.Game
         public bool HasSavedAuto => PlayerPrefs.HasKey(Prefs + "autoD");
         // saved in red's frame (mirrored for blue): distance of the robot centre from the alliance wall, Y, heading
         float autoD, autoY, autoH;
-        const float AllianceWallX = 326f, WallYMin = -124f, WallYMax = 124.5f, WallTouch = 1.0f;
+        const float AllianceWallX = 326f, WallYMin = -124f, WallYMax = 124.5f, WallTouch = 1.5f;
 
         void LoadAutoStart()
         {
@@ -375,17 +375,10 @@ namespace SteamworksSim.Game
             ResetPlayer();
         }
 
-        /// <summary>2017: every robot starts touching its ALLIANCE WALL (some bumper within 1 in of it).</summary>
-        public bool AutoStartValid
-        {
-            get
-            {
-                if (playerMech == null) return false;
-                foreach (var c in playerMech.Corners())
-                    if (Side * c.x >= AllianceWallX - WallTouch && c.y >= WallYMin && c.y <= WallYMax) return true;
-                return false;
-            }
-        }
+        /// <summary>2017: every robot starts touching its ALLIANCE WALL. Any part of it counts, facing any direction
+        /// (front, back, a side or a corner).</summary>
+        public bool AutoStartValid =>
+            playerMech != null && playerMech.TouchingAllianceWall(alliance, AllianceWallX, WallYMin, WallYMax, WallTouch);
 
         /// <summary>Robot selection > SET AUTO: a bird's-eye view of your end of the field; drive the robot where it should start.</summary>
         public void EnterSetAuto()

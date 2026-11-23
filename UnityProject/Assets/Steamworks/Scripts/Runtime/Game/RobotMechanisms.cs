@@ -114,7 +114,43 @@ namespace SteamworksSim.Game
         {
             var other = c.rigidbody != null ? c.rigidbody.GetComponent<RobotMechanisms>() : null;
             if (other != null && other != this) robotContact[other] = Time.fixedTime;
-            else if (c.rigidbody == null && c.collider != FieldBuilder.Carpet) staticContact = Time.fixedTime; // wall or field element
+            else if (c.rigidbody == null && c.collider != FieldBuilder.Carpet)
+            {
+                staticContact = Time.fixedTime; // wall or field element
+                var n = c.collider.name;
+                if (n.Contains("ALLIANCE WALL") || n.Contains("PLAYER STATION") || n.Contains("OVERFLOW LOADING STATION"))
+                {
+                    if (n.Contains("RED ")) redWallContact = Time.fixedTime;
+                    else if (n.Contains("BLUE ")) blueWallContact = Time.fixedTime;
+                }
+            }
+        }
+        float redWallContact = -100f, blueWallContact = -100f;
+
+        /// <summary>Some part of the robot touches that alliance's ALLIANCE WALL, from any side: either PhysX reports a
+        /// contact with it, or a corner of any of the robot's colliders is within <paramref name="tolerance"/> in of
+        /// the wall plane (x = ±wallX) between <paramref name="yMin"/> and <paramref name="yMax"/>.</summary>
+        public bool TouchingAllianceWall(string al, float wallX, float yMin, float yMax, float tolerance)
+        {
+            float t = al == "blue" ? blueWallContact : redWallContact;
+            if (Time.fixedTime - t <= 0.15f) return true;
+            float side = al == "blue" ? 1f : -1f;
+            foreach (var c in Corners())
+                if (side * c.x >= wallX - tolerance && c.y >= yMin && c.y <= yMax) return true;
+            if (body == null) return false;
+            foreach (var col in body)
+            {
+                var b = col as BoxCollider;
+                if (b == null || b.isTrigger || !b.enabled) continue;
+                var h = b.size / 2f;
+                for (int i = 0; i < 8; i++)
+                {
+                    var local = b.center + new Vector3((i & 1) == 0 ? -h.x : h.x, (i & 2) == 0 ? -h.y : h.y, (i & 4) == 0 ? -h.z : h.z);
+                    var sp = Units.ToSpec(b.transform.TransformPoint(local));
+                    if (side * sp.x >= wallX - tolerance && sp.y >= yMin && sp.y <= yMax) return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>In contact with that robot (bumper to bumper, either way).</summary>
