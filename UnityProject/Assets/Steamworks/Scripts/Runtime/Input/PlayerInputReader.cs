@@ -22,6 +22,7 @@ namespace SteamworksSim.InputHandling
 
         public bool NextCamera, FlipChase, ResetRobot, RestartMatch, Pause, Cancel, ToggleDefender, ReloadRobots;
         public bool PlaceGear, Climb, ChuteFuel, ChuteGear; // pressed this frame
+        public bool ClimbHeld;                               // held
 
         const float Deadband = 0.08f, KeyboardTurn = 0.65f, PrecisionScale = 0.4f;
 
@@ -80,6 +81,7 @@ namespace SteamworksSim.InputHandling
             input.intake = GameControls.Intake.IsPressed();
             PlaceGear = input.placeGear = GameControls.PlaceGear.WasPressedThisFrame();
             Climb = input.climb = GameControls.Climb.WasPressedThisFrame();
+            ClimbHeld = GameControls.Climb.IsPressed();
             ChuteFuel = GameControls.ChuteFuel.WasPressedThisFrame();
             ChuteGear = GameControls.ChuteGear.WasPressedThisFrame();
             NextCamera = GameControls.NextCamera.WasPressedThisFrame();

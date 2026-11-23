@@ -79,7 +79,8 @@ namespace SteamworksSim.Robots
         public float entryAngle = 55f;      // deg below horizontal at the goal opening
         public float aimError = 0.6f;       // deg, 1 sigma, yaw and pitch
         public float speedError = 1.2f;     // percent, 1 sigma
-        public int capacity = 0;            // FUEL the robot holds (shooter and dump share it); 0 = unlimited (testing)
+        public int capacity = 0;            // FUEL the robot holds (shooter and dump share it); 0 = what its open-top
+                                            // hopper physically holds (intake.hopperBalls), or unlimited without one
     }
 
     [Serializable]
@@ -96,8 +97,9 @@ namespace SteamworksSim.Robots
     public class GearSpec
     {
         public bool enabled = true;
-        public float slotOffset = 0f;       // in, lateral offset of the gear slot from the centre line
-        public float maxDistance = 4f;      // in between peg tip and the front bumper face
+        public bool back = false;           // the slot is on the back of the robot (true) or the front
+        public float slotOffset = 0f;       // in, offset of the gear slot to the robot's left of the centre line
+        public float maxDistance = 4f;      // in between peg tip and the bumper face on the slot's side
         public float maxLateral = 3.5f;     // in off centre
         public float maxAngle = 15f;        // deg off square
         public int capacity = 0;            // GEARS the robot holds; 0 = unlimited (testing)
@@ -112,6 +114,8 @@ namespace SteamworksSim.Robots
     {
         public bool fuelFromChute = true;   // FUEL dropped from a loading-station chute lands in an open-top hopper
         public float hopperDepth = 12f;     // in above the robot's top that counts as inside the hopper
+        public int hopperBalls = 0;         // the open-top hopper is sized to hold about this many FUEL loosely piled to
+                                            // the rim; it then takes what physically fits and the rest overflows
         public bool gearFromChute = true;   // the front gear slot takes a GEAR sliding out of a chute
         public bool fuelFromFloor = false;  // front intake picks FUEL up off the carpet
         public bool gearFromFloor = false;  // front intake picks GEARS up off the carpet

@@ -33,7 +33,7 @@ namespace SteamworksSim.Game
     {
         // ---------------------------------------------------------------- rules constants
         public const int MobilityPoints = 5, TakeoffPoints = 50, PressureThreshold = 40;
-        public const double BoilerRate = 5.0, TouchpadHold = 1.0, TouchpadPress = 0.5;
+        public const double BoilerRate = 5.0, TouchpadPress = 0.0; // user rule: any touch counts, no hold time
         public static readonly int[] GearsNeeded = { 1, 2, 4, 6 };     // pilot-placed GEARS per ROTOR set
         static readonly int[] Capacity = { 150, 70 };                    // high, low
         static readonly int[,] Ninths = { { 9, 3 }, { 3, 1 } };          // [period, goal]: ninths of a kPa per FUEL
@@ -198,10 +198,15 @@ namespace SteamworksSim.Game
                     if (robots != null)
                         foreach (var r in robots)
                             if (r.alliance == A.name && r.climbTouchpad == i && r.topZ >= tz - 1e-6) { pressed = true; break; }
-                    if (pressed && !tp.pressed) Say(A.name, $"TOUCHPAD {i + 1} pressed");
+                    if (pressed && !tp.pressed) Say(A.name, $"TOUCHPAD {i + 1} touched (+{TakeoffPoints})");
+                    else if (!pressed && tp.pressed) Say(A.name, $"TOUCHPAD {i + 1} released (-{TakeoffPoints})");
                     tp.pressed = pressed;
                     tp.held = pressed ? tp.held + dt : 0;
+                    tp.credited = pressed; // user rule: scores while touched, unscores when let go; frozen at T=0
                 }
+                int n = 0;
+                foreach (var tp in A.touch) if (tp.credited) n++;
+                A.takeoff = n * TakeoffPoints;
             }
         }
 
@@ -324,16 +329,9 @@ namespace SteamworksSim.Game
             {
                 int q = A.queue[0] + A.queue[1];
                 if (q > 0) { A.lost += q; A.queue[0] = A.queue[1] = 0; Say(A.name, $"{q} FUEL not counted before T=0 (does not score)"); }
+                // TOUCHPADS touched at T=0 keep their points (credited live in Advance)
                 for (int i = 0; i < A.touch.Length; i++)
-                {
-                    var tp = A.touch[i];
-                    if (tp.pressed && tp.held >= TouchpadHold - 1e-9)
-                    {
-                        tp.credited = true; A.takeoff += TakeoffPoints;
-                        Say(A.name, $"Ready for takeoff: TOUCHPAD {i + 1} pressed at T=0 (+{TakeoffPoints})");
-                    }
-                    else if (tp.pressed) Say(A.name, $"TOUCHPAD {i + 1} pressed only {tp.held:0.00} s at T=0 (needs {TouchpadHold} s): no points");
-                }
+                    if (A.touch[i].credited) Say(A.name, $"Ready for takeoff: TOUCHPAD {i + 1} touched at T=0 (+{TakeoffPoints})");
             }
             Ended = true;
             int r = Total(red), b = Total(blue);

@@ -14,6 +14,7 @@ namespace SteamworksSim.Field
         public AllianceTargets red, blue;
         public HopperSpec[] hoppers;
         public LoadingSet loading;
+        public LoadingSet lanes;   // LOADING LANES in the alliance walls (unused preloads)
         public AllianceTargets Of(string alliance) => alliance == "blue" ? blue : red;
 
         /// <summary>Index of the hopper pair whose containers hold this (staged FUEL) position, or -1.</summary>
@@ -74,6 +75,7 @@ namespace SteamworksSim.Field
     {
         public float[] a, b, inward, chutes;
         public float chuteHalfW, chuteZ0, chuteZ1, zoneDepth;
+        public float zoneHalfW;   // > 0: the zone also ends this far along the face from the first chute
     }
 
     /// <summary>A pair of HOPPER containers outside the guardrail and the push panel between them.</summary>

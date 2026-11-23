@@ -231,7 +231,7 @@ namespace SteamworksSim.Game
             ResetPlayer();
             if (defender != null) PlaceDefender();
             foreach (var m in Mechs()) m.Reload();
-            loading.Reset(Mechs()); // lane stock plus the preloads the robots didn't take
+            loading.Reset(Mechs()); // station stock; the lanes get the preloads the robots didn't take
             Clock.Start();
         }
 
@@ -504,8 +504,10 @@ namespace SteamworksSim.Game
                 playerMech.dumpHeld = driving && input.dump;
                 playerMech.intakeHeld = driving && input.intake;
                 if (driving && reader.PlaceGear) playerMech.PlaceGear();
-                if (driving && reader.Climb) playerMech.ToggleClimb();
-                // loading station: in your RETRIEVAL ZONE, L1 / F for FUEL and R1 / G for a GEAR from the nearest chute
+                // hold Climb to climb; let go and the robot slowly slides back down the rope
+                playerMech.climbHeld = driving && reader.ClimbHeld;
+                if (driving && reader.Climb) playerMech.StartClimb();
+                // loading lane (your wall) or loading station (corner): in its zone, L1 / F for FUEL and R1 / G for a GEAR
                 if (driving && reader.ChuteFuel) loading.RequestFuel(playerMech);
                 if (driving && reader.ChuteGear) loading.RequestGear(playerMech);
             }
@@ -565,8 +567,9 @@ namespace SteamworksSim.Game
             {
                 GUILayout.Label($"Shooter: {playerMech.ShooterStatus}", label);
                 GUILayout.Label($"Carrying: {playerMech.LoadStatus}", label);
-                var st = loading.Of(alliance);
-                if (st != null) GUILayout.Label($"Loading station: {st.fuel} FUEL, {st.gears} GEARS{(loading.InZone(playerMech) ? "  (in zone)" : "")}", label);
+                var at = loading.ZoneOf(playerMech);
+                foreach (var st in new[] { loading.LaneOf(alliance), loading.Of(alliance) })
+                    if (st != null) GUILayout.Label($"{st.Label}: {st.fuel} FUEL, {st.gears} GEARS{(st == at ? "  (in zone)" : "")}", label);
             }
             GUILayout.Label($"Camera {cameraRig?.mode}{(cameraRig != null && cameraRig.chaseReversed && cameraRig.mode == RobotCameraRig.Mode.Chase ? " (front)" : "")}   Input {reader.LastSource}", label);
             if (!string.IsNullOrEmpty(message) && Time.unscaledTime - messageTime < 2.5f)

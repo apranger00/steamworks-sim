@@ -145,7 +145,7 @@ namespace SteamworksSim.Game
                     return hh.R.takeoff;
                 }
                 Check("TOUCHPAD held 1.5 s at T=0: 50", Takeoff(148.5) == 50);
-                Check("TOUCHPAD held 0.8 s at T=0: 0 (needs 1 s)", Takeoff(149.2) == 0);
+                Check("TOUCHPAD touched 0.8 s before T=0: 50 (any touch counts)", Takeoff(149.2) == 50);
                 Check("TOUCHPAD released before T=0: 0", Takeoff(140, 149) == 0);
 
                 var mob = new Harness(tg); mob.RunTo(16); mob.RunTo(20, 1 / 60.0, robots);

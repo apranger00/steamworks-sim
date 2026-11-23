@@ -281,7 +281,8 @@ namespace SteamworksSim.Field
             }
             if (n == $"{al} TOUCHPAD" || n == $"{al} TOUCHPAD dome")
             {
-                pivot = new Vector3(it.c[0], it.c[1], it.c[2]);
+                var c = it.c != null && it.c.Length >= 3 ? it.c : it.p0; // the plate is a disc (cyl), the dome has a centre
+                pivot = new Vector3(c[0], c[1], c[2]);
                 return $"{n} #{touchpadCount++}";
             }
             return null;

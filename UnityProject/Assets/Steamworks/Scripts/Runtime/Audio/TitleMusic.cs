@@ -34,6 +34,7 @@ namespace SteamworksSim.Audio
             source.spatialBlend = 0f;
             source.priority = 0;
             source.volume = 0f;
+            source.ignoreListenerPause = true; // menus may sit on top of a paused match
             StartCoroutine(Load());
         }
 
@@ -47,28 +48,45 @@ namespace SteamworksSim.Audio
                 catch (Exception e) { Debug.LogWarning("[Steamworks] sounds.json: " + e.Message); }
             }
             if (string.IsNullOrEmpty(map.music)) { StatusText = "Music: none set in sounds.json"; yield break; }
-            string path = MatchSounds.FindFile(map.music);
-            if (path == null) { StatusText = $"Music: {map.music} not found in the sounds folder"; yield break; }
+            string path = MatchSounds.FindFile(map.music) ?? FindLikelyMusic();
+            if (path == null) { StatusText = $"Music: {map.music} not found in {MatchSounds.Folder}"; Debug.LogWarning("[Steamworks] " + StatusText); yield break; }
             using (var req = UnityWebRequestMultimedia.GetAudioClip(new Uri(path).AbsoluteUri, MatchSounds.TypeOf(path)))
             {
-                ((DownloadHandlerAudioClip)req.downloadHandler).streamAudio = true; // a few minutes of music: stream it
                 yield return req.SendWebRequest();
                 if (req.result != UnityWebRequest.Result.Success) { StatusText = $"Music: {map.music}: {req.error}"; yield break; }
                 var clip = DownloadHandlerAudioClip.GetContent(req);
                 if (clip == null) { StatusText = $"Music: {map.music} could not be read"; yield break; }
-                clip.name = map.music;
+                clip.name = Path.GetFileName(path);
                 source.clip = clip;
-                StatusText = $"Music: {map.music}";
+                StatusText = $"Music: {clip.name} ({clip.length / 60f:0.0} min)";
+                Debug.Log("[Steamworks] " + StatusText);
             }
         }
+
+        // a file in the sounds folder that looks like the title track, if the one in sounds.json isn't there
+        static string FindLikelyMusic()
+        {
+            if (!Directory.Exists(MatchSounds.Folder)) return null;
+            foreach (var f in Directory.GetFiles(MatchSounds.Folder))
+            {
+                string n = Path.GetFileName(f).ToLowerInvariant(), ext = Path.GetExtension(n);
+                if (ext != ".mp3" && ext != ".ogg" && ext != ".wav") continue;
+                if (n.Contains("music") || n.Contains("steam_powered") || n.Contains("steam powered") || n.Contains("steam-powered")) return f;
+            }
+            return null;
+        }
+
+        bool playing;
 
         void Update()
         {
             if (source.clip == null) return;
             fade = Mathf.MoveTowards(fade, Wanted ? 1f : 0f, Time.unscaledDeltaTime / FadeSeconds);
             source.volume = fade * Mathf.Clamp01(GameSettings.MusicVolume);
-            if (fade > 0f && !source.isPlaying) source.Play();          // back on the title screen: from the top
-            else if (fade <= 0f && source.isPlaying) source.Stop();
+            // our own flag, not isPlaying: isPlaying can read false for a moment after Play(), which restarted
+            // the track every frame (silence)
+            if (fade > 0f && !playing) { source.Play(); playing = true; }          // back on the title screen: from the top
+            else if (fade <= 0f && playing) { source.Stop(); playing = false; }
         }
     }
 }
