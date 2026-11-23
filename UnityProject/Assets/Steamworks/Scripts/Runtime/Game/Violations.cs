@@ -18,8 +18,11 @@ namespace SteamworksSim.Game
     ///      KEY, plus one more every 5 s it goes on. The pin lasts until the robots are 6 ft apart, or until the pinned
     ///      robot chases the pinner as it backs off; the pinner then has to wait 3 s before pinning that robot again
     ///      (a pin restarted sooner carries on counting where it left off). Pins are reported for the HUD's pin bubble.
-    ///  G17 Don't mess with a ROBOT in their RETRIEVAL ZONE. A robot with any part in its opponent's RETRIEVAL ZONE
+    ///  G13 Don't mess with a ROBOT in their RETRIEVAL ZONE. A robot with any part in its opponent's RETRIEVAL ZONE
     ///      contacting an opposing robot: TECH FOUL.
+    ///  G17 Opponent's KEY: a no parking zone. A robot (bumpers breaking the plane of the key line) in its opponent's
+    ///      KEY for more than 5 s: FOUL, and one more every 5 s it stays. A robot being pinned is exempt; its count
+    ///      starts once the pin is over. Reported for the HUD's count bubble.
     ///  G20 Let 'em climb: don't touch their ROPES. In the last 30 s, contact with an opposing alliance's ROPE: FOUL;
     ///      an opposing robot that then contacts the offender or that ROPE gets a free climb.
     ///  A04 Stay out of your opponent's LAUNCHPAD. In AUTO, bumpers in the opponent's LAUNCHPAD: FOUL; contacting an
@@ -57,7 +60,7 @@ namespace SteamworksSim.Game
         public readonly List<Pin> pins = new List<Pin>();
         readonly HashSet<string> latched = new HashSet<string>(); // contact rules: called once per contact
 
-        public void Reset() { pins.Clear(); latched.Clear(); }
+        public void Reset() { pins.Clear(); keys.Clear(); latched.Clear(); }
 
         /// <summary>Once per physics step while the match runs (AUTO and TELEOP).</summary>
         public void Step(float dt, IList<RobotMechanisms> robots, MatchRules rules, LoadingStations loading, RopeSystem ropes,
@@ -77,9 +80,9 @@ namespace SteamworksSim.Game
                         && rules.FreeClimb(y.alliance, y.id, "G07"))
                         Raise("G07", "Opponent touching their ROPE", x.alliance, MatchRules.TakeoffPoints, false, true);
 
-                    // G17: x, with any part in its opponent's RETRIEVAL ZONE, contacts y -> TECH FOUL
-                    if (touching && loading != null && LoadingStations.InZone(loading.Of(y.alliance), x) && Once(still, $"G17 {x.id} {y.id}"))
-                        Raise("G17", "Don't mess with a ROBOT in their RETRIEVAL ZONE", x.alliance, rules.Foul(x.alliance, true, "G17"), true, false);
+                    // G13: x, with any part in its opponent's RETRIEVAL ZONE, contacts y -> TECH FOUL
+                    if (touching && loading != null && LoadingStations.InZone(loading.Of(y.alliance), x) && Once(still, $"G13 {x.id} {y.id}"))
+                        Raise("G13", "Don't mess with a ROBOT in their RETRIEVAL ZONE", x.alliance, rules.Foul(x.alliance, true, "G13"), true, false);
 
                     // A04 (AUTO): contact with y in its own LAUNCHPAD while x is in it -> TECH FOUL
                     if (auto && touching && x.InLaunchpad(y.alliance) && y.InLaunchpad(y.alliance) && Once(still, $"A04c {x.id} {y.id}"))
@@ -92,6 +95,7 @@ namespace SteamworksSim.Game
             foreach (var x in robots)
             {
                 if (x == null) continue;
+                StepKey(dt, x, rules);
                 // A04 (AUTO): bumpers in the opponent's LAUNCHPAD -> FOUL (once per entry)
                 string opp = x.alliance == "red" ? "blue" : "red";
                 if (auto && x.InLaunchpad(opp) && Once(still, $"A04 {x.id}"))
@@ -135,6 +139,37 @@ namespace SteamworksSim.Game
         {
             if (points <= 0 && !freeClimb) return;
             Called?.Invoke(new Call { rule = rule, title = title, offender = offender, points = points, tech = tech, freeClimb = freeClimb });
+        }
+
+        // ---------------------------------------------------------------- G17
+        /// <summary>A robot's time in its opponent's KEY, for the HUD bubble.</summary>
+        public class KeyCount
+        {
+            public RobotMechanisms robot;
+            public float count;
+            public int called;
+            public bool active;
+            public float PeriodFraction => Mathf.Repeat(count, PinLimit) / PinLimit;
+        }
+
+        public readonly List<KeyCount> keys = new List<KeyCount>();
+
+        void StepKey(float dt, RobotMechanisms x, MatchRules rules)
+        {
+            KeyCount k = null;
+            foreach (var q in keys) if (q.robot == x) { k = q; break; }
+            if (k == null) { k = new KeyCount { robot = x }; keys.Add(k); }
+            string opp = x.alliance == "red" ? "blue" : "red";
+            bool pinned = false;
+            foreach (var p in pins) if (p.active && p.pinned == x) { pinned = true; break; }
+            if (!x.InKey(opp) || pinned) { k.active = false; k.count = 0f; k.called = 0; return; } // pinned: starts after the pin
+            k.active = true;
+            k.count += dt;
+            if (k.count >= PinLimit * (k.called + 1))
+            {
+                k.called++;
+                Raise("G17", "Opponent's KEY: a no parking zone", x.alliance, rules.Foul(x.alliance, false, "G17"), false, false);
+            }
         }
 
         // ---------------------------------------------------------------- G11

@@ -164,7 +164,18 @@ namespace SteamworksSim.UI
                 foreach (var p in refs.pins) if (p.active) { pin = p; break; }
                 if (pin == null) foreach (var p in refs.pins) if (p.state == Violations.PinState.Cleared && Time.fixedTime - p.clearedAt < 1.5f) { pin = p; break; }
             }
-            pinRoot.gameObject.SetActive(pin != null);
+            // no pin: a robot counting in its opponent's KEY (G17)
+            Violations.KeyCount key = null;
+            if (pin == null && refs != null) foreach (var k in refs.keys) if (k.active) { key = k; break; }
+            pinRoot.gameObject.SetActive(pin != null || key != null);
+            if (key != null)
+            {
+                string r = $"<color=#{Hex(key.robot.alliance)}>{key.robot.alliance.ToUpper()}</color>";
+                pinText.text = key.called > 0 ? $"KEY VIOLATION  {r}" : $"KEY COUNT {key.count:0.0} s  {r}";
+                pinFill.color = key.called > 0 ? PinBad : PinCounting;
+                pinFill.fillAmount = key.PeriodFraction;
+                return;
+            }
             if (pin == null) return;
             string who = $"<color=#{Hex(pin.pinner.alliance)}>{pin.pinner.alliance.ToUpper()}</color> on <color=#{Hex(pin.pinned.alliance)}>{pin.pinned.alliance.ToUpper()}</color>";
             switch (pin.state)

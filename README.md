@@ -68,7 +68,7 @@ Edit a `robot.json` while playing and press **F5** (or **Reload robot files** on
 
 ### Rules and violations
 
-The referees (`Violations.cs`) call FOULS (+5 to the other alliance) and TECH FOULS (+25) for G07 (touching an opponent on its own rope: it gets a free climb, +50), G11 (5-count on pins, with a pin-count bubble), G17 (contact while in the opponent's RETRIEVAL ZONE), G20 (touching an opponent's rope in the last 30 s) and A04 (entering the opponent's LAUNCHPAD in AUTO). Each call shows a VIOLATION card in the lower right. Robots can only shoot with part of their bumpers in their own LAUNCHPAD. Try them in practice with the parked defender (B).
+The referees (`Violations.cs`) call FOULS (+5 to the other alliance) and TECH FOULS (+25) for G07 (touching an opponent on its own rope: it gets a free climb, +50), G11 (5-count on pins, with a pin-count bubble), G13 (contact while in the opponent's RETRIEVAL ZONE), G17 (more than 5 s in the opponent's KEY), G20 (touching an opponent's rope in the last 30 s) and A04 (entering the opponent's LAUNCHPAD in AUTO). Each call shows a VIOLATION card in the lower right. Robots can only shoot with part of their bumpers in their own LAUNCHPAD. Try them in practice with the parked defender (B).
 
 ### Match sounds
 
