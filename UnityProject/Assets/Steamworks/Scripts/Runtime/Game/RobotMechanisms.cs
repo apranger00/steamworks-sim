@@ -135,6 +135,16 @@ namespace SteamworksSim.Game
                 return i.tank ? Mathf.Abs(i.left) + Mathf.Abs(i.right) > 0.25f : Mathf.Abs(i.throttle) + Mathf.Abs(i.turn) > 0.25f;
             }
         }
+        /// <summary>The driver is driving it toward that point (spec in): forward or backward, whichever faces it.</summary>
+        public bool PushingToward(Vector2 target)
+        {
+            if (!Driving) return false;
+            var i = drive.input;
+            float th = i.tank ? (i.left + i.right) / 2f : i.throttle;
+            if (Mathf.Abs(th) < 0.2f) return false;
+            return Vector2.Dot(Forward * Mathf.Sign(th), target - Center) > 0f;
+        }
+
         /// <summary>Some part of its bumpers is in that alliance's LAUNCHPAD (wall to the launchpad line, tape included).</summary>
         public bool InLaunchpad(string al)
         {

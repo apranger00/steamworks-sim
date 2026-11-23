@@ -13,8 +13,9 @@ namespace SteamworksSim.Game
     ///
     ///  G07 Opponent touching their ROPE: don't touch them. Contact with an opposing robot that is on its own ROPE:
     ///      that robot gets a free climb (+50).
-    ///  G11 There's a 5-count on pins. Pinning an opponent (in contact while it is stopped against the field or another
-    ///      robot, and the pinner is driving) for more than 5 s: FOUL, or TECH FOUL if the pinner is in the opponent's
+    ///  G11 There's a 5-count on pins. A pin is only holding a robot AGAINST something: the pinner drives into it while
+    ///      it is stopped and anchored against the field (wall, guardrail, field element) or another robot, for at least
+    ///      PinArm. Two robots shoving each other in open field is not a pin. Pinning for more than 5 s: FOUL, or TECH FOUL if the pinner is in the opponent's
     ///      KEY, plus one more every 5 s it goes on. The pin lasts until the robots are 6 ft apart, or until the pinned
     ///      robot chases the pinner as it backs off; the pinner then has to wait 3 s before pinning that robot again
     ///      (a pin restarted sooner carries on counting where it left off). Pins are reported for the HUD's pin bubble.
@@ -49,10 +50,12 @@ namespace SteamworksSim.Game
             public float clearedAt = -100f, lastTouch;
             public bool active, backingOff;
             public float lastGap;
+            public float arming;         // s the pin conditions have held, before it starts
             public float PeriodFraction => Mathf.Repeat(count, PinLimit) / PinLimit;
         }
 
         public const float PinLimit = 5f, PinSeparation = 72f, PinWait = 3f;
+        const float PinArm = 0.3f;       // s of holding before a count starts (a glancing bump isn't a pin)
         const float StoppedSpeed = 12f;  // in/s: a robot this slow against something is pinned
         const float ChaseSpeed = 10f;    // in/s toward the retreating pinner
 
@@ -184,13 +187,18 @@ namespace SteamworksSim.Game
         {
             var pin = PinOf(p, t);
             float now = Time.fixedTime;
-            bool trapped = touching && p.Driving && t.Velocity.magnitude < StoppedSpeed && t.Climb == RobotMechanisms.ClimbPhase.None
-                           && (t.TouchingField || OtherContact(t, p));
+            // held against something: in contact, pushing into it, it is stopped, and it is anchored against the field or
+            // another robot (not two robots shoving each other in the open)
+            bool trapped = touching && p.PushingToward(Centre(t)) && t.Velocity.magnitude < StoppedSpeed
+                           && t.Climb == RobotMechanisms.ClimbPhase.None && (t.TouchingField || OtherContact(t, p));
             if (pin == null || !pin.active)
             {
-                if (!trapped) return;
+                if (!trapped) { if (pin != null) pin.arming = 0f; return; }
                 if (pin == null) { pin = new Pin { pinner = p, pinned = t }; pins.Add(pin); }
-                else if (now - pin.clearedAt > PinWait) { pin.count = 0f; pin.called = 0; } // a new pin; sooner, it carries on
+                pin.arming += dt;
+                if (pin.arming < PinArm) return;
+                pin.arming = 0f;
+                if (now - pin.clearedAt > PinWait) { pin.count = 0f; pin.called = 0; } // a new pin; sooner, it carries on
                 pin.active = true; pin.state = pin.called > 0 ? PinState.Violation : PinState.Counting;
                 pin.backingOff = false; pin.lastTouch = now; pin.lastGap = 0f;
                 return;
