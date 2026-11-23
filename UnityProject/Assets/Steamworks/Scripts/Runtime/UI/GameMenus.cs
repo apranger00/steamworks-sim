@@ -27,6 +27,7 @@ namespace SteamworksSim.UI
 
         OptionRow robotRow, allianceRow, stationRow;
         Text robotInfo;
+        GameObject teamCard; RawImage teamLogo; Text teamText; AspectRatioFitter teamLogoFit;
 
         public MenuPage Page { get; private set; } = MenuPage.None;
         public bool Rebinding => options != null && options.Rebinding;
@@ -202,6 +203,40 @@ namespace SteamworksSim.UI
             Ui.Button(col, "Reload robot files", () => { sim.ReloadRobots(); RefreshRobotSelect(); }, 52f, 22);
             Ui.Button(col, "BACK", () => sim.ShowMainMenu(), 52f, 26, false, true);
             firstSelect[MenuPage.RobotSelect] = robotRow;
+
+            // the robot's team: logo and number + name, top right, clear of the panel and the robot
+            var card = Ui.Anchor(Ui.Rect("Team", page), new Vector2(1f, 1f), new Vector2(340f, 400f), new Vector2(-40f, -40f));
+            Ui.Round(card.gameObject.AddComponent<Image>(), 26f).color = Ui.Backdrop;
+            var logoArea = Ui.Anchor(Ui.Rect("Logo area", card), new Vector2(0.5f, 1f), new Vector2(280f, 280f), new Vector2(0f, -24f));
+            var logoBox = Ui.Rect("Logo", logoArea);
+            teamLogo = logoBox.gameObject.AddComponent<RawImage>();
+            teamLogo.raycastTarget = false;
+            teamLogoFit = logoBox.gameObject.AddComponent<AspectRatioFitter>();
+            teamLogoFit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            var nameRect = Ui.Anchor(Ui.Rect("Name", card), new Vector2(0.5f, 0f), new Vector2(320f, 84f), new Vector2(0f, 12f));
+            teamText = nameRect.gameObject.AddComponent<Text>();
+            teamText.font = Ui.TitleFont; teamText.fontSize = 44; teamText.color = Ui.Gold;
+            teamText.alignment = TextAnchor.MiddleCenter; teamText.raycastTarget = false;
+            teamText.horizontalOverflow = HorizontalWrapMode.Wrap; teamText.verticalOverflow = VerticalWrapMode.Overflow;
+            teamText.resizeTextForBestFit = true; teamText.resizeTextMinSize = 20; teamText.resizeTextMaxSize = 44;
+            teamCard = card.gameObject;
+            teamCard.SetActive(false);
+        }
+
+        /// <summary>The team card: shown for a robot with a team number, with its logo if it has one.</summary>
+        void RefreshTeamCard(RobotDefinition d)
+        {
+            if (teamCard == null) return;
+            bool show = d != null && d.team > 0;
+            teamCard.SetActive(show);
+            if (!show) return;
+            var logo = RobotModel.Logo(d);
+            teamLogo.texture = logo;
+            teamLogo.gameObject.SetActive(logo != null);
+            if (logo != null) teamLogoFit.aspectRatio = logo.width / (float)Mathf.Max(1, logo.height);
+            teamText.text = string.IsNullOrEmpty(d.teamName) ? d.team.ToString() : $"{d.team} {d.teamName}";
+            var rt = (RectTransform)teamCard.transform;
+            rt.sizeDelta = new Vector2(340f, logo != null ? 400f : 110f);
         }
 
         // ---------------------------------------------------------------- SET AUTO overlay (bird's-eye view)
@@ -256,6 +291,7 @@ namespace SteamworksSim.UI
         void RefreshRobotInfo()
         {
             var d = sim.Current;
+            RefreshTeamCard(d);
             if (d == null) { robotInfo.text = ""; return; }
             var errors = new List<string>(); var warnings = new List<string>();
             RobotRules.Validate(d, errors, warnings);

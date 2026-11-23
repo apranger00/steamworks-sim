@@ -10,7 +10,7 @@ Make a new robot by copying a robot folder and editing its `robot.json`. No code
 | `<game folder>/Mods/Robots/<id>/` | Mods for the built game (next to the `.exe`) |
 | `UnityProject/Assets/StreamingAssets/Robots/<id>/` | Robots that ship with the game |
 
-A folder holds `robot.json` and optionally `model.glb` (the robot's 3D model) and `icon.png`. In the editor, **Steamworks > Robots > List Robot Mods** shows every robot found and any problems.
+A folder holds `robot.json` and optionally `model.json` (the robot's 3D model, made from its CAD; see below) and a team logo image. In the editor, **Steamworks > Robots > List Robot Mods** shows every robot found and any problems.
 
 ## robot.json
 
@@ -21,8 +21,11 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `schema` | 1 | File format version |
 | `id` | folder name | Unique id; a mod with a built-in robot's id replaces it |
 | `name`, `author`, `team`, `description`, `version` | | Shown in robot selection |
+| `teamName`, `logo` | "" | Team card in robot selection: the logo (PNG or JPG in the robot's folder) with "`team` `teamName`" |
 | `frame.length / width / height` | 32 / 28 / 24 | Frame without bumpers; length is along the robot's forward direction |
 | `bumpers.thickness / bottom / top` | 3.25 / 2 / 7 | Bumper depth and height range above the carpet |
+| `bumpers.frontGap` | 0 | Width (in) of an opening in the middle of the front bumper for a floor intake (a FUEL floor intake with an open-top hopper gets one anyway) |
+| `bumpers.numbers` | true | The team number in white on the bumpers (when `team` is set) |
 | `mass` | 140 | Including bumpers and battery |
 | `drivetrain.type` | `tank` | `tank` now; `swerve`, `mecanum` planned |
 | `drivetrain.topSpeed` | 12 | Free speed |
@@ -43,17 +46,27 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `lowGoalDump.enabled / rate / height / speed / width` | true / 10 / 22 / 5.83 / 14 | Dumping out of the front into the low goal |
 | `gear.enabled / back / slotOffset` | true / false / 0 | Gear slot on the front (or the back with `back: true`); offset to the robot's left of the centre line |
 | `gear.maxDistance / maxLateral / maxAngle` | 4 / 3.5 / 20 | How precisely you must line up on a peg |
+| `gear.slider` | 0 | A sideways gear slider: as the slot comes up to a peg, it carries the GEAR up to this many inches left or right to line it up (adds to `maxLateral`) |
+| `gear.holdInset / holdHeight` | 3.25 / 13 | Where the carried GEAR sits: inches in from the bumper face, and its centre's height |
 | `gear.capacity` | 0 | GEARS the robot holds; 0 = unlimited |
 | `preload.fuel / gears` | 10 / 1 | On board at the start of a match (2017 limits; capped by capacity). Whatever an alliance's robots don't preload goes to its loading lane (the opening in its own alliance wall) |
 | `intake.fuelFromChute` | true | Open-top hopper: FUEL falling from a loading-station chute onto the robot goes in |
 | `intake.hopperDepth` | 12 | in above the robot's top that counts as inside the hopper |
 | `intake.hopperBalls` | 0 | Sizes the open-top hopper: about this many FUEL, piled loosely, reach the rim. It then holds what physically fits (a ball whose centre would be above the rim rolls off) and the rest overflows |
 | `intake.gearFromChute` | true | The front gear slot takes a GEAR sliding out of a chute (robot facing the station, slot lined up with the chute) |
-| `intake.fuelFromFloor / gearFromFloor` | false / false | Front intake picks pieces up off the carpet while Intake is held. With an open-top hopper, FUEL goes in through a gap in the front bumper and rides a conveyor up into the hopper |
+| `intake.fuelFromFloor / gearFromFloor` | false / false | Front intake picks pieces up off the carpet while Intake is held. With an open-top hopper, FUEL goes in through a gap in the front bumper and rides a conveyor up into the hopper. A GEAR lying flat in front of the front bumper (in its opening, if it has one) goes into the gear slot, even one on the back |
 | `climber.enabled / rate` | true / 12 | Winch speed in in/s |
 | `climber.setback / reachForward / reachLateral` | 3 / 10 / 12 | Where the rope is gripped and how close it must be to latch |
-| `model.file` | "" | e.g. `model.glb`; empty = generated blockout |
-| `model.scale / offset / rotation` | 1 / [0,0,0] / [0,0,0] | Metres per model unit; offset [forward, left, up] in inches; rotation in degrees |
+| `model.file` | "" | `model.json` made with `tools/step_to_robot_model.py`; empty = generated blockout. The game always adds its own alliance bumpers |
+| `model.offset / rotation` | [0,0,0] / [0,0,0] | Nudges the model: offset [forward, left, up] in inches; rotation in degrees |
+
+## A model from your CAD
+
+`tools/step_to_robot_model.py` turns a STEP export of the robot's assembly into `model.json` (Python 3 with numpy and scipy; no CAD software needed):
+
+    python3 tools/step_to_robot_model.py robot.stp tools/robots/my-robot.json UnityProject/Assets/StreamingAssets/Robots/my-robot/model.json
+
+Each solid becomes its convex hull (plates, tubes, wheels and rollers look right; L brackets and channels come out filled in), coloured by name rules. The config says how the CAD sits in the robot (which CAD axis is up and which is forward, the footprint centre on the carpet), which parts to leave out (the CAD bumpers: the game draws its own in your alliance colour, with your number), the colours, and the moving parts. Parts named `Wheel L0`..`Wheel R2` spin with the drivetrain, `Intake roller` and `Conveyor roller 0..3` spin while intaking, and `Gear slider` moves sideways with `gear.slider`. `tools/robots/sir-belvidere.json` is a full example. Keep it under about 100,000 triangles.
 
 ## Validation
 
@@ -66,7 +79,7 @@ Online hosts will be able to allow only legal robots.
 
 ## Online play
 
-Robot files are small, so when you join a game your robot's definition is sent to everyone. Other players see and simulate your robot even without the mod installed; without your `model.glb` they see a generated blockout of the same size in your alliance colour.
+Robot files are small, so when you join a game your robot's definition is sent to everyone. Other players see and simulate your robot even without the mod installed; without your `model.json` they see a generated blockout of the same size in your alliance colour.
 
 ## Example
 

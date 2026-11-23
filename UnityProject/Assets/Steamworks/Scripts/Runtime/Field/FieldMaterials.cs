@@ -87,6 +87,17 @@ namespace SteamworksSim.Field
             return m;
         }
 
+        /// <summary>A material by colour (robot models): cached by its values. Alpha under 1 makes it see-through.</summary>
+        public Material Custom(string name, Color color, float metal, float smooth)
+        {
+            string key = $"custom:{name}:{color}:{metal}:{smooth}";
+            if (cache.TryGetValue(key, out var m)) return m;
+            bool clear = color.a < 0.99f;
+            m = Create(name, new Spec { color = color, metal = metal, smooth = smooth, transparent = clear, doubleSided = clear });
+            cache[key] = m;
+            return m;
+        }
+
         Material Create(string key, Spec s)
         {
             var m = new Material(lit) { name = "Field_" + key };

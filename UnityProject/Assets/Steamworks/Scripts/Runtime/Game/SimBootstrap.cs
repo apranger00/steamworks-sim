@@ -201,9 +201,10 @@ namespace SteamworksSim.Game
         {
             StopMatch();
             if (defender != null) { Destroy(defender); defender = null; }
+            RemoveDummy();
             State = AppState.RobotSelect;
             hud.SetVisible(false);
-            SpawnPlayer();
+            SpawnPlayer(true);
             menus.Show(MenuPage.RobotSelect);
         }
 
@@ -334,7 +335,7 @@ namespace SteamworksSim.Game
             if (library.robots.Count == 0) return;
             current = library.robots[Mathf.Clamp(index, 0, library.robots.Count - 1)];
             robotId = current.id;
-            SpawnPlayer();
+            SpawnPlayer(true); // the old robot drives off, the new one drives in
         }
 
         public void SetAlliance(string a)
@@ -437,9 +438,16 @@ namespace SteamworksSim.Game
             if (cameraRig != null) cameraRig.robot = null;
         }
 
-        void SpawnPlayer()
+        /// <summary>Builds the player's robot. With driveIn in robot selection, the old robot drives off and the new
+        /// one drives onto the showcase spot.</summary>
+        void SpawnPlayer(bool driveIn = false)
         {
-            if (player != null) Destroy(player);
+            bool show = driveIn && State == AppState.RobotSelect;
+            if (player != null)
+            {
+                if (show) { player.name += " (old)"; PreviewDrive.Leave(player, PreviewExit); }
+                else Destroy(player);
+            }
             player = RobotFactory.Build(current, alliance, Mats, $"Player robot: {current.name}");
             playerDrive = player.GetComponent<TankDrive>();
             playerMech = player.AddComponent<RobotMechanisms>();
@@ -447,13 +455,20 @@ namespace SteamworksSim.Game
             playerMech.Reload();
             if (cameraRig != null) cameraRig.robot = player.transform;
             ResetPlayer();
+            if (show) PreviewDrive.Arrive(player, PreviewEntry, PreviewSpot, PreviewHeading);
         }
+
+        // Robot selection: the robot parked in the middle of the field, three-quarters on to a fixed camera
+        static readonly Vector2 PreviewSpot = Vector2.zero, PreviewEntry = new Vector2(-190f, 70f), PreviewExit = new Vector2(190f, 60f);
+        const float PreviewHeading = -55f;
+        static readonly Vector3 PreviewCamera = new Vector3(0f, -80f, 40f), PreviewLook = new Vector3(-27f, 0f, 13f); // spec in
 
         void ResetPlayer()
         {
             if (player == null) return;
             if (playerMech != null) playerMech.ResetState(); // off the rope, back on the carpet
-            PlaceStart();
+            if (State == AppState.RobotSelect) Place(player, PreviewSpot.x, PreviewSpot.y, PreviewHeading);
+            else PlaceStart();
             if (cameraRig == null || State == AppState.SetAuto) return;
             cameraRig.allianceSide = Side;
             cameraRig.stationY = StationY[station];
@@ -476,10 +491,8 @@ namespace SteamworksSim.Game
 
         void FocusPreview()
         {
-            // Circle the robot, starting at a three-quarter front view
-            var f = player.transform.forward;
-            float yaw = Mathf.Atan2(-f.x, -f.z) * Mathf.Rad2Deg + 35f;
-            cameraRig.ShowOrbit(player.transform.position + Vector3.up * 0.3f, 3.3f, yaw, 16f, 9f);
+            // a fixed shot of the showcase spot; the robot sits right of centre, clear of the selection panel
+            cameraRig.ShowFixed(Units.ToUnity(PreviewCamera), Units.ToUnity(PreviewLook));
         }
 
         /// <summary>Places a robot at spec (x, y) inches facing heading degrees (counter-clockwise from +X).</summary>
@@ -492,7 +505,7 @@ namespace SteamworksSim.Game
             if (rb != null)
             {
                 rb.position = pos; rb.rotation = rot;
-                rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
+                if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
             }
         }
 

@@ -6,8 +6,8 @@ namespace SteamworksSim.Robots
 {
     /// <summary>
     /// Builds a robot GameObject from a RobotDefinition (robot.json): rigidbody, collider, drivetrain and a
-    /// generated blockout model (frame, alliance bumpers, wheels, superstructure). Custom models from the
-    /// mod folder (model.glb) come later; the blockout is also what other players see without the model.
+    /// model: the robot's own (RobotModel, model.json made from its CAD) with generated alliance bumpers, or else a
+    /// generated blockout (frame, alliance bumpers, wheels, superstructure).
     ///
     /// Robot-local axes (Unity): +z forward, +x right, +y up. The root sits on the carpet (y = 0).
     /// </summary>
@@ -102,7 +102,16 @@ namespace SteamworksSim.Robots
 
             var visual = new GameObject("Visual").transform;
             visual.SetParent(root.transform, false);
-            BuildBlockout(visual, d, alliance, mats, out var leftWheels, out var rightWheels);
+            // the robot's own model (from its CAD) if it has one, with generated alliance bumpers; else the blockout
+            if (RobotModel.Build(visual, d, mats, out var leftWheels, out var rightWheels))
+            {
+                RobotDetail.Bumpers(visual, d, mats.Get(alliance == "blue" ? "blue" : "red"));
+                // the colour of a carried GEAR (RobotMechanisms looks for this)
+                var gc = new GameObject("Gear marker");
+                gc.transform.SetParent(visual, false);
+                var mr = gc.AddComponent<MeshRenderer>(); mr.sharedMaterial = mats.Get("gear"); mr.enabled = false;
+            }
+            else BuildBlockout(visual, d, alliance, mats, out leftWheels, out rightWheels);
 
             var rv = root.AddComponent<RobotVisual>();
             rv.Init(drive, d.drivetrain.wheelDiameter * In / 2f, leftWheels, rightWheels);

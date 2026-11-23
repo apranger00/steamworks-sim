@@ -61,6 +61,14 @@ namespace SteamworksSim.Cameras
             transform.SetPositionAndRotation(at + Vector3.up * height, Quaternion.Euler(90f, yawDeg, 0f));
         }
 
+        /// <summary>A fixed shot (robot selection): the camera at `position` looking at `lookAt` (Unity metres).</summary>
+        public void ShowFixed(Vector3 position, Vector3 lookAt)
+        {
+            overhead = true; mode = Mode.Free;
+            if (orbit != null) orbit.enabled = false;
+            transform.SetPositionAndRotation(position, Quaternion.LookRotation(lookAt - position, Vector3.up));
+        }
+
         /// <summary>Slowly circling view for menus (free camera, no mouse control).</summary>
         public void ShowOrbit(Vector3 target, float distance, float yaw, float pitch, float spin)
         {

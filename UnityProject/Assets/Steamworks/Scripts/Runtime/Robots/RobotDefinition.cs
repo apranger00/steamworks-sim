@@ -21,6 +21,8 @@ namespace SteamworksSim.Robots
         public string name = "Unnamed robot";
         public string author = "";
         public int team = 0;
+        public string teamName = "";  // e.g. "KING TeC"; shown with the logo in robot selection
+        public string logo = "";      // team logo image in the robot's folder (PNG or JPG), e.g. "logo.png"
         public string description = "";
         public string version = "1.0";
 
@@ -48,7 +50,13 @@ namespace SteamworksSim.Robots
     }
 
     [Serializable] public class FrameSpec { public float length = 32f, width = 28f, height = 24f; }
-    [Serializable] public class BumperSpec { public float thickness = 3.25f, bottom = 2f, top = 7f; }
+    [Serializable] public class BumperSpec
+    {
+        public float thickness = 3.25f, bottom = 2f, top = 7f;
+        public float frontGap = 0f;   // in: an opening in the middle of the front bumper (floor intake); 0 = none (a FUEL
+                                      // floor intake with an open-top hopper gets one automatically)
+        public bool numbers = true;   // the team number on the bumpers (when team > 0)
+    }
 
     [Serializable]
     public class DrivetrainSpec
@@ -102,6 +110,10 @@ namespace SteamworksSim.Robots
         public float maxDistance = 4f;      // in between peg tip and the bumper face on the slot's side
         public float maxLateral = 3.5f;     // in off centre
         public float maxAngle = 20f;        // deg off square
+        public float slider = 0f;           // in: a sideways gear slider moves the GEAR up to this far left or right to
+                                            // line it up with the peg (adds to maxLateral)
+        public float holdInset = 3.25f;     // in from the bumper face to the centre of the GEAR it carries
+        public float holdHeight = 13f;      // in above the carpet, centre of the GEAR it carries
         public int capacity = 0;            // GEARS the robot holds; 0 = unlimited (testing)
     }
 
@@ -134,7 +146,8 @@ namespace SteamworksSim.Robots
     [Serializable]
     public class ModelSpec
     {
-        public string file = "";            // e.g. "model.glb"; empty = generated blockout from the frame
+        public string file = "";            // "model.json" (tools/step_to_robot_model.py makes one from a STEP file);
+                                            // empty = generated blockout from the frame
         public float scale = 1f;            // model units to metres (1 for metres, 0.0254 for inches)
         public float[] offset = { 0f, 0f, 0f };   // in: forward, left, up
         public float[] rotation = { 0f, 0f, 0f }; // deg about the robot's forward, left, up axes

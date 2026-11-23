@@ -38,9 +38,12 @@ namespace SteamworksSim.Game
         public int GearCapacity => def.gear != null ? def.gear.capacity : 0;
         bool HasFuel => FuelCapacity <= 0 || Fuel > 0;
         bool HasGear => GearCapacity <= 0 || Gears > 0;
-        public int PreloadedFuel => def.preload == null ? 0 : (FuelCapacity > 0 ? Mathf.Min(def.preload.fuel, FuelCapacity) : def.preload.fuel);
+        public int PreloadedFuel => def.preload == null || !CarriesFuel ? 0 : (FuelCapacity > 0 ? Mathf.Min(def.preload.fuel, FuelCapacity) : def.preload.fuel);
         public int PreloadedGears => def.preload == null ? 0 : (GearCapacity > 0 ? Mathf.Min(def.preload.gears, GearCapacity) : def.preload.gears);
-        public string LoadStatus => $"{(HopperRobot ? $"{Fuel}{(Fuel >= FuelCapacity ? " (full: overflowing)" : "")}" : FuelCapacity > 0 ? $"{Fuel} / {FuelCapacity}" : "unlimited")} FUEL, {(GearCapacity > 0 ? $"{Gears} / {GearCapacity}" : "unlimited")} GEAR";
+        /// <summary>It has some way to take in or score FUEL (a robot with none never carries any).</summary>
+        bool CarriesFuel => (def.shooter != null && def.shooter.enabled) || (def.lowGoalDump != null && def.lowGoalDump.enabled)
+                            || (def.intake != null && (def.intake.fuelFromChute || def.intake.fuelFromFloor));
+        public string LoadStatus => !CarriesFuel ? $"no FUEL mechanism, {(GearCapacity > 0 ? $"{Gears} / {GearCapacity}" : "unlimited")} GEAR" : $"{(HopperRobot ? $"{Fuel}{(Fuel >= FuelCapacity ? " (full: overflowing)" : "")}" : FuelCapacity > 0 ? $"{Fuel} / {FuelCapacity}" : "unlimited")} FUEL, {(GearCapacity > 0 ? $"{Gears} / {GearCapacity}" : "unlimited")} GEAR";
         public bool shootHeld, dumpHeld, intakeHeld, climbHeld;
 
         public enum ClimbPhase { None, Attach, Up, Hold, Down }
@@ -228,6 +231,8 @@ namespace SteamworksSim.Game
             turret = visual.Find("Turret yaw");
             if (turret != null) { flywheel = turret.Find("Flywheel"); hood = turret.Find("Hood"); }
             intakeRoller = visual.Find("Intake roller");
+            gearSlider = visual.Find("Gear slider");
+            if (gearSlider != null) sliderHome = gearSlider.localPosition;
             var conv = new System.Collections.Generic.List<Transform>();
             for (int k = 0; k < 8; k++) { var c = visual.Find($"Conveyor roller {k}"); if (c != null) conv.Add(c); }
             conveyor = conv.ToArray();
@@ -278,7 +283,7 @@ namespace SteamworksSim.Game
             {
                 heldGear = new GameObject("Held GEAR").transform;
                 heldGear.SetParent(visual, false);
-                heldGear.localPosition = new Vector3(-def.gear.slotOffset * In, 13f * In, GearSign * (HalfL - 3.25f) * In);
+                heldGear.localPosition = HeldGearAt();
                 heldGear.localRotation = Quaternion.FromToRotation(Vector3.up, Vector3.forward);
                 heldGear.gameObject.AddComponent<MeshFilter>().sharedMesh = FieldAnimator.GearMesh();
                 var fm = transform.Find("Visual/Gear marker") ?? transform.Find("Visual/Front marker");
@@ -315,7 +320,7 @@ namespace SteamworksSim.Game
         public void ResetState()
         {
             Climb = ClimbPhase.None; ClimbRope = null; Lift = 0f;
-            shootT = dumpT = 0f; gearCooldown = 0f;
+            shootT = dumpT = 0f; gearCooldown = 0f; SliderPos = 0f;
             if (rb != null) { rb.isKinematic = false; if (Climb == ClimbPhase.None) rb.constraints = savedConstraints; }
             if (drive != null) drive.enabled = true;
             var p = transform.position; p.y = 0f; transform.position = p;
@@ -457,6 +462,12 @@ namespace SteamworksSim.Game
         }
 
         // ---------------------------------------------------------------- gear slot
+        /// <summary>Robot-local position (Unity) of the GEAR it carries, slider included.</summary>
+        Vector3 HeldGearAt()
+        {
+            var G = def.gear;
+            return new Vector3(-(G.slotOffset + SliderPos) * In, G.holdHeight * In, GearSign * (HalfL - G.holdInset) * In);
+        }
         float GearSign => def.gear != null && def.gear.back ? -1f : 1f;
         /// <summary>The direction the gear slot faces (forward, or backward for a slot on the back).</summary>
         Vector2 GearDir => Forward * GearSign;
@@ -478,22 +489,37 @@ namespace SteamworksSim.Game
                 float ang = Mathf.Acos(Mathf.Clamp(cosA, -1f, 1f)) * Mathf.Rad2Deg;
                 var rel = front - new Vector2(L.tip[0], L.tip[1]);
                 float d = Vector2.Dot(rel, u);
-                float lt = Mathf.Abs(-rel.x * u.y + rel.y * u.x);
-                float score = Mathf.Abs(d) + lt + ang / 5f;
+                float side = Vector2.Dot(-rel, Left); // where the peg is, left of the slot's centre
+                // a gear slider carries the GEAR sideways toward the peg (up to G.slider either way)
+                float lt = Mathf.Abs(side - SliderPos);
+                float score = Mathf.Abs(d) + Mathf.Max(0f, Mathf.Abs(side) - G.slider) + ang / 5f;
                 if (score < bestScore)
                 {
                     bestScore = score; best = i;
-                    ok = ang <= G.maxAngle && lt <= G.maxLateral && d <= G.maxDistance && d >= -2f;
-                    dist = d; lat = lt; angle = ang;
+                    ok = ang <= G.maxAngle && lt <= G.maxLateral && Mathf.Abs(side) <= G.maxLateral + G.slider && d <= G.maxDistance && d >= -2f;
+                    dist = d; lat = lt; angle = ang; pegSide = side;
                 }
             }
             return best;
         }
 
+        /// <summary>Gear slider (robot.json gear.slider): how far (in) it has carried the GEAR to the robot's left.</summary>
+        public float SliderPos { get; private set; }
+        float pegSide; // from the last GearAlign: the nearest peg, in left of the slot's centre
+        const float SliderSpeed = 18f; // in/s
+
         void UpdateGearStatus()
         {
             if (def.gear == null || !def.gear.enabled) { GearStatus = "No gear slot"; return; }
-            int i = GearAlign(out bool ok, out _, out _, out _);
+            int i = GearAlign(out bool ok, out float dist, out _, out float angle);
+            // the slider follows the peg while the slot side is coming up to it, else goes back to the middle
+            var G = def.gear;
+            if (G.slider > 0f)
+            {
+                bool near = i >= 0 && dist <= G.maxDistance + 18f && dist >= -2f && angle <= G.maxAngle + 10f && enabledByMatch;
+                float want = near ? Mathf.Clamp(pegSide, -G.slider, G.slider) : 0f;
+                SliderPos = Mathf.MoveTowards(SliderPos, want, SliderSpeed * Time.fixedDeltaTime);
+            }
             GearStatus = ok ? $"Lined up: {targets.Of(alliance).lifts[i].name} lift" : "-";
         }
 
@@ -666,7 +692,10 @@ namespace SteamworksSim.Game
             if (conveyor != null) foreach (var c in conveyor) c.Rotate(spinIntake * deg, 0f, 0f, Space.Self);
             if (flywheel != null) flywheel.Rotate(spinFly * 2.5f * deg, 0f, 0f, Space.Self); // back of the wheel moves up
             if (hood != null) hood.localRotation = Quaternion.Euler(hoodTilt, 0f, 0f);
+            if (gearSlider != null) gearSlider.localPosition = new Vector3(sliderHome.x - SliderPos * In, sliderHome.y, sliderHome.z);
+            if (heldGear != null && def.gear != null && def.gear.slider > 0f) heldGear.localPosition = HeldGearAt();
         }
+        Transform gearSlider; Vector3 sliderHome;
 
         /// <summary>One ball spills over the left, right or back edge of the full hopper (never the intake side).</summary>
         void Overflow()
@@ -694,9 +723,11 @@ namespace SteamworksSim.Game
         {
             if (def.intake == null || !def.intake.gearFromFloor || !enabledByMatch || !intakeHeld || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
             if (GearCapacity > 0 && Gears >= GearCapacity) return false;
+            // the floor intake is on the front (in the bumper opening, if there is one); a GEAR lying flat goes in
             var d = new Vector2(p.x, p.y) - Center;
-            float lx = Vector2.Dot(d, GearDir), ly = Vector2.Dot(d, Left) - def.gear.slotOffset;
-            bool caught = p.z < 6f && lx >= HalfL - 2f && lx <= HalfL + 8f && Mathf.Abs(ly) <= 8f;
+            float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left);
+            float gap = RobotDetail.FrontGapHalf(def), halfOpening = gap > 0f ? gap + 2f : 8f;
+            bool caught = p.z < 6f && lx >= HalfL - 4f && lx <= HalfL + 7f && Mathf.Abs(ly) <= halfOpening;
             if (caught && GearCapacity > 0) Gears++;
             return caught;
         }

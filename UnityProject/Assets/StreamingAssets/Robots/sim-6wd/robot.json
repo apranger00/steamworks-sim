@@ -60,7 +60,10 @@
     "maxLateral": 3.5,
     "maxAngle": 20,
     "capacity": 1,
-    "back": true
+    "back": true,
+    "slider": 0,
+    "holdInset": 3.25,
+    "holdHeight": 13
   },
   "preload": {
     "fuel": 10,

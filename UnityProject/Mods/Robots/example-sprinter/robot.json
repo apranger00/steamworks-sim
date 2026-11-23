@@ -59,7 +59,10 @@
     "maxDistance": 4,
     "maxLateral": 3.5,
     "maxAngle": 20,
-    "capacity": 0
+    "capacity": 0,
+    "slider": 0,
+    "holdInset": 3.25,
+    "holdHeight": 13
   },
   "climber": {
     "enabled": true,

@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "id": "sir-belvidere",
+  "name": "Sir Belvidere",
+  "author": "KING TeC 2169",
+  "team": 2169,
+  "teamName": "KING TeC",
+  "logo": "logo.png",
+  "description": "KING TeC's 2017 robot, from the team's CAD. A light, fast 6-wheel tank drive (80 lb, 16 ft/s) that is easy to push around. Its floor intake in the gap in the front bumper picks GEARS up off the carpet and carries them up into the gear box on the back, which also takes GEARS from a chute; a linear gear slider moves the GEAR sideways to line it up with the peg. A rope climber hangs at the front. No FUEL mechanisms.",
+  "version": "1.0",
+  "frame": {
+    "length": 25,
+    "width": 23,
+    "height": 29.4
+  },
+  "bumpers": {
+    "thickness": 3.1,
+    "bottom": 0.7,
+    "top": 5.7,
+    "frontGap": 11,
+    "numbers": true
+  },
+  "mass": 80,
+  "drivetrain": {
+    "type": "tank",
+    "topSpeed": 16,
+    "acceleration": 55,
+    "traction": 1.1,
+    "sideScrub": 0.85,
+    "brake": 0.9,
+    "maxTurnRate": 300,
+    "trackWidth": 21.8,
+    "wheelDiameter": 4,
+    "wheelsPerSide": 3
+  },
+  "shooter": {
+    "enabled": false,
+    "type": "turret",
+    "capacity": 0
+  },
+  "lowGoalDump": {
+    "enabled": false
+  },
+  "gear": {
+    "enabled": true,
+    "back": true,
+    "slotOffset": 0,
+    "maxDistance": 4,
+    "maxLateral": 3.5,
+    "maxAngle": 20,
+    "slider": 3,
+    "holdInset": 6.5,
+    "holdHeight": 12.5,
+    "capacity": 1
+  },
+  "preload": {
+    "fuel": 0,
+    "gears": 1
+  },
+  "intake": {
+    "fuelFromChute": false,
+    "hopperDepth": 0,
+    "hopperBalls": 0,
+    "gearFromChute": true,
+    "fuelFromFloor": false,
+    "gearFromFloor": true
+  },
+  "climber": {
+    "enabled": true,
+    "rate": 12,
+    "setback": 7.6,
+    "reachForward": 8,
+    "reachLateral": 7
+  },
+  "model": {
+    "file": "model.json",
+    "scale": 1,
+    "offset": [0, 0, 0],
+    "rotation": [0, 0, 0]
+  }
+}

@@ -1,0 +1,486 @@
+{
+  "comment": "KING TeC 2169 'Sir Belvidere' (2017), Creo export king_tec_2017_asm.stp. CAD: Y up, the intake end (front, with the gap in the bumper) toward -Z, +X is the robot's right. Footprint centre x -9.5, z 11.5; carpet at y -1.91 (bottom of the dropped centre wheels).",
+  "axes": {
+    "right": "+x",
+    "up": "+y",
+    "forward": "-z"
+  },
+  "origin": [
+    -9.5,
+    -1.91,
+    11.5
+  ],
+  "minSize": 0.45,
+  "exclude": [
+    "*BUMPERS_ASM*NOODLE*",
+    "*BUMPERS_ASM*WOOD*",
+    "*BUMPERS_ASM*/FRONT_LEFT_BUMPER",
+    "*/FRONT_LEFT_BUMPER"
+  ],
+  "defaultMaterial": "powder coat",
+  "materials": [
+    {
+      "name": "powder coat",
+      "color": [
+        0.56,
+        0.19,
+        0.11,
+        1
+      ],
+      "metal": 0.45,
+      "smooth": 0.5
+    },
+    {
+      "name": "crown plate",
+      "color": [
+        0.4,
+        0.07,
+        0.07,
+        1
+      ],
+      "metal": 0.2,
+      "smooth": 0.45
+    },
+    {
+      "name": "crown",
+      "color": [
+        0.98,
+        0.8,
+        0.16,
+        1
+      ],
+      "metal": 0.0,
+      "smooth": 0.4
+    },
+    {
+      "name": "polycarbonate",
+      "color": [
+        0.82,
+        0.9,
+        1.0,
+        0.32
+      ],
+      "metal": 0.0,
+      "smooth": 0.85
+    },
+    {
+      "name": "aluminium",
+      "color": [
+        0.72,
+        0.74,
+        0.77,
+        1
+      ],
+      "metal": 0.8,
+      "smooth": 0.55
+    },
+    {
+      "name": "steel",
+      "color": [
+        0.55,
+        0.57,
+        0.6,
+        1
+      ],
+      "metal": 0.85,
+      "smooth": 0.6
+    },
+    {
+      "name": "motor",
+      "color": [
+        0.2,
+        0.21,
+        0.24,
+        1
+      ],
+      "metal": 0.6,
+      "smooth": 0.45
+    },
+    {
+      "name": "electronics",
+      "color": [
+        0.07,
+        0.07,
+        0.08,
+        1
+      ],
+      "metal": 0.1,
+      "smooth": 0.35
+    },
+    {
+      "name": "rubber",
+      "color": [
+        0.05,
+        0.05,
+        0.05,
+        1
+      ],
+      "metal": 0.0,
+      "smooth": 0.12
+    },
+    {
+      "name": "roller",
+      "color": [
+        0.16,
+        0.16,
+        0.17,
+        1
+      ],
+      "metal": 0.0,
+      "smooth": 0.3
+    },
+    {
+      "name": "air",
+      "color": [
+        0.85,
+        0.88,
+        0.92,
+        1
+      ],
+      "metal": 0.3,
+      "smooth": 0.7
+    }
+  ],
+  "colors": [
+    {
+      "match": [
+        "*TOP_INTAKE_FRONT_FUNNEL*"
+      ],
+      "material": "crown plate"
+    },
+    {
+      "match": [
+        "*FUNNEL_TRIANG*",
+        "*LONG_FUNNEL*",
+        "*POLY*",
+        "*LEXAN*",
+        "*CLEAR*",
+        "*WINDOW*",
+        "*SHIELD*"
+      ],
+      "material": "polycarbonate"
+    },
+    {
+      "match": [
+        "*TREAD*",
+        "*BELT*",
+        "*WIRE*"
+      ],
+      "material": "rubber"
+    },
+    {
+      "match": [
+        "*/WHEEL",
+        "*WCP_CAM*",
+        "*AXEL*",
+        "*AXLE*",
+        "*SHAFT*",
+        "*STANDOFF*",
+        "*BOLT*",
+        "*SCREW*",
+        "*NUT*",
+        "*WASHER*",
+        "*COLLAR*",
+        "*BEARING*",
+        "*BUSHING*",
+        "*ROD*",
+        "*HINGE*",
+        "*SPACER*",
+        "*PULLEY*",
+        "*PULLY*",
+        "*SPROCKET*",
+        "*92185A*",
+        "*91236A*",
+        "*97345A*",
+        "*97435A*",
+        "*9867K*",
+        "*93298A*",
+        "*WRENCH*"
+      ],
+      "material": "steel"
+    },
+    {
+      "match": [
+        "*ROLLER*/*TUBE*",
+        "*ROLLER*/*ROLLER*",
+        "*ROLLER*",
+        "*DRUM*"
+      ],
+      "material": "roller"
+    },
+    {
+      "match": [
+        "*AIR_TANK*",
+        "*COMPRESSOR*",
+        "*PISTON*",
+        "*D-166*",
+        "*060_5-DXP*",
+        "*_06R*",
+        "*_06P*",
+        "*_D-14055*"
+      ],
+      "material": "air"
+    },
+    {
+      "match": [
+        "*ELECTRICAL*",
+        "*ROBORIO*",
+        "*PCM*",
+        "*VRM*",
+        "*PDB*",
+        "*RADIO*",
+        "*BREAKER*",
+        "*RASPBERRY*",
+        "*TUTTO*",
+        "*ARDUINO*",
+        "*IMPORTED*",
+        "*IMPORTATO*",
+        "*CAMERA*",
+        "*ENCODER*",
+        "*SENSOR*",
+        "*SWITCH*",
+        "*SIGNAL_LIGHT*",
+        "*BATTERY*",
+        "*217-8080*"
+      ],
+      "material": "electronics"
+    },
+    {
+      "match": [
+        "*217-*",
+        "*VERSAPLANETARY*",
+        "*VERSA_PLANETARY*",
+        "*GEARBOX*",
+        "*CIM*",
+        "*775*",
+        "*MOTOR*",
+        "*REDLINE*",
+        "*BAG*"
+      ],
+      "material": "motor"
+    },
+    {
+      "match": [
+        "*VERSAFRAME*",
+        "*U_CHANNEL*",
+        "*TUBE*",
+        "*CHANNEL*"
+      ],
+      "material": "aluminium"
+    }
+  ],
+  "groups": [
+    {
+      "name": "Wheel R0",
+      "match": "*DRIVETRAIN*",
+      "region": [
+        [
+          8,
+          -1,
+          4
+        ],
+        [
+          13,
+          6,
+          11
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 4.5,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel R1",
+      "match": "*DRIVETRAIN*",
+      "region": [
+        [
+          8,
+          -1,
+          -3
+        ],
+        [
+          13,
+          6,
+          3
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 4.5,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel R2",
+      "match": "*DRIVETRAIN*",
+      "region": [
+        [
+          8,
+          -1,
+          -11
+        ],
+        [
+          13,
+          6,
+          -4
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 4.5,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel L0",
+      "match": "*DRIVETRAIN*",
+      "region": [
+        [
+          -13,
+          -1,
+          4
+        ],
+        [
+          -8,
+          6,
+          11
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 4.5,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel L1",
+      "match": "*DRIVETRAIN*",
+      "region": [
+        [
+          -13,
+          -1,
+          -3
+        ],
+        [
+          -8,
+          6,
+          3
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 4.5,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel L2",
+      "match": "*DRIVETRAIN*",
+      "region": [
+        [
+          -13,
+          -1,
+          -11
+        ],
+        [
+          -8,
+          6,
+          -4
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 4.5,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Intake roller",
+      "match": "*FRONT_ROLLER_ASM*",
+      "roundOnly": true,
+      "maxDiameter": 4,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Conveyor roller 0",
+      "match": "*INTAKE_BOTTOM_ROLLER_ASM*",
+      "roundOnly": true,
+      "maxDiameter": 4,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Conveyor roller 1",
+      "match": "*FLOOR_INTAKE_ROLLER_AF2_ASM*",
+      "roundOnly": true,
+      "maxDiameter": 4,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Conveyor roller 2",
+      "match": "*FLOOR_INTAKE_ROLLER_AF3_ASM*",
+      "roundOnly": true,
+      "maxDiameter": 4,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Conveyor roller 3",
+      "match": "*TOP_GROUND_ROLLER_ASM*",
+      "roundOnly": true,
+      "maxDiameter": 4,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Gear slider",
+      "match": "*GEAR_BOX2_ASM*"
+    }
+  ],
+  "decals": [
+    {
+      "name": "Crown",
+      "material": "crown",
+      "origin": [
+        3.5,
+        23.95,
+        -11.95
+      ],
+      "u": [
+        -1,
+        0,
+        0
+      ],
+      "v": [
+        0,
+        0.9978,
+        -0.067
+      ],
+      "points": [
+        [
+          -5.4,
+          0.0
+        ],
+        [
+          5.4,
+          0.0
+        ],
+        [
+          5.76,
+          4.49
+        ],
+        [
+          3.12,
+          2.45
+        ],
+        [
+          1.56,
+          4.9
+        ],
+        [
+          0.0,
+          2.65
+        ],
+        [
+          -1.56,
+          4.9
+        ],
+        [
+          -3.12,
+          2.45
+        ],
+        [
+          -5.76,
+          4.49
+        ]
+      ]
+    }
+  ]
+}

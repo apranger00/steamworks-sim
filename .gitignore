@@ -45,3 +45,4 @@ UnityProject/Assets/Steamworks/Resources/Fonts/Title.otf.meta
 # Music and sound files we may not redistribute: keep them local only
 UnityProject/Assets/StreamingAssets/Sounds/*.mp3
 UnityProject/Assets/StreamingAssets/Sounds/*.mp3.meta
+__pycache__/

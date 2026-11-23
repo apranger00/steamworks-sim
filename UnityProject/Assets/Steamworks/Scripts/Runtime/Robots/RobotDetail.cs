@@ -92,13 +92,65 @@ namespace SteamworksSim.Robots
             Box(t, bump, V(0, -W / 2 + bt / 2, bz), V(L, bt, bh), "Bumper left");
             Box(t, bump, V(0, W / 2 - bt / 2, bz), V(L, bt, bh), "Bumper right");
             Box(t, bump, V(-L / 2 + bt / 2, 0, bz), V(bt, fw, bh), "Bumper back");
-            if (RobotFactory.HasFloorIntake(d))
+            float gapHalf = FrontGapHalf(d);
+            if (gapHalf > 0f)
             {
-                float g = RobotFactory.IntakeGapHalf(d), seg = fw / 2f - g;
+                float g = gapHalf, seg = fw / 2f - g;
                 Box(t, bump, V(L / 2 - bt / 2, -(g + seg / 2f), bz), V(bt, seg, bh), "Bumper front left");
                 Box(t, bump, V(L / 2 - bt / 2, g + seg / 2f, bz), V(bt, seg, bh), "Bumper front right");
             }
             else Box(t, bump, V(L / 2 - bt / 2, 0, bz), V(bt, fw, bh), "Bumper front");
+            if (d.team > 0 && d.bumpers.numbers) BumperNumbers(t, d);
+        }
+
+        /// <summary>Half the width (in) of the opening in the front bumper, or 0 for a solid front bumper.</summary>
+        public static float FrontGapHalf(RobotDefinition d) =>
+            d.bumpers.frontGap > 0f ? Mathf.Min(d.bumpers.frontGap / 2f, d.frame.width / 2f - 2f)
+            : RobotFactory.HasFloorIntake(d) ? RobotFactory.IntakeGapHalf(d) : 0f;
+
+        /// <summary>
+        /// The team number in white on the bumpers (2017 R30: on the bumpers, readable from each side): on both sides
+        /// and the back, and on the front unless an intake opening splits it.
+        /// </summary>
+        static void BumperNumbers(Transform t, RobotDefinition d)
+        {
+            float L = d.LengthWithBumpers, W = d.WidthWithBumpers, bt = d.bumpers.thickness;
+            float bz = (d.bumpers.bottom + d.bumpers.top) / 2f, bh = d.bumpers.top - d.bumpers.bottom;
+            string num = d.team.ToString();
+            const float off = 0.06f; // in out from the fabric
+            // each label: where its centre is, which way it faces (out of the bumper) and how wide the face is
+            Label(t, num, V(0, -W / 2 - off, bz), V(0, -1, 0), L - 2 * bt, bh);
+            Label(t, num, V(0, W / 2 + off, bz), V(0, 1, 0), L - 2 * bt, bh);
+            Label(t, num, V(-L / 2 - off, 0, bz), V(-1, 0, 0), W - 2 * bt, bh);
+            if (FrontGapHalf(d) <= 0f) Label(t, num, V(L / 2 + off, 0, bz), V(1, 0, 0), W - 2 * bt, bh);
+        }
+
+        /// <summary>White bumper text on a small world-space canvas facing `outward` (robot-local), `width` x `height` in.</summary>
+        static void Label(Transform parent, string text, Vector3 at, Vector3 outward, float width, float height)
+        {
+            var go = new GameObject("Bumper number");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = at;
+            // the canvas faces -z: point its back along `outward` so the text reads from outside
+            go.transform.localRotation = Quaternion.LookRotation(-outward.normalized, Vector3.up);
+            var canvas = go.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var rt = (RectTransform)go.transform;
+            const float pxPerIn = 20f; // canvas units per inch, then scaled down to metres
+            rt.sizeDelta = new Vector2(width * pxPerIn, height * pxPerIn);
+            rt.localScale = Vector3.one * (In / pxPerIn);
+            var txt = new GameObject("Text").AddComponent<UnityEngine.UI.Text>();
+            txt.transform.SetParent(go.transform, false);
+            var tr = (RectTransform)txt.transform;
+            tr.anchorMin = Vector2.zero; tr.anchorMax = Vector2.one; tr.offsetMin = tr.offsetMax = Vector2.zero;
+            txt.font = SteamworksSim.UI.Ui.TitleFont;
+            txt.text = text;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.fontSize = Mathf.RoundToInt(height * pxPerIn * 0.95f);
+            txt.resizeTextForBestFit = true; txt.resizeTextMinSize = 8; txt.resizeTextMaxSize = txt.fontSize;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap; txt.verticalOverflow = VerticalWrapMode.Truncate;
+            txt.raycastTarget = false;
         }
 
         // ---------------------------------------------------------------- intake

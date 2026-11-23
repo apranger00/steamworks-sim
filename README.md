@@ -38,6 +38,8 @@ The repo holds the game's own files. Unity generates the rest (project settings,
 A GEAR goes straight into a robot only if the robot can take one, faces the station, has its front within 8 in of the chute, and covers at least half the chute's width (left to right) with its front. Otherwise, or if the robot already has a GEAR, it drops onto the carpet. These rules are the same for every robot.
 
 The default robot (Rookie Bot, folder `sim-6wd`) starts with 10 FUEL and 1 GEAR and holds 50 FUEL and 1 GEAR. Its top is an open hopper with clear walls: FUEL falling onto it (from a chute or a field hopper) drops in, its front intake picks FUEL up off the carpet while you hold Intake, and you can see how full it is by the loose pile of FUEL inside. The hopper is sized so 50 FUEL fill it to the rim; once it's full, more FUEL rolls off the top of the pile and over the sides. The turret sits in the back right corner. It can't pick GEARS up off the floor. The drive info panel shows whether the shooter is in range. **Steamworks > Run Scoring Self-Test** checks the scoring rules against the prototype's tests (results in the Console).
+
+**Sir Belvidere** (KING TeC 2169, folder `sir-belvidere`) is the first team robot, built from the team's own CAD (`tools/step_to_robot_model.py`). It is light (80 lb, so it's easy to push around) and fast (16 ft/s, tank drive). It has no FUEL mechanisms. Hold Intake to pick a GEAR up off the carpet through the gap in its front bumper; it goes up into the gear box on the back, which also takes GEARS from a chute. As you back the gear box onto a peg, its linear slider moves the GEAR up to 3 in sideways to line it up. It climbs with the winch at the front. In robot selection each robot is parked in the middle of the field; pick another and the current one drives off as the new one drives in. A robot with a team number shows its team card (logo, number and name) in the top right and its number on the bumpers.
 - **Multiplayer** is a placeholder until online play is built.
 - **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds, music), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
 - The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
@@ -48,7 +50,7 @@ Default controls (rebindable):
 |---|---|---|
 | Drive / turn | W S / A D (or arrows) | Split arcade: left stick Y, right stick X |
 | **Shoot** at your high goal (hold; the turret aims itself) | Space | RT |
-| **Intake** FUEL off the carpet (hold; robots with a floor intake) | Q | LT |
+| **Intake** FUEL or GEARS off the carpet (hold; robots with a floor intake) | Q | LT |
 | **Dump** into the low goal (hold, front of the robot against the boiler) | Z | Y |
 | **Place GEAR** on the lift peg your front slot is lined up with | E | A |
 | **Climb**: hold to climb your rope (front bumper against it); let go and it slides back down | T (hold) | X (hold) |
