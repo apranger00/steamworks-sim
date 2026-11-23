@@ -23,7 +23,7 @@ namespace SteamworksSim.Game
         /// <summary>For every robot: to take a GEAR straight from a chute its front must be within this many inches of
         /// the chute, and its front must cover at least this fraction of the chute's width, left to right.</summary>
         public const float GearReach = 8f, GearOverlap = 0.5f;
-        const float FuelPerSecond = 3f, GearCooldown = 1.2f; // a GEAR takes about this long to slide down the chute
+        const float FuelPerSecond = 12f, GearCooldown = 1.2f; // a GEAR takes about this long to slide down the chute
 
         public class Station
         {
@@ -355,8 +355,38 @@ namespace SteamworksSim.Game
             var at = OnChute(s, c, 14f * V(), lateral, 2.2f);
             var vel = (-upC + alC * side).normalized * (30f * V());
             float yaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg + (float)rnd.NextDouble() * 36f;
-            gearPool.Spawn(at, vel, yaw);
+            var g = gearPool.Spawn(at, vel, yaw);
+            if (g != null) sliding.Add(new Sliding { rb = g, s = s, c = c });
             return true;
+        }
+
+        /// <summary>GEARS on their way out of a chute: one that stops on the plate or in the opening (it can catch on
+        /// the edge as it tips over) is set sliding again, so it always ends up on the carpet.</summary>
+        class Sliding { public Rigidbody rb; public Station s; public int c; public float t, still; }
+        readonly List<Sliding> sliding = new List<Sliding>();
+        const float StuckSpeed = 6f, StuckTime = 0.25f, SlideWatch = 6f; // in/s, s, s
+
+        void KeepGearsSliding(float dt)
+        {
+            for (int i = sliding.Count - 1; i >= 0; i--)
+            {
+                var g = sliding[i];
+                g.t += dt;
+                if (g.rb == null || !g.rb.gameObject.activeInHierarchy || g.t > SlideWatch) { sliding.RemoveAt(i); continue; }
+                ChuteFrame(g.s, g.c, out var b, out var up, out _, out _);
+                var p = Units.ToSpec(g.rb.position);
+                var flatUp = new Vector2(up.x, up.y).normalized;
+                float behind = Vector2.Dot(new Vector2(p.x - b.x, p.y - b.y), flatUp); // in behind the opening
+                if (behind < -7f || p.z < b.z - 8f) { sliding.RemoveAt(i); continue; } // clear of the opening (or on the carpet): done
+                var v = Units.ToSpec(g.rb.linearVelocity); // in/s
+                if (v.magnitude < StuckSpeed) g.still += dt; else g.still = 0f;
+                if (g.still < StuckTime) continue;
+                g.still = 0f;
+                // push it out of the opening: down the chute and toward the field, flat again
+                g.rb.linearVelocity = Units.ToUnity(-flatUp.x * 40f, -flatUp.y * 40f, -10f);
+                g.rb.angularVelocity = Vector3.zero;
+                if (behind > -2f) g.rb.position += Units.ToUnity(-flatUp.x * 1.5f, -flatUp.y * 1.5f, 0.6f);
+            }
         }
 
         static readonly Collider[] overlap = new Collider[16];
@@ -371,6 +401,7 @@ namespace SteamworksSim.Game
         void FixedUpdate()
         {
             float dt = Time.fixedDeltaTime;
+            KeepGearsSliding(dt);
             foreach (var s in All())
             {
                 var L = s.spec;
@@ -384,12 +415,25 @@ namespace SteamworksSim.Game
                     if (s.acc[c] < 1f) continue;
                     // the human player sets one ball at a time in the chute, half way up, and lets it roll down and
                     // out of the opening; only where it won't land on the last one (each drop is exactly its count)
-                    float lat = ((float)rnd.NextDouble() - 0.5f) * 2f * (L.chuteHalfW - FuelPool.RadiusIn - 0.6f);
-                    var at = OnChute(s, c, 18f, lat, FuelPool.RadiusIn + 0.1f);
-                    if (PieceAt(at)) continue;
+                    // several balls side by side across the chute and two rows deep, so it can keep up 12 a second
+                    // while each ball still just rolls down under gravity
+                    float span = L.chuteHalfW - FuelPool.RadiusIn - 0.6f;
+                    int across = Mathf.Max(1, Mathf.FloorToInt(2f * span / (2f * FuelPool.RadiusIn + 0.4f)) + 1);
+                    int slots = across * 2, start = rnd.Next(slots);
+                    bool placed = false;
+                    for (int k = 0; k < slots && !placed; k++)
+                    {
+                        int slot = (start + k) % slots, col = slot % across, row = slot / across;
+                        float lat = across == 1 ? 0f : -span + 2f * span * col / (across - 1);
+                        lat += ((float)rnd.NextDouble() - 0.5f) * 0.6f;
+                        var at = OnChute(s, c, row == 0 ? 20f : 13f, lat, FuelPool.RadiusIn + 0.1f);
+                        if (PieceAt(at)) continue;
+                        ChuteFrame(s, c, out _, out var upC, out _, out _);
+                        fuel.Spawn(at, -upC * 4f);
+                        placed = true;
+                    }
+                    if (!placed) continue;
                     s.acc[c] -= 1f; s.pouring[c]--;
-                    ChuteFrame(s, c, out _, out var upC, out _, out _);
-                    fuel.Spawn(at, -upC * 6f);
                 }
             }
         }

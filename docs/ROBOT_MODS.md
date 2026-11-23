@@ -42,7 +42,7 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `shooter.capacity` | 0 | A hard FUEL limit (shooter and dump share it). 0 = what the open-top hopper physically holds (see `intake.hopperBalls`), or unlimited for a robot without one (testing) |
 | `lowGoalDump.enabled / rate / height / speed / width` | true / 10 / 22 / 5.83 / 14 | Dumping out of the front into the low goal |
 | `gear.enabled / back / slotOffset` | true / false / 0 | Gear slot on the front (or the back with `back: true`); offset to the robot's left of the centre line |
-| `gear.maxDistance / maxLateral / maxAngle` | 4 / 3.5 / 15 | How precisely you must line up on a peg |
+| `gear.maxDistance / maxLateral / maxAngle` | 4 / 3.5 / 20 | How precisely you must line up on a peg |
 | `gear.capacity` | 0 | GEARS the robot holds; 0 = unlimited |
 | `preload.fuel / gears` | 10 / 1 | On board at the start of a match (2017 limits; capped by capacity). Whatever an alliance's robots don't preload goes to its loading lane (the opening in its own alliance wall) |
 | `intake.fuelFromChute` | true | Open-top hopper: FUEL falling from a loading-station chute onto the robot goes in |

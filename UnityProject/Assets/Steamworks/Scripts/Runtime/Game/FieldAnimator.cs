@@ -17,6 +17,18 @@ namespace SteamworksSim.Game
         readonly Dictionary<string, Pad[]> pads = new Dictionary<string, Pad[]>();
         readonly Dictionary<string, Transform[]> pegGears = new Dictionary<string, Transform[]>();
         TargetsFile targets;
+        /// <summary>GEARS installed on the AIRSHIP, per alliance and ROTOR set: set 1 is the one GEAR on top of the
+        /// STEAM TANK (doesn't turn); sets 2-4 lie on the rail trays next to their ROTOR and turn with it, each the
+        /// opposite way to its neighbour as a gear train would.</summary>
+        readonly Dictionary<string, Transform[][]> setGears = new Dictionary<string, Transform[][]>();
+        // AIRSHIP geometry (prototype field.js DIM.airship): rail at 79 in on a 101 in hexagon, STEAM TANK top 108.5 in,
+        // small ROTORS 2, 3, 4 at 90, 210 and 330 deg from the AIRSHIP centre (FieldBuilder.SmallRotorAngles)
+        const float RailZ = 79f, RailFlat = 101f, TankTop = 108.5f, TrayInset = 3.5f, GearPitch = 10.6f, FirstGear = 11f;
+        static readonly int[] SmallRotorAngles = { 90, 210, 330 };
+        /// <summary>GEARS already on each set at the start (manual figure 3-11 "Pre-Populated"), drawn in front of the
+        /// ones the PILOTS add; they turn with the set.</summary>
+        static readonly int[] PrePopulated = { 0, 0, 1, 2 };
+        const float SetGearSpin = 3f; // rad/s
         static readonly Color Red = new Color(1f, 0.08f, 0.1f), Blue = new Color(0.08f, 0.32f, 1f);
         const float MaxPress = 3.5f; // in: a fully climbed robot pushes the plate (and dome) up this far
         readonly Dictionary<Material, Color> baseColours = new Dictionary<Material, Color>();
@@ -70,7 +82,49 @@ namespace SteamworksSim.Game
                     gears[i] = go.transform;
                 }
                 pegGears[al] = gears;
+                setGears[al] = BuildSetGears(AL, t.Of(al).airship, gearMesh, mats.Get("gear"));
             }
+        }
+
+        /// <summary>Places (hidden) every GEAR slot of the four sets on one AIRSHIP.</summary>
+        Transform[][] BuildSetGears(string AL, float[] centre, Mesh mesh, Material mat)
+        {
+            var c = new Vector2(centre[0], centre[1]);
+            var sets = new Transform[4][];
+            Transform Make(string name, Vector3 spec, float yaw)
+            {
+                var go = new GameObject(name);
+                go.transform.SetParent(transform, false);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+                go.transform.SetPositionAndRotation(Units.ToUnity(spec), Quaternion.Euler(0f, yaw, 0f));
+                go.SetActive(false);
+                return go.transform;
+            }
+            // set 1: lying on top of the STEAM TANK, around the ROTOR 1 shaft
+            sets[0] = new[] { Make($"{AL} ROTOR 1 GEAR", new Vector3(c.x, c.y, TankTop + 1f), 0f) };
+            float rr = RailFlat / Mathf.Sqrt(3f); // hexagon corner radius (corners at 30 + 60k deg)
+            for (int k = 1; k < 4; k++)
+            {
+                int n = MatchRules.GearsNeeded[k] + PrePopulated[k];
+                float a = SmallRotorAngles[k - 1] * Mathf.Deg2Rad;
+                var corner = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * rr;
+                var list = new Transform[n];
+                for (int j = 0; j < n; j++)
+                {
+                    // alternate between the two rail sides that meet at the ROTOR's corner, working away from it
+                    int side = j % 2 == 0 ? 1 : -1, along = j / 2;
+                    float b = a + side * 120f * Mathf.Deg2Rad; // toward the next corner on that side
+                    var nextCorner = c + new Vector2(Mathf.Cos(b), Mathf.Sin(b)) * rr;
+                    var dir = (nextCorner - corner).normalized;
+                    var mid = (corner + nextCorner) / 2f;
+                    var inward = (c - mid).normalized;
+                    var p = corner + dir * (FirstGear + along * GearPitch) + inward * TrayInset;
+                    list[j] = Make($"{AL} ROTOR {k + 1} GEAR {j + 1}", new Vector3(p.x, p.y, RailZ + 1f), along * 18f);
+                }
+                sets[k] = list;
+            }
+            return sets;
         }
 
         /// <summary>An 11 in, 10-tooth GEAR, 2 in thick, centred on the origin, axis up.</summary>
@@ -105,6 +159,21 @@ namespace SteamworksSim.Game
                 var r = rotors[al];
                 for (int k = 0; k < 4; k++)
                     if (A.rotors[k] && r[k] != null) r[k].Rotate(0f, -(k == 0 ? 4f : 12f) * Mathf.Rad2Deg * dt, 0f, Space.Self);
+
+                // GEARS installed on the AIRSHIP: pre-populated ones first, then each one the PILOTS add
+                var sg = setGears[al];
+                for (int k = 0; k < 4; k++)
+                {
+                    var set = sg[k];
+                    int shown = Mathf.Min(set.Length, A.sets[k] + PrePopulated[k]);
+                    for (int j = 0; j < set.Length; j++)
+                    {
+                        bool on = j < shown;
+                        if (set[j].gameObject.activeSelf != on) set[j].gameObject.SetActive(on);
+                        if (on && k > 0 && A.rotors[k])
+                            set[j].Rotate(0f, ((j / 2) % 2 == 0 ? 1f : -1f) * SetGearSpin * Mathf.Rad2Deg * dt, 0f, Space.Self);
+                    }
+                }
 
                 // GEARS on the lift carriages: shown while loaded or rising, riding up to the PILOT
                 var lifts = targets.Of(al).lifts;

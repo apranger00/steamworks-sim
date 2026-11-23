@@ -58,7 +58,7 @@
     "slotOffset": 0,
     "maxDistance": 4,
     "maxLateral": 3.5,
-    "maxAngle": 15,
+    "maxAngle": 20,
     "capacity": 0
   },
   "climber": {

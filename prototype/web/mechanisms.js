@@ -14,7 +14,7 @@ export const MECH = {
     speedErr: 0.012,    // 1-sigma fractional speed error
   },
   dump: { rate: 10, z: 22, speed: 70, width: 14 }, // low-goal hopper dump out of the front
-  gear: { maxDist: 4, maxLat: 3.5, maxAngle: 15 }, // peg tip vs gear slot at the front bumper
+  gear: { maxDist: 4, maxLat: 3.5, maxAngle: 20 }, // peg tip vs gear slot at the front bumper
 };
 
 // Velocity that carries a ball from p0 through target, arriving descending at `entryDeg`.

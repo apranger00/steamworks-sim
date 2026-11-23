@@ -47,7 +47,7 @@ namespace SteamworksSim.Game
         }
 
         /// <summary>A gear at a spec position (in), lying flat, moving at a spec velocity (in/s).</summary>
-        public void Spawn(Vector3 specPos, Vector3 specVel, float yawDeg = 0f)
+        public Rigidbody Spawn(Vector3 specPos, Vector3 specVel, float yawDeg = 0f)
         {
             Rigidbody rb;
             if (free.Count > 0) { rb = free[free.Count - 1]; free.RemoveAt(free.Count - 1); }
@@ -60,6 +60,7 @@ namespace SteamworksSim.Game
             rb.transform.SetPositionAndRotation(pos, rot);
             rb.linearVelocity = Units.ToUnity(specVel); rb.angularVelocity = Vector3.zero;
             active.Add(rb);
+            return rb;
         }
 
         public void Clear()

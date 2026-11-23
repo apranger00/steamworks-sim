@@ -101,7 +101,7 @@ namespace SteamworksSim.Robots
         public float slotOffset = 0f;       // in, offset of the gear slot to the robot's left of the centre line
         public float maxDistance = 4f;      // in between peg tip and the bumper face on the slot's side
         public float maxLateral = 3.5f;     // in off centre
-        public float maxAngle = 15f;        // deg off square
+        public float maxAngle = 20f;        // deg off square
         public int capacity = 0;            // GEARS the robot holds; 0 = unlimited (testing)
     }
 
