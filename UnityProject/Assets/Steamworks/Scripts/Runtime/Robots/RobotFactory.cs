@@ -44,7 +44,7 @@ namespace SteamworksSim.Robots
 
             var root = new GameObject(label ?? $"Robot: {d.name} ({alliance})");
             float L = d.LengthWithBumpers * In, W = d.WidthWithBumpers * In, H = d.frame.height * In;
-            const float clearance = 0.25f * In;
+            const float clearance = 1f * In; // the body rides clear of the carpet (and ignores it, see RobotMechanisms)
 
             var rb = root.AddComponent<Rigidbody>();
             rb.mass = d.mass * KgPerLb;

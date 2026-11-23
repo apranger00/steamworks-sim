@@ -40,6 +40,8 @@ namespace SteamworksSim.Field
         public const string RootName = "Generated Field";
         public Transform GeneratedRoot { get; private set; }
         public FieldMaterials Materials { get; private set; }
+        /// <summary>The carpet's collider (robots ride at a fixed height and ignore it; FUEL and GEARS sit on it).</summary>
+        public static Collider Carpet { get; private set; }
         /// <summary>The field data of the last build (staged FUEL positions and so on).</summary>
         public FieldFile Data { get; private set; }
 
@@ -216,6 +218,7 @@ namespace SteamworksSim.Field
             floor.layer = colliderLayer;
             floor.transform.SetParent(root, false);
             var box = floor.AddComponent<BoxCollider>();
+            Carpet = box;
             box.center = new Vector3(0f, -0.05f, 0.2f * Units.Inch);
             box.size = new Vector3(936f * Units.Inch, 0.1f, 360f * Units.Inch);
             floor.isStatic = true;
