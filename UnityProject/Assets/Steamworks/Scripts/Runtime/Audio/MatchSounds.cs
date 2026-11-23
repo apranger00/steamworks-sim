@@ -56,7 +56,7 @@ namespace SteamworksSim.Audio
         static readonly string[] CueNames = { "Match start", "End of AUTO", "TELEOP start", "Endgame (0:30)", "Match end (0:00)" };
 
         /// <summary>The file in the sounds folder with this name (any letter case), or null.</summary>
-        static string FindFile(string name)
+        internal static string FindFile(string name)
         {
             string path = Path.Combine(Folder, name);
             if (File.Exists(path)) return path;
@@ -151,7 +151,7 @@ namespace SteamworksSim.Audio
             pending = null;
         }
 
-        static AudioType TypeOf(string path)
+        internal static AudioType TypeOf(string path)
         {
             switch (Path.GetExtension(path).ToLowerInvariant())
             {

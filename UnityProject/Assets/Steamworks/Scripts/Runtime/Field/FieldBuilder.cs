@@ -139,7 +139,7 @@ namespace SteamworksSim.Field
                     // FUEL in a HOPPER pair is its own part, hidden when the pair is dumped onto the field
                     int hop = tg != null ? tg.HopperAt(data.fuel[i], data.fuel[i + 1]) : -1;
                     var mb = hop >= 0 ? A($"HOPPER {hop} fuel", Vector3.zero, "fuel") : fuel;
-                    MeshGen.Sphere(mb, new Vector3(data.fuel[i], data.fuel[i + 1], data.fuel[i + 2]), data.fuelRadius, 10, 7);
+                    mb.SmoothSphere(new Vector3(data.fuel[i], data.fuel[i + 1], data.fuel[i + 2]), data.fuelRadius, 16, 11);
                 }
                 var gears = B("pieces", "gear");
                 foreach (var g in data.gears)
@@ -202,6 +202,7 @@ namespace SteamworksSim.Field
             }
 
             if (buildColliders && collidersJson != null) BuildColliders(JsonUtility.FromJson<ColliderFile>(collidersJson.text));
+            BuildLogos(data);
 
             if (preview) SetHideFlagsRecursive(GeneratedRoot, HideFlags.DontSave);
         }
@@ -284,6 +285,76 @@ namespace SteamworksSim.Field
                 return $"{n} #{touchpadCount++}";
             }
             return null;
+        }
+
+        // ---------------------------------------------------------------- FIRST STEAMWORKS logo
+        const float LogoHeight = 30f; // in, on the 36.5 in tall airship base
+
+        /// <summary>
+        /// The FIRST STEAMWORKS logo (Resources/Textures/SteamworksLogo) on each AIRSHIP base, on the flat that faces
+        /// the midline (the side without a lift).
+        /// </summary>
+        void BuildLogos(FieldFile data)
+        {
+            var tex = Resources.Load<Texture2D>("Textures/SteamworksLogo");
+            if (tex == null || data.items == null) return;
+            Material mat = null;
+            Transform root = null;
+            foreach (var it in data.items)
+            {
+                if (it.type != "loft" || it.name == null || !it.name.EndsWith("AIRSHIP base") || it.ring0 == null || it.ring0.Length < 6) continue;
+                int n = it.ring0.Length / 2;
+                float cx = 0f, cy = 0f;
+                for (int k = 0; k < n; k++) { cx += it.ring0[2 * k]; cy += it.ring0[2 * k + 1]; }
+                cx /= n; cy /= n;
+                float toMid = -Mathf.Sign(cx);
+                // the flat facing the midline: its two corners are the ones furthest toward X = 0
+                float best = float.MinValue; int e = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    int k2 = (k + 1) % n;
+                    float mx = (it.ring0[2 * k] + it.ring0[2 * k2]) / 2f * toMid;
+                    if (mx > best) { best = mx; e = k; }
+                }
+                int e2 = (e + 1) % n;
+                var p0 = new Vector2(it.ring0[2 * e], it.ring0[2 * e + 1]);
+                var p1 = new Vector2(it.ring0[2 * e2], it.ring0[2 * e2 + 1]);
+                var mid = (p0 + p1) / 2f;
+                var outward = (mid - new Vector2(cx, cy)).normalized;
+                var along = new Vector2(-outward.y, outward.x); // left to right, seen from outside
+                float h = Mathf.Min(LogoHeight, (it.z1 - it.z0) - 4f), w = h * tex.width / tex.height;
+                w = Mathf.Min(w, (p1 - p0).magnitude - 4f); h = w * tex.height / tex.width;
+                float zc = (it.z0 + it.z1) / 2f;
+                var c = mid + outward * 0.15f;
+
+                if (mat == null)
+                {
+                    mat = new Material(Materials.LitShader) { name = "Field_logo" };
+                    mat.SetTexture("_BaseMap", tex); mat.SetTexture("_MainTex", tex);
+                    mat.SetColor("_BaseColor", Color.white);
+                    mat.SetFloat("_Smoothness", 0.3f);
+                    mat.SetFloat("_AlphaClip", 1f); mat.SetFloat("_Cutoff", 0.5f);
+                    mat.EnableKeyword("_ALPHATEST_ON");
+                    root = new GameObject("Logos").transform;
+                    root.SetParent(GeneratedRoot, false);
+                }
+                var mesh = new Mesh { name = "Logo " + it.name };
+                Vector3 V(float u, float v) => Units.ToUnity(new Vector3(c.x - along.x * (u - 0.5f) * w, c.y - along.y * (u - 0.5f) * w, zc + (v - 0.5f) * h));
+                mesh.vertices = new[] { V(0f, 0f), V(1f, 0f), V(1f, 1f), V(0f, 1f) };
+                mesh.uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
+                var nrm = Units.ToUnity(new Vector3(outward.x, outward.y, 0f)).normalized;
+                mesh.normals = new[] { nrm, nrm, nrm, nrm };
+                // wound to face outward (Unity is left-handed: clockwise seen from the front)
+                var tri = Vector3.Cross(mesh.vertices[1] - mesh.vertices[0], mesh.vertices[2] - mesh.vertices[0]);
+                mesh.triangles = Vector3.Dot(tri, nrm) < 0f ? new[] { 0, 1, 2, 0, 2, 3 } : new[] { 0, 2, 1, 0, 3, 2 };
+                mesh.RecalculateBounds();
+                var go = new GameObject("Logo (" + it.name + ")");
+                go.transform.SetParent(root, false);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var mr = go.AddComponent<MeshRenderer>();
+                mr.sharedMaterial = mat;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
         }
 
         static void SetHideFlagsRecursive(Transform t, HideFlags flags)

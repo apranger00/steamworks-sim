@@ -14,6 +14,7 @@ namespace SteamworksSim.Settings
     {
         public static float MasterVolume = 1f;
         public static float MatchVolume = 1f;
+        public static float MusicVolume = 0.6f;
 
         public static FullScreenMode DisplayMode = FullScreenMode.FullScreenWindow;
         public static int ResolutionWidth, ResolutionHeight;   // 0 = leave as is
@@ -37,6 +38,7 @@ namespace SteamworksSim.Settings
             loaded = true;
             MasterVolume = PlayerPrefs.GetFloat(P + "masterVolume", MasterVolume);
             MatchVolume = PlayerPrefs.GetFloat(P + "matchVolume", MatchVolume);
+            MusicVolume = PlayerPrefs.GetFloat(P + "musicVolume", MusicVolume);
             DisplayMode = (FullScreenMode)PlayerPrefs.GetInt(P + "displayMode", (int)DisplayMode);
             ResolutionWidth = PlayerPrefs.GetInt(P + "resW", 0);
             ResolutionHeight = PlayerPrefs.GetInt(P + "resH", 0);
@@ -52,6 +54,7 @@ namespace SteamworksSim.Settings
         {
             PlayerPrefs.SetFloat(P + "masterVolume", MasterVolume);
             PlayerPrefs.SetFloat(P + "matchVolume", MatchVolume);
+            PlayerPrefs.SetFloat(P + "musicVolume", MusicVolume);
             PlayerPrefs.SetInt(P + "displayMode", (int)DisplayMode);
             PlayerPrefs.SetInt(P + "resW", ResolutionWidth);
             PlayerPrefs.SetInt(P + "resH", ResolutionHeight);

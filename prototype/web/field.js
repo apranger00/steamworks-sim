@@ -299,6 +299,9 @@ export function layout() {
 
   }
 
+  // Midline (sim addition, not on the 2017 field): charcoal tape across the field at X = 0
+  push(tape('MIDLINE', 'charcoal', [0, -DIM.field.halfY], [0, DIM.field.halfY]));
+
   // Hoppers --------------------------------------------------------------------
   const H = DIM.hopper;
   for (const [side, list] of [[1, H.containers.scoring], [-1, H.containers.far]]) {

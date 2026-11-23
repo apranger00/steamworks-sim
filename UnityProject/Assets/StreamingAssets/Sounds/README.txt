@@ -9,6 +9,7 @@ Put the sound files in this folder. sounds.json says which file plays for each c
   teleopStart TELEOP starts              frc-resume.mp3
   endgame     0:30 left, ropes drop      frc-warning.mp3      (steam whistle)
   matchEnd    0:00                       frc-end.mp3          (buzzer)
+  music       title screen, looped       title-music.mp3      ("Steam Powered"; Music slider in Options)
 
 Downloads:
   https://www.myinstants.com/media/sounds/frc-start-sound.mp3

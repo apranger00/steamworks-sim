@@ -39,7 +39,7 @@ A GEAR goes straight into a robot only if the robot can take one, faces the stat
 
 The default robot (Rookie Bot, folder `sim-6wd`) starts with 10 FUEL and 1 GEAR and holds 50 FUEL and 1 GEAR. Its top is an open hopper with clear walls: FUEL falling onto it (from a chute or a field hopper) drops in, its front intake picks FUEL up off the carpet while you hold Intake, and you can see how full it is by the loose pile of FUEL inside. The hopper is sized so 50 FUEL fill it to the rim; once it's full, more FUEL rolls off the top of the pile and over the sides. The turret sits in the back right corner. It can't pick GEARS up off the floor. The drive info panel shows whether the shooter is in range. **Steamworks > Run Scoring Self-Test** checks the scoring rules against the prototype's tests (results in the Console).
 - **Multiplayer** is a placeholder until online play is built.
-- **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
+- **Options**: Controls (rebind every key and gamepad button, gamepad drive layout: split arcade, one-stick arcade or tank), Audio (master, match sounds, music), Graphics (display mode, resolution, VSync, frame rate limit, quality, field of view, drive info panel). Saved between sessions.
 - The pause menu has Resume, Options, Return to robot selection, Quit to main menu and Exit game.
 
 Default controls (rebindable):
@@ -69,6 +69,8 @@ Edit a `robot.json` while playing and press **F5** (or **Reload robot files** on
 ### Match sounds
 
 The field cues (cavalry charge at the start, buzzer at the end of AUTO, resume sound when TELEOP starts, steam whistle at 0:30, buzzer at 0:00) play from files in `UnityProject/Assets/StreamingAssets/Sounds/`. `sounds.json` there maps cues to files, and its `README.txt` lists the download links. A missing file plays a placeholder tone.
+
+Title-screen music: put the track in the same folder as `title-music.mp3` (the `music` entry in `sounds.json`). It loops on the title, options and robot-selection screens, fades out when a match starts, and follows the Music slider. It isn't in the repo (not ours to redistribute).
 
 ### Title screen and fonts
 

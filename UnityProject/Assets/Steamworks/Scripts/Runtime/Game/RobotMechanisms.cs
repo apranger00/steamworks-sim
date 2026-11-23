@@ -163,6 +163,18 @@ namespace SteamworksSim.Game
                 mc.convex = true;
                 mc.enabled = false;
                 fullCap = mc;
+                // a lid only GEARS collide with: a GEAR landing on the robot slides off instead of dropping in
+                PhysicsLayers.Setup();
+                var lid = new GameObject("Collider (gear lid)") { layer = PhysicsLayers.GearLid };
+                lid.transform.SetParent(transform, false);
+                var lc = lid.AddComponent<MeshCollider>();
+                lc.sharedMesh = Dome(hl, hw, Height);
+                lc.convex = true;
+                lc.sharedMaterial = new PhysicsMaterial("Gear lid")
+                {
+                    bounciness = 0.3f, dynamicFriction = 0f, staticFriction = 0f,
+                    frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Maximum,
+                };
             }
             // The GEAR it carries, standing in the front slot
             if (def.gear != null && def.gear.enabled)

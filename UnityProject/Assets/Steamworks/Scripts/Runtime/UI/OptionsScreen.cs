@@ -30,7 +30,7 @@ namespace SteamworksSim.UI
         class BindingRow { public GameControls.Entry entry; public Text keyboard, gamepad; }
         readonly List<BindingRow> bindingRows = new List<BindingRow>();
         Text controlsStatus;
-        OptionRow layoutRow, masterRow, matchRow, displayRow, resolutionRow, vsyncRow, capRow, qualityRow, fovRow, infoRow;
+        OptionRow layoutRow, masterRow, matchRow, musicRow, displayRow, resolutionRow, vsyncRow, capRow, qualityRow, fovRow, infoRow;
         List<Vector2Int> resolutions = new List<Vector2Int>();
 
         public RectTransform Build(Transform parent, Action back, Action testSound, Func<string> status)
@@ -89,6 +89,7 @@ namespace SteamworksSim.UI
             layoutRow.SetIndex((int)GameSettings.Layout);
             masterRow.SetIndex(Mathf.RoundToInt(GameSettings.MasterVolume * 20f));
             matchRow.SetIndex(Mathf.RoundToInt(GameSettings.MatchVolume * 20f));
+            musicRow.SetIndex(Mathf.RoundToInt(GameSettings.MusicVolume * 20f));
             displayRow.SetIndex(Mathf.Max(0, Array.IndexOf(GameSettings.DisplayModes, GameSettings.DisplayMode)));
             RefreshResolutions();
             vsyncRow.SetIndex(GameSettings.VSync ? 0 : 1);
@@ -220,6 +221,7 @@ namespace SteamworksSim.UI
             var c = Ui.Column(parent, "Audio", 1100f, 10f, 0, false);
             masterRow = Ui.Option(c, "Master volume", Ui.Percentages(), 20, i => { GameSettings.MasterVolume = i / 20f; GameSettings.Apply(); }, false);
             matchRow = Ui.Option(c, "Match sounds", Ui.Percentages(), 20, i => { GameSettings.MatchVolume = i / 20f; GameSettings.Apply(); }, false);
+            musicRow = Ui.Option(c, "Music", Ui.Percentages(), 12, i => { GameSettings.MusicVolume = i / 20f; GameSettings.Apply(); }, false);
             Ui.Spacer(c, 6f);
             var buttons = Ui.Row(c, 48f, 12f);
             Ui.SetWidth(Ui.Button(buttons, "Play test sound (match start)", () => onTestSound?.Invoke(), 48f, 22), 420f);

@@ -27,11 +27,12 @@ namespace SteamworksSim.Game
             mesh = FieldAnimator.GearMesh();
             physics = new PhysicsMaterial("Gear") { bounciness = 0.1f, dynamicFriction = 0.45f, staticFriction = 0.55f };
             root = new GameObject("Gears").transform;
+            PhysicsLayers.Setup();
         }
 
         Rigidbody Make()
         {
-            var go = new GameObject("Gear");
+            var go = new GameObject("Gear") { layer = PhysicsLayers.Gear };
             go.transform.SetParent(root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = material;

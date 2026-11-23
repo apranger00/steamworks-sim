@@ -7,7 +7,7 @@ export function makeMaterials(THREE) {
   const clear = (color, opacity) => new THREE.MeshStandardMaterial({
     color, transparent: true, opacity, roughness: 0.1, metalness: 0.0, depthWrite: false, side: THREE.DoubleSide });
   return {
-    carpet: std(0x3f7d43, { roughness: 1 }),
+    carpet: std(0x387d2d, { roughness: 1 }),
     poly: clear(0xcfe6ff, 0.22),
     polyHopper: clear(0xdfeeff, 0.18),
     alu: std(0xb9bec4, { metalness: 0.6, roughness: 0.4 }),
@@ -38,6 +38,7 @@ export function makeMaterials(THREE) {
       green: std(0x1fbf4c, { roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
       red: std(0xe0202e, { roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
       blue: std(0x2266e0, { roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+      charcoal: std(0x36393d, { roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
     },
   };
 }
