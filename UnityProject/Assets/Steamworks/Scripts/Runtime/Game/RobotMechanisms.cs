@@ -83,6 +83,8 @@ namespace SteamworksSim.Game
             BuildVisuals();
             // after the visuals: includes the full-hopper dome, so shots and dumps leaving a full robot don't hit it
             body = GetComponentsInChildren<Collider>(true);
+            // the drivetrain holds the robot at a fixed height: no part of it may rub on the carpet
+            if (FieldBuilder.Carpet != null) foreach (var c in body) if (c != null) Physics.IgnoreCollision(c, FieldBuilder.Carpet, true);
         }
         Func<MatchRules> getRules;
 
@@ -257,11 +259,21 @@ namespace SteamworksSim.Game
         // ---------------------------------------------------------------- shooter (mechanisms.js)
         struct Shot { public Vector3 p0, v; public float range, speed, pitch, yaw; }
 
-        Vector3 ExitPoint()
+        Vector2 TurretCenter()
         {
             var off = def.shooter.exitOffset != null && def.shooter.exitOffset.Length >= 2 ? def.shooter.exitOffset : new[] { 0f, 0f };
-            var c = Center + Forward * off[0] + Left * off[1];
-            return new Vector3(c.x, c.y, def.shooter.exitHeight + Lift);
+            return Center + Forward * off[0] + Left * off[1];
+        }
+
+        /// <summary>
+        /// Where a ball leaves the turret for a shot toward `dir` at `pitch` (rad): it rides the flywheel under the hood
+        /// and leaves tangentially, so the exit sits on the ball's path circle at 90 deg + pitch from the forward axis
+        /// (behind and above the axle). The axle is at shooter.exitHeight.
+        /// </summary>
+        Vector3 ExitPoint(Vector2 dir, float pitch)
+        {
+            var c = TurretCenter() + dir * (RobotDetail.FlywheelFwd - RobotDetail.BallPathR * Mathf.Sin(pitch));
+            return new Vector3(c.x, c.y, def.shooter.exitHeight + Lift + RobotDetail.BallPathR * Mathf.Cos(pitch));
         }
 
         /// <summary>Velocity that carries a ball from p0 through target, arriving descending at entryDeg.</summary>
@@ -284,7 +296,16 @@ namespace SteamworksSim.Game
             var S = def.shooter;
             if (S == null || !S.enabled) { reason = "No shooter"; return null; }
             var hg = targets.Of(alliance).highGoal;
-            if (!Solve(ExitPoint(), new Vector3(hg.c[0], hg.c[1], hg.z + FuelPool.RadiusIn), S.entryAngle, out var s)) { reason = "No shot"; return null; }
+            var goal = new Vector3(hg.c[0], hg.c[1], hg.z + FuelPool.RadiusIn);
+            var dir = (new Vector2(goal.x, goal.y) - TurretCenter()).normalized;
+            // the exit point depends on the pitch: solve, move the exit to where that pitch leaves the hood, solve again
+            Shot s = default; float pitch = 60f * Mathf.Deg2Rad; bool solved = false;
+            for (int it = 0; it < 3; it++)
+            {
+                if (!Solve(ExitPoint(dir, pitch), goal, S.entryAngle, out s)) { solved = false; break; }
+                solved = true; pitch = s.pitch;
+            }
+            if (!solved) { reason = "No shot"; return null; }
             if (s.range < S.minRange * 12f) { reason = $"Too close ({s.range / 12f:0.0} ft)"; return null; }
             if (s.range > S.maxRange * 12f || s.speed > S.maxExitSpeed * 12f) { reason = $"Out of range ({s.range / 12f:0.0} ft)"; return null; }
             reason = $"In range {s.range / 12f:0.0} ft";
@@ -296,7 +317,7 @@ namespace SteamworksSim.Game
             shot = Aim(out var reason);
             ShooterStatus = reason;
             // the hood tilts with the shot: steeper close in, flatter far out
-            if (shot != null) hoodTilt = Mathf.Lerp(hoodTilt, -(shot.Value.pitch * Mathf.Rad2Deg - 60f) * 0.5f, 0.2f);
+            if (shot != null) hoodTilt = Mathf.Lerp(hoodTilt, -shot.Value.pitch * Mathf.Rad2Deg, 0.2f);
             if (turret == null) return;
             // point the hood at the goal (yaw only)
             var hg = targets.Of(alliance).highGoal;
@@ -542,7 +563,7 @@ namespace SteamworksSim.Game
             float deg = 900f * dt;
             if (intakeRoller != null) intakeRoller.Rotate(-spinIntake * deg, 0f, 0f, Space.Self);
             if (conveyor != null) foreach (var c in conveyor) c.Rotate(spinIntake * deg, 0f, 0f, Space.Self);
-            if (flywheel != null) flywheel.Rotate(-spinFly * 2.5f * deg, 0f, 0f, Space.Self);
+            if (flywheel != null) flywheel.Rotate(spinFly * 2.5f * deg, 0f, 0f, Space.Self); // back of the wheel moves up
             if (hood != null) hood.localRotation = Quaternion.Euler(hoodTilt, 0f, 0f);
         }
 

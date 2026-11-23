@@ -171,6 +171,12 @@ namespace SteamworksSim.Robots
         }
 
         // ---------------------------------------------------------------- turret
+        /// <summary>Flywheel axle in the turret (in, forward of the turret centre), and the radius of the path the ball's
+        /// centre takes around it under the hood (wheel 2 in + ball 2.5 in - 0.5 in compression).</summary>
+        public const float FlywheelFwd = -0.5f, FlywheelUp = 5f, BallPathR = 4f;
+        /// <summary>The hood's inside radius from the axle, and the arc it covers (deg, starting at the exit edge).</summary>
+        const float HoodR = BallPathR + 2.5f, HoodArc = 80f;
+
         /// <summary>
         /// Turret on a toothed bearing ring: side plates, a two-wheel flywheel, a curved hood that tilts with the shot,
         /// an indexer roller, the motor and standoffs. "Turret yaw" turns to the goal; its +z (forward) is the shot.
@@ -190,38 +196,41 @@ namespace SteamworksSim.Robots
                 var tooth = Box(t, plate, c + V(Mathf.Cos(a) * 5.65f, Mathf.Sin(a) * 5.65f, 0.3f), V(0.55f, 0.5f, 0.6f), "Tooth");
                 tooth.localRotation = Quaternion.Euler(0f, -a * Mathf.Rad2Deg, 0f);
             }
-            var yaw = Node(t, "Turret yaw", c + V(0, 0, 0.6f));
+            // the turret sits on the ring with its flywheel axle at shooter.exitHeight
+            var yaw = Node(t, "Turret yaw", V(off[0], -off[1], Mathf.Max(H + 0.6f, d.shooter.exitHeight - FlywheelUp)));
             Box(yaw, plate, V(0, 0, 0.125f), V(9f, 8f, 0.25f), "Turret base");
             for (int s = -1; s <= 1; s += 2)
             {
                 float x = s * 3.1f;
                 Box(yaw, plate, V(0, x, 2.75f), V(8.5f, 0.25f, 5f), "Turret plate");
-                Box(yaw, plate, V(-1f, x, 7f), V(6f, 0.25f, 3.5f), "Turret plate");
+                Box(yaw, plate, V(-3f, x, 7.5f), V(5f, 0.25f, 4.5f), "Turret plate"); // carries the hood at the back
                 for (int face = -1; face <= 1; face += 2)
                 {
                     Box(yaw, hole, V(2.2f, x + face * 0.14f, 2.6f), V(2.6f, 0.04f, 2.6f), "Pocket");
                     Box(yaw, hole, V(-2.4f, x + face * 0.14f, 2.6f), V(2.6f, 0.04f, 2.6f), "Pocket");
                 }
             }
-            // flywheel (two white wheels) and the hood arc around it
-            var fly = Roller(yaw, "Flywheel", V(-0.5f, 0, 5f), 5.4f, 4f, 1.7f, 2, white, black, steel);
-            fly.name = "Flywheel";
-            var hood = Node(yaw, "Hood", V(-0.5f, 0, 5f));
-            const float R = 6.2f;
-            for (int k = 0; k < 6; k++)
+            // flywheel (two white wheels) and the hood: an arc around the BACK of the wheel. The ball is fed in low at
+            // the back, rides up between wheel and hood and leaves at the hood's front edge going up and forward, so
+            // nothing is over the front of the turret. At rest the edge is straight above the axle (a flat shot);
+            // RobotMechanisms turns the hood back by the shot's pitch.
+            Roller(yaw, "Flywheel", V(FlywheelFwd, 0, FlywheelUp), 5.4f, 4f, 1.7f, 2, white, black, steel);
+            var hood = Node(yaw, "Hood", V(FlywheelFwd, 0, FlywheelUp));
+            const int panels = 6;
+            for (int k = 0; k < panels; k++)
             {
-                float a0 = (100f - k * 15f) * Mathf.Deg2Rad, a1 = (100f - (k + 1) * 15f) * Mathf.Deg2Rad;
-                Plank(hood, dark, V(Mathf.Cos(a0) * R, 0, Mathf.Sin(a0) * R), V(Mathf.Cos(a1) * R, 0, Mathf.Sin(a1) * R), 5.6f, 0.3f, "Hood panel");
+                float a0 = (90f + HoodArc * k / panels) * Mathf.Deg2Rad, a1 = (90f + HoodArc * (k + 1) / panels) * Mathf.Deg2Rad;
+                Plank(hood, dark, V(Mathf.Cos(a0) * HoodR, 0, Mathf.Sin(a0) * HoodR), V(Mathf.Cos(a1) * HoodR, 0, Mathf.Sin(a1) * HoodR), 5.6f, 0.3f, "Hood panel");
+                for (int s = -1; s <= 1; s += 2)
+                    Plank(hood, plate, V(Mathf.Cos(a0) * (HoodR + 0.4f), s * 2.9f, Mathf.Sin(a0) * (HoodR + 0.4f)),
+                          V(Mathf.Cos(a1) * (HoodR + 0.4f), s * 2.9f, Mathf.Sin(a1) * (HoodR + 0.4f)), 0.25f, 1.1f, "Hood rib");
             }
-            for (int s = -1; s <= 1; s += 2)
-                Plank(hood, plate, V(Mathf.Cos(100f * Mathf.Deg2Rad) * R, s * 2.9f, Mathf.Sin(100f * Mathf.Deg2Rad) * R),
-                      V(Mathf.Cos(10f * Mathf.Deg2Rad) * R, s * 2.9f, Mathf.Sin(10f * Mathf.Deg2Rad) * R), 0.25f, 1.2f, "Hood rib");
-            // indexer, motor and standoffs
+            // indexer feeding the back of the flywheel, motor and standoffs (all clear of the ball's way out)
             Roller(yaw, "Indexer", V(-3.6f, 0, 1.9f), 5.6f, 2f, 1f, 3, black, steel, steel);
-            Cyl(yaw, motor, V(-0.5f, 4.8f, 5f), 2.4f, 3f, 'x', "Flywheel motor");
-            Cyl(yaw, cap, V(-0.5f, 6.45f, 5f), 2.4f, 0.3f, 'x', "Motor cap");
+            Cyl(yaw, motor, V(FlywheelFwd, 4.8f, FlywheelUp), 2.4f, 3f, 'x', "Flywheel motor");
+            Cyl(yaw, cap, V(FlywheelFwd, 6.45f, FlywheelUp), 2.4f, 0.3f, 'x', "Motor cap");
             Cyl(yaw, steel, V(3.6f, 0, 1.2f), 0.5f, 6.2f, 'x', "Standoff");
-            Cyl(yaw, steel, V(-3.8f, 0, 8.3f), 0.5f, 6.2f, 'x', "Standoff");
+            Cyl(yaw, steel, V(3.6f, 0, 4.6f), 0.5f, 6.2f, 'x', "Standoff");
         }
 
         // ---------------------------------------------------------------- gear slot
