@@ -5,85 +5,71 @@ using UnityEngine;
 namespace SteamworksSim.Game
 {
     /// <summary>
-    /// HOPPERS: a robot pushing the panel in the guardrail between a pair of containers dumps both
-    /// containers' FUEL (100 balls) over the guardrail onto the field. The staged balls (a separate mesh per
-    /// pair, built by FieldBuilder) disappear and live PhysX FUEL rolls out: each container has a slanted floor lip
-    /// sloping down over the guardrail, and balls appear at its top (only when the spot is clear) and roll off
-    /// under gravity, so they drop just inside the field instead of being thrown.
-    /// Each pair dumps once per match; Refill() restores them for the next match.
+    /// HOPPERS: a robot pushing the panel in the guardrail between a pair of containers opens both containers'
+    /// DOORS (the face toward the field, above the floor). Until then each pair's 100 FUEL is a staged mesh; on
+    /// the push the mesh is swapped for live PhysX balls at the same spots, the door colliders and panels go, and
+    /// the FUEL spills out on its own, pushed by the balls behind it and by the floor's shallow slope toward the
+    /// field. Some stays in the container, as on the real field.
+    /// Each pair opens once per match; Refill() closes and restocks them for the next match.
     /// </summary>
     public class HopperSystem : MonoBehaviour
     {
-        const int BallsPerPair = 100;
-        const float MaxPerSecond = 30f;     // per container; the real limit is how fast the lip clears
         const float TouchDistance = 2.0f;   // in between bumper and the panel face counts as pushing
         const float MinOverlap = 4f;        // in of bumper that has to be across the panel
 
-        class Pair { public HopperSpec spec; public GameObject staged; public bool dumped; public int[] left = new int[2]; public float[] acc = new float[2]; }
-
-        /// <summary>Spec frame: the slanted lip of one container, from its front at the floor to the guardrail.</summary>
-        struct Lip { public float x0, x1; public Vector3 top, slope, normal; }
+        class Pair
+        {
+            public HopperSpec spec; public GameObject staged, doors; public bool dumped;
+            public readonly List<Collider> doorColliders = new List<Collider>();
+            public readonly List<Vector3> balls = new List<Vector3>(); // spec frame, inches
+        }
 
         readonly List<Pair> pairs = new List<Pair>();
         FuelPool fuel;
-        readonly System.Random rnd = new System.Random(17);
 
-        public void Init(FieldBuilder field, TargetsFile targets, FuelPool pool, FieldMaterials mats)
+        public void Init(FieldBuilder field, TargetsFile targets, FuelPool pool)
         {
             fuel = pool;
-            alu = mats != null ? mats.Get("alu") : null;
             if (targets == null || targets.hoppers == null) return;
-            var anim = field != null && field.GeneratedRoot != null ? field.GeneratedRoot.Find(FieldBuilder.AnimatedName) : null;
+            var root = field != null ? field.GeneratedRoot : null;
+            var anim = root != null ? root.Find(FieldBuilder.AnimatedName) : null;
             for (int k = 0; k < targets.hoppers.Length; k++)
             {
                 var t = anim != null ? anim.Find($"HOPPER {k} fuel") : null;
-                pairs.Add(new Pair { spec = targets.hoppers[k], staged = t != null ? t.gameObject : null });
-                for (int c = 0; c < 2; c++) BuildLip(targets.hoppers[k], c);
+                var d = anim != null ? anim.Find($"HOPPER {k} doors") : null;
+                pairs.Add(new Pair { spec = targets.hoppers[k], staged = t != null ? t.gameObject : null, doors = d != null ? d.gameObject : null });
             }
+            // the staged FUEL positions of each pair (the live balls start exactly there)
+            var f = field != null && field.Data != null ? field.Data.fuel : null;
+            if (f != null)
+                for (int i = 0; i + 2 < f.Length; i += 3)
+                {
+                    int k = targets.HopperAt(f[i], f[i + 1]);
+                    if (k >= 0) pairs[k].balls.Add(new Vector3(f[i], f[i + 1], f[i + 2]));
+                }
+            // the DOOR colliders ("HOPPER container (...) door"), by the pair they belong to
+            var cols = root != null ? root.Find("Colliders") : null;
+            if (cols != null)
+                foreach (Transform c in cols)
+                {
+                    if (!c.name.Contains("HOPPER container") || !c.name.EndsWith(" door")) continue;
+                    var col = c.GetComponent<Collider>();
+                    if (col == null) continue;
+                    var at = Units.ToSpec(col.bounds.center);
+                    int k = targets.HopperAt(at.x, at.y);
+                    if (k >= 0) pairs[k].doorColliders.Add(col);
+                }
+            int doorCount = 0; foreach (var p in pairs) doorCount += p.doorColliders.Count;
+            if (doorCount == 0) Debug.LogWarning("[Steamworks] HOPPER doors not found: re-export the field data (node tools/export_unity_data.mjs).");
         }
 
-        Material alu;
-        readonly Dictionary<(HopperSpec, int), Lip> lips = new Dictionary<(HopperSpec, int), Lip>();
-
-        // A 0.5 in aluminium plate across the container's width, from its front edge at floor height down to just
-        // above the guardrail (it never reaches into the field, so robots pass underneath it)
-        void BuildLip(HopperSpec h, int c)
-        {
-            float x0 = h.containers[2 * c], x1 = h.containers[2 * c + 1];
-            var top = new Vector3((x0 + x1) / 2f, h.side * Mathf.Abs(h.yIn), h.floorZ);
-            var bottom = new Vector3(top.x, h.side * h.fieldHalfY, h.railH + 1.2f);
-            var slope = (bottom - top).normalized;
-            var normal = new Vector3(0f, -slope.z, slope.y);
-            if (normal.z < 0f) normal = -normal;
-            lips[(h, c)] = new Lip { x0 = x0, x1 = x1, top = top, slope = slope, normal = normal };
-
-            float len = (bottom - top).magnitude, width = x1 - x0;
-            var go = new GameObject($"HOPPER lip {x0:0}");
-            go.transform.SetParent(transform, false);
-            var centre = (top + bottom) / 2f - normal * 0.25f;
-            go.transform.SetPositionAndRotation(Units.ToUnity(centre),
-                Quaternion.LookRotation(Units.ToUnity(slope).normalized, Units.ToUnity(normal).normalized));
-            go.transform.localScale = new Vector3(width, 0.5f, len) * Units.Inch;
-            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.AddComponent<MeshFilter>().sharedMesh = cube.GetComponent<MeshFilter>().sharedMesh;
-            Destroy(cube);
-            var mr = go.AddComponent<MeshRenderer>();
-            if (alu != null) mr.sharedMaterial = alu;
-            go.AddComponent<BoxCollider>(); // unit cube, scaled with the plate
-            go.isStatic = true;
-        }
-
-        /// <summary>Full again (start of a match, menus).</summary>
+        /// <summary>Closed and full again (start of a match, menus). Live FUEL is cleared by the FuelPool.</summary>
         public void Refill()
         {
-            foreach (var p in pairs)
-            {
-                p.dumped = false; p.left[0] = p.left[1] = 0; p.acc[0] = p.acc[1] = 0f;
-                if (p.staged != null) p.staged.SetActive(true);
-            }
+            foreach (var p in pairs) SetOpen(p, false);
         }
 
-        /// <summary>Checks every robot against every panel; pours any dumping pair.</summary>
+        /// <summary>Checks every robot against every panel; opens any pushed pair.</summary>
         public void Step(float dt, IEnumerable<RobotMechanisms> robots, bool active)
         {
             if (active)
@@ -93,7 +79,6 @@ namespace SteamworksSim.Game
                     foreach (var p in pairs)
                         if (!p.dumped && Pushing(corners, p.spec)) Dump(p);
                 }
-            foreach (var p in pairs) Pour(p, dt);
         }
 
         static bool Pushing(Vector2[] corners, HopperSpec h)
@@ -113,27 +98,17 @@ namespace SteamworksSim.Game
 
         void Dump(Pair p)
         {
-            p.dumped = true;
-            p.left[0] = p.left[1] = BallsPerPair / 2; p.acc[0] = p.acc[1] = 0f;
-            if (p.staged != null) p.staged.SetActive(false);
+            SetOpen(p, true);
+            if (fuel == null) return;
+            foreach (var b in p.balls) fuel.Spawn(b, Vector3.zero); // the same spots as the staged balls, at rest
         }
 
-        void Pour(Pair p, float dt)
+        static void SetOpen(Pair p, bool open)
         {
-            if (fuel == null) return;
-            for (int c = 0; c < 2; c++)
-            {
-                if (p.left[c] <= 0) continue;
-                p.acc[c] = Mathf.Min(p.acc[c] + dt * MaxPerSecond, 2f);
-                if (p.acc[c] < 1f || !lips.TryGetValue((p.spec, c), out var lip)) continue;
-                // a ball appears 2 in down the lip, resting on it, wherever across the container there is room
-                const float r = FuelPool.RadiusIn;
-                float x = Mathf.Lerp(lip.x0 + r + 0.5f, lip.x1 - r - 0.5f, (float)rnd.NextDouble());
-                var pos = new Vector3(x, 0f, 0f) + new Vector3(0f, lip.top.y, lip.top.z) + lip.slope * 2f + lip.normal * (r + 0.05f);
-                if (Physics.CheckSphere(Units.ToUnity(pos), r * 0.9f * Units.Inch, ~0, QueryTriggerInteraction.Ignore)) continue;
-                p.acc[c] -= 1f; p.left[c]--;
-                fuel.Spawn(pos, lip.slope * 8f); // a nudge down the slope; gravity does the rest
-            }
+            p.dumped = open;
+            if (p.staged != null) p.staged.SetActive(!open);
+            if (p.doors != null) p.doors.SetActive(!open);
+            foreach (var c in p.doorColliders) if (c != null) c.enabled = !open;
         }
     }
 }

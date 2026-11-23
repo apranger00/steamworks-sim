@@ -34,8 +34,8 @@
     "minRange": 2.5,
     "maxRange": 25,
     "entryAngle": 55,
-    "aimError": 0.6,
-    "speedError": 1.2,
+    "aimError": 0.45,
+    "speedError": 0.9,
     "capacity": 50
   },
 

@@ -32,7 +32,7 @@ export const DIM = {
   airship: { cx: 176.7, deckZ: 36.5, deckFlat: 70.5, railFlat: 101, railZ: 79,
              tankR: 11.75, tankTop: 108.5, rotorR: 53, rotorTop: 133.8,
              centralRotor: [138, 158, 22], touchpadZ: 58, davitR: 62.6 },
-  hopper: { yIn: 166, yOut: 188.3, zBottom: 5, zTop: 46.2, floorZ: 24.6,
+  hopper: { yIn: 166, yOut: 188.3, zBottom: 5, zTop: 46.2, floorZ: 24.6, slope: 2.2,
             containers: {
               scoring: [[-160.8, -133.8], [-104.2, -77.2], [77.2, 104.2], [133.8, 160.8]],
               far: [[-247.8, -220.8], [-191.2, -164.2], [-41.8, -14.8], [14.8, 41.8],
@@ -307,18 +307,30 @@ export function layout() {
       const cx = (x0 + x1) / 2, cy = (yIn + yOut) / 2;
       const sx = x1 - x0, sy = Math.abs(yOut - yIn);
       const nm = `HOPPER container (${side > 0 ? 'scoring side' : 'far side'} #${idx + 1})`;
-      // translucent walls + aluminium frame + floor
-      push(box(nm, 'polyHopper', [cx, cy, (H.zBottom + H.zTop) / 2], [sx, sy, H.zTop - H.zBottom]));
+      // translucent walls (back, sides, the front below the floor, and the DOOR above it, which opens when the
+      // pair's push panel is pressed), aluminium frame and floor, and a shallow wedge on the floor sloping down
+      // toward the field so the FUEL leans on the door and spills out once it opens
+      const yMin = Math.min(yIn, yOut), yMax = Math.max(yIn, yOut), T = 0.5;
+      const zW = (H.zBottom + H.zTop) / 2, hW = H.zTop - H.zBottom;
+      push(box(nm + ' back', 'polyHopper', [cx, yOut - side * T / 2, zW], [sx, T, hW]));
+      for (const wx of [x0 + T / 2, x1 - T / 2]) push(box(nm + ' side', 'polyHopper', [wx, cy, zW], [T, sy, hW]));
+      const fz = H.floorZ + 0.25; // top of the floor plate
+      push(box(nm + ' front', 'polyHopper', [cx, yIn + side * T / 2, (H.zBottom + fz) / 2], [sx, T, fz - H.zBottom]));
+      push(box(nm + ' door', 'polyHopper', [cx, yIn + side * T / 2, (fz + H.zTop) / 2], [sx, T, H.zTop - fz]));
       push(box(nm + ' floor', 'alu', [cx, cy, H.floorZ], [sx - 1, sy - 1, 0.5]));
+      const rect = (ya, yb) => [[x0 + T, ya], [x1 - T, ya], [x1 - T, yb], [x0 + T, yb]];
+      const wedge0 = rect(yMin + T, yMax - T);
+      const wedge1 = side > 0 ? rect(yMax - 2 * T, yMax - T) : rect(yMin + T, yMin + 2 * T);
+      push(loft(nm + ' floor slope', 'alu', wedge0, fz, wedge1, fz + H.slope));
       for (const fx of [x0 + 0.75, x1 - 0.75]) for (const fy of [yIn + side * 0.75, yOut - side * 0.75]) {
         push(box(nm + ' frame', 'alu', [fx, fy, H.zTop / 2], [1.5, 1.5, H.zTop]));
       }
-      // 50 fuel per container
+      // 50 fuel per container: non-overlapping 4 x 4 layers resting on the slope (they settle when live)
       let n = 0;
       for (let layer = 0; n < 50; layer++) {
-        for (let i = 0; i < 5 && n < 50; i++) for (let j = 0; j < 4 && n < 50; j++) {
-          const off = layer % 2 ? 0.9 : 0;
-          fuel.push([x0 + 2.8 + off + i * 5.1, cy + (-7.5 + j * 5) + (layer % 2 ? 1 : 0) * side, H.floorZ + 2.75 + layer * 4.4]);
+        for (let i = 0; i < 4 && n < 50; i++) for (let j = 0; j < 4 && n < 50; j++) {
+          const fy = cy + (j - 1.5) * 5.1, t = (Math.abs(fy) - H.yIn) / (H.yOut - H.yIn);
+          fuel.push([cx + (i - 1.5) * 5.3, fy, fz + H.slope * t + DIM.fuelR + 0.15 + layer * 5.15]);
           n++;
         }
       }
