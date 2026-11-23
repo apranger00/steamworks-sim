@@ -69,6 +69,7 @@ namespace SteamworksSim.Game
         TankDrive playerDrive;
         FieldMaterials ownMaterials;
         MatchSounds sounds;
+        TitleMusic music;
         GameMenus menus;
         MatchHud hud;
         RobotCameraRig.Mode playCamera = RobotCameraRig.Mode.Chase;
@@ -108,6 +109,7 @@ namespace SteamworksSim.Game
                 Debug.LogWarning("[Steamworks] The scene had no Audio Listener, so nothing could be heard; added one to " + ears.name + ".");
             }
             sounds = gameObject.AddComponent<MatchSounds>();
+            music = gameObject.AddComponent<TitleMusic>();
             Clock.Cue += OnCue;
 
             // Scoring: rules (port of the prototype's game.js), FUEL, ROPES, moving field parts
@@ -311,7 +313,7 @@ namespace SteamworksSim.Game
             if (cameraRig != null) cameraRig.AllowOrbitInput(!frozen);
         }
 
-        public string SoundStatus => sounds != null ? sounds.StatusText : "";
+        public string SoundStatus => (sounds != null ? sounds.StatusText : "") + (music != null ? "\n" + music.StatusText : "");
 
         public void PlayTestSound()
         {
@@ -488,6 +490,8 @@ namespace SteamworksSim.Game
 
         void Update()
         {
+            // title music while the menus are up (title, options, robot selection); fades out for a match
+            if (music != null) music.Wanted = State == AppState.MainMenu || State == AppState.RobotSelect;
             var input = reader.Read();
             bool driving = State == AppState.Playing && Clock.Running; // disabled during the countdown and after 0:00
             if (playerDrive != null) playerDrive.input = driving ? input : RobotInput.Idle;

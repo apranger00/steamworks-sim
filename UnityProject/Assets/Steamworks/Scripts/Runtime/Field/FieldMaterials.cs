@@ -24,7 +24,7 @@ namespace SteamworksSim.Field
 
         static readonly Dictionary<string, Spec> Palette = new Dictionary<string, Spec>
         {
-            ["carpet"] = new Spec { color = Hex(0x3f7d43), smooth = 0.05f },
+            ["carpet"] = new Spec { color = Hex(0x387d2d), smooth = 0.05f },
             ["poly"] = new Spec { color = Hex(0xcfe6ff, 0.22f), smooth = 0.9f, transparent = true, doubleSided = true },
             ["polyHopper"] = new Spec { color = Hex(0xdfeeff, 0.18f), smooth = 0.9f, transparent = true, doubleSided = true },
             ["alu"] = new Spec { color = Hex(0xb9bec4), metal = 0.6f, smooth = 0.6f },
@@ -50,12 +50,16 @@ namespace SteamworksSim.Field
             ["bin"] = new Spec { color = Hex(0x2b2b2b), smooth = 0.1f },
             ["fuel"] = new Spec { color = Hex(0xf3e21b), smooth = 0.45f },
             ["gear"] = new Spec { color = Hex(0xd9a514), metal = 0.15f, smooth = 0.55f },
+            ["tape_charcoal"] = new Spec { color = Hex(0x36393d), smooth = 0.1f },
             ["tape_white"] = new Spec { color = Hex(0xf4f4f4), smooth = 0.1f },
             ["tape_green"] = new Spec { color = Hex(0x1fbf4c), smooth = 0.1f },
             ["tape_red"] = new Spec { color = Hex(0xe0202e), smooth = 0.1f },
             ["tape_blue"] = new Spec { color = Hex(0x2266e0), smooth = 0.1f },
             ["cadGhost"] = new Spec { color = Hex(0x7fd0ff, 0.35f), smooth = 0.4f, transparent = true, doubleSided = true },
         };
+
+        /// <summary>The lit shader every field material uses (URP Lit, or Standard outside URP).</summary>
+        public Shader LitShader => lit;
 
         public FieldMaterials(Shader litShader = null)
         {

@@ -15,8 +15,8 @@ namespace SteamworksSim.Game
     public class FuelPool : MonoBehaviour
     {
         public const float RadiusIn = 2.5f;
-        const float MassKg = 0.1625f * 0.45359237f;
-        const float RollDecel = 14f * Units.Inch;      // m/s^2 on the carpet (prototype: 14 in/s^2)
+        const float MassKg = 0.14f * 0.45359237f;     // a little under the real 0.1625 lb, so it gets pushed around more
+        const float RollDecel = 6f * Units.Inch;       // m/s^2 on the carpet (prototype: 14 in/s^2; less so it rolls further)
         public int maxBalls = 1000; // 500 from the hoppers plus shots
 
         /// <summary>(alliance, goal) for a ball entering a goal; return true to take the ball off the field.</summary>
@@ -47,9 +47,10 @@ namespace SteamworksSim.Game
         public void Init(TargetsFile t, Material mat)
         {
             targets = t; material = mat;
-            var tmp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere = tmp.GetComponent<MeshFilter>().sharedMesh;
-            Destroy(tmp);
+            // a smooth unit-diameter sphere (the built-in primitive is visibly faceted at this size)
+            var mb = new MeshBuilder();
+            mb.SmoothSphere(Vector3.zero, 0.5f / Units.Inch, 32, 20);
+            sphere = mb.ToMesh("Fuel ball");
             physics = new PhysicsMaterial("Fuel")
             {
                 bounciness = 0.45f, dynamicFriction = 0.4f, staticFriction = 0.5f,
@@ -71,7 +72,7 @@ namespace SteamworksSim.Game
             var rb = go.AddComponent<Rigidbody>();
             rb.mass = MassKg;
             rb.linearDamping = 0f;
-            rb.angularDamping = 0.8f;
+            rb.angularDamping = 0.15f;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // shots move up to 12 m/s
             return new Ball { go = go, rb = rb, col = col };

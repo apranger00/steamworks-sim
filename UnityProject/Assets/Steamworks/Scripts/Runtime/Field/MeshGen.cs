@@ -34,6 +34,41 @@ namespace SteamworksSim.Field
             if (Vector3.Dot(n, (a + b + c) / 3f - inside) < 0f) Tri(a, c, b); else Tri(a, b, c);
         }
 
+        /// <summary>
+        /// A smooth sphere (shared vertices, so RecalculateNormals shades it round), centre c and radius r in the
+        /// spec frame (inches).
+        /// </summary>
+        public void SmoothSphere(Vector3 c, float r, int lon, int lat)
+        {
+            int start = verts.Count;
+            var cu = Units.ToUnity(c);
+            for (int j = 0; j <= lat; j++)
+            {
+                float th = Mathf.PI * j / lat;
+                for (int i = 0; i <= lon; i++)
+                {
+                    float ph = Mathf.PI * 2f * i / lon;
+                    verts.Add(Units.ToUnity(c + r * new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Sin(th) * Mathf.Sin(ph), Mathf.Cos(th))));
+                }
+            }
+            int row = lon + 1;
+            for (int j = 0; j < lat; j++)
+                for (int i = 0; i < lon; i++)
+                {
+                    int a = start + j * row + i, b = a + 1, d = a + row, e = d + 1;
+                    if (j > 0) Add(a, b, e, cu);
+                    if (j < lat - 1) Add(a, e, d, cu);
+                }
+        }
+
+        // one triangle, wound so Unity sees it from outside (away from the centre)
+        void Add(int a, int b, int c, Vector3 centre)
+        {
+            Vector3 n = Vector3.Cross(verts[b] - verts[a], verts[c] - verts[a]);
+            bool outward = Vector3.Dot(n, (verts[a] + verts[b] + verts[c]) / 3f - centre) > 0f;
+            tris.Add(a); tris.Add(outward ? b : c); tris.Add(outward ? c : b);
+        }
+
         public Mesh ToMesh(string name)
         {
             var m = new Mesh { name = name };

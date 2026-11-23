@@ -194,13 +194,19 @@ namespace SteamworksSim.Game
             return d0 <= d1 ? 0 : 1;
         }
 
+        /// <summary>
+        /// A chute does one thing at a time: no new request until the GEAR it is passing has come out, or the last
+        /// FUEL of the drop has.
+        /// </summary>
+        static bool Busy(Station s, int c) => s.pouring[c] > 0 || s.gearWait[c] > 0f;
+
         /// <summary>L1 / F: 20 FUEL (or what's left) out of the nearest chute. False if not allowed or empty.</summary>
         public bool RequestFuel(RobotMechanisms r)
         {
             var s = Of(r.alliance);
             if (s == null || !InZone(r)) return false;
             int c = NearestChute(s, r.Center);
-            if (s.pouring[c] > 0 || s.fuel < 1) return false;
+            if (Busy(s, c) || s.fuel < 1) return false;
             int n = Mathf.Min(FuelPerDrop, s.fuel);
             s.fuel -= n; s.pouring[c] = n; s.acc[c] = 1f; // first ball right away
             return true;
@@ -212,7 +218,7 @@ namespace SteamworksSim.Game
             var s = Of(r.alliance);
             if (s == null || !InZone(r) || gearPool == null) return false;
             int c = NearestChute(s, r.Center);
-            if (s.gearWait[c] > 0f || s.gears < 1) return false;
+            if (Busy(s, c) || s.gears < 1) return false;
             s.gears--; s.gearWait[c] = GearCooldown;
             var L = s.spec;
             var inward = new Vector2(L.inward[0], L.inward[1]);

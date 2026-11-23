@@ -17,7 +17,8 @@ namespace SteamworksSim.Game
         readonly Dictionary<string, Pad[]> pads = new Dictionary<string, Pad[]>();
         readonly Dictionary<string, Transform[]> pegGears = new Dictionary<string, Transform[]>();
         TargetsFile targets;
-        static readonly Color Red = new Color(1f, 0.16f, 0.23f), Blue = new Color(0.18f, 0.48f, 1f);
+        static readonly Color Red = new Color(1f, 0.08f, 0.1f), Blue = new Color(0.08f, 0.32f, 1f);
+        readonly Dictionary<Material, Color> baseColours = new Dictionary<Material, Color>();
 
         public void Init(FieldBuilder field, TargetsFile t, FieldMaterials mats)
         {
@@ -120,10 +121,15 @@ namespace SteamworksSim.Game
                     bool lit = tp.credited || (tp.pressed && tp.held >= MatchRules.TouchpadHold);
                     if (lit == pad.lit) continue;
                     pad.lit = lit;
+                    var glow = al == "red" ? Red : Blue;
                     foreach (var rend in pad.renderers)
                     {
                         var m = rend.material;
-                        if (lit) FieldMaterials.SetEmission(m, al == "red" ? Red : Blue, 2.2f);
+                        if (!baseColours.ContainsKey(m)) baseColours[m] = m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : m.color;
+                        var b0 = baseColours[m];
+                        var tint = lit ? new Color(glow.r, glow.g, glow.b, Mathf.Max(b0.a, 0.85f)) : b0;
+                        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", tint); else m.color = tint;
+                        if (lit) FieldMaterials.SetEmission(m, glow, 1.1f);
                         else { m.SetColor("_EmissionColor", Color.black); m.DisableKeyword("_EMISSION"); }
                     }
                 }
