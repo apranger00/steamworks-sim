@@ -219,8 +219,7 @@ namespace SteamworksSim.UI
             Ui.Anchor(reset.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(200f, 60f), new Vector2(-24f, -24f));
             var msg = Ui.Anchor(Ui.Rect("Message", page), new Vector2(0.5f, 1f), new Vector2(980f, 84f), new Vector2(0f, -24f));
             msg.gameObject.AddComponent<Image>().color = Ui.Backdrop;
-            var t = Ui.Label(msg, "Drive around to set your starting position, but remember:
-you can only save it if your robot is touching your ALLIANCE WALL!", 26, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            var t = Ui.Label(msg, "Drive around to set your starting position, but remember:\nyou can only save it if your robot is touching your ALLIANCE WALL!", 26, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
             Ui.Stretch(t.rectTransform, 8f);
             var st = Ui.Anchor(Ui.Rect("Status", page), new Vector2(0.5f, 1f), new Vector2(640f, 46f), new Vector2(0f, -116f));
             st.gameObject.AddComponent<Image>().color = Ui.Backdrop;
