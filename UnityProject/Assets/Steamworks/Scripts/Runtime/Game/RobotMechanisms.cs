@@ -220,7 +220,8 @@ namespace SteamworksSim.Game
             if (rb != null) { rb.isKinematic = false; if (Climb == ClimbPhase.None) rb.constraints = savedConstraints; }
             if (drive != null) drive.enabled = true;
             var p = transform.position; p.y = 0f; transform.position = p;
-            if (rb != null) rb.position = p;
+            transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f); // upright (it may have been swinging on a rope)
+            if (rb != null) { rb.position = p; rb.rotation = transform.rotation; }
         }
 
         // ---------------------------------------------------------------- per tick
@@ -664,9 +665,56 @@ namespace SteamworksSim.Game
             drive.enabled = false;
             rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
             savedConstraints = rb.constraints;
-            rb.constraints = RigidbodyConstraints.FreezeRotation; // the robot must be free to rise (Y was frozen)
+            rb.constraints = RigidbodyConstraints.None; // kinematic: moved (and swung) by ClimbStep
             rb.isKinematic = true;
+            climbC = Center;
+            climbYaw = rb.rotation.eulerAngles.y;
+            swingAng = swingVel = Vector2.zero; pullT = 0f;
             Toast?.Invoke($"Latched: climbing to TOUCHPAD {R.touchpad + 1}");
+        }
+
+        // ---- swinging on the rope: the robot hangs from its grip like a pendulum from the TOUCHPAD cut-out the rope
+        // is threaded through, swaying fore-aft and side to side; each pull of the winch nudges it, and the sway
+        // fades as it gets short near the top
+        Vector2 climbC;           // spec centre of the robot, unswung
+        float climbYaw;           // Unity yaw while on the rope
+        Vector2 swingAng, swingVel; // rope angle (rad): x fore-aft, y side to side (robot frame)
+        float pullT;
+        const float SwingDamping = 0.12f, MaxSwing = 0.3f, PullPeriod = 0.45f;
+
+        Vector2 YawFwd => new Vector2(Mathf.Sin(climbYaw * Mathf.Deg2Rad), Mathf.Cos(climbYaw * Mathf.Deg2Rad));
+        float GripFwd => HalfL - (def.climber != null ? def.climber.setback : 3f);
+
+        void StepSwing(float dt, float ropeLen, bool pulling)
+        {
+            if (pulling)
+            {
+                pullT += dt;
+                if (pullT >= PullPeriod)
+                {
+                    pullT -= PullPeriod;
+                    // hand over hand: a tug toward the rope and a little to one side
+                    swingVel += new Vector2(0.12f + 0.08f * (float)rnd.NextDouble(), ((float)rnd.NextDouble() * 2f - 1f) * 0.18f);
+                }
+            }
+            float w2 = Gravity / ropeLen, c = 2f * SwingDamping * Mathf.Sqrt(w2);
+            swingVel += (-w2 * swingAng - c * swingVel) * dt;
+            swingAng += swingVel * dt;
+            swingAng = Vector2.ClampMagnitude(swingAng, MaxSwing);
+        }
+
+        /// <summary>Puts the kinematic robot where its grip is, hanging along the swinging rope.</summary>
+        void PoseOnRope(float ropeLen)
+        {
+            Vector2 f = YawFwd, l = new Vector2(-f.y, f.x);
+            float k = Mathf.Clamp01(Lift / 4f); // no sway while the wheels are still on the carpet
+            var a = swingAng * k;
+            var grip = climbC + f * GripFwd + (f * Mathf.Sin(a.x) + l * Mathf.Sin(a.y)) * ropeLen;
+            var q = Quaternion.Euler(0f, climbYaw, 0f) * Quaternion.Euler(-a.x * Mathf.Rad2Deg, 0f, -a.y * Mathf.Rad2Deg);
+            var gripLocal = new Vector3(0f, Height * In, GripFwd * In);
+            var root = Units.ToUnity(grip.x, grip.y, Lift + Height) - q * gripLocal;
+            rb.MovePosition(root);
+            rb.MoveRotation(q);
         }
 
         const float FullClimbPress = 3.5f; // in: a full climb pushes the TOUCHPAD up this far (visible)
@@ -674,21 +722,24 @@ namespace SteamworksSim.Game
 
         void ClimbStep(float dt)
         {
-            var c = Center;
             float rate = def.climber.rate;
+            float pinZ = ClimbRope.spec.pin != null && ClimbRope.spec.pin.Length >= 3 ? ClimbRope.spec.pin[2] : ClimbRope.spec.anchor[2];
+            float ropeLen = Mathf.Max(6f, pinZ - (Lift + Height));
+            bool pulling = false;
             if (Climb == ClimbPhase.Attach)
             {
                 var a = new Vector2(ClimbRope.spec.anchor[0], ClimbRope.spec.anchor[1]);
-                var d = a - ClimberPoint();
+                var d = a - (climbC + YawFwd * GripFwd);
                 float step = 30f * dt;
-                if (d.magnitude <= step) { c += d; Climb = ClimbPhase.Up; }
-                else c += d.normalized * step;
+                if (d.magnitude <= step) { climbC += d; Climb = ClimbPhase.Up; swingVel.x += 0.35f; } // swings in as it lifts off
+                else climbC += d.normalized * step;
             }
             else if (enabledByMatch) // after 0:00 the robot stays where it is
             {
                 float target = climbTopZ - Height;
                 if (climbHeld)
                 {
+                    pulling = Lift < target;
                     Lift = Mathf.Min(target, Lift + rate * dt);
                     Climb = Lift >= target ? ClimbPhase.Hold : ClimbPhase.Up;
                 }
@@ -698,10 +749,15 @@ namespace SteamworksSim.Game
                     Climb = ClimbPhase.Down;
                 }
             }
-            rb.MovePosition(Units.ToUnity(c.x, c.y, Lift));
+            if (Climb != ClimbPhase.Attach) StepSwing(dt, ropeLen, pulling);
+            PoseOnRope(ropeLen);
             if (Climb == ClimbPhase.Down && Lift <= 0f)
             {
                 Climb = ClimbPhase.None; ClimbRope = null;
+                // back on the carpet, upright, where it hung
+                var up = Units.ToUnity(climbC.x, climbC.y, 0f);
+                rb.position = up; rb.rotation = Quaternion.Euler(0f, climbYaw, 0f);
+                transform.SetPositionAndRotation(up, rb.rotation);
                 rb.isKinematic = false;
                 rb.constraints = savedConstraints;
                 rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;

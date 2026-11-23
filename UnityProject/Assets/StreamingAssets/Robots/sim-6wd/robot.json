@@ -55,7 +55,7 @@
   },
   "gear": {
     "enabled": true,
-    "slotOffset": 6,
+    "slotOffset": 0,
     "maxDistance": 4,
     "maxLateral": 3.5,
     "maxAngle": 15,

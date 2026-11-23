@@ -88,8 +88,7 @@ function panelWithHole(name, mat, a, b, thick, z0, z1, s0, s1, oz0, oz1) {
     segBox(name, mat, at(s1), b, thick, z0, z1),
     segBox(name, mat, at(s0), at(s1), thick, z0, oz0),
     segBox(name, mat, at(s0), at(s1), thick, oz1, z1),
-    segBox(name + ' (opening)', 'hole', at(s0), at(s1), thick * 0.4, oz0, oz1),
-  ];
+  ]; // the opening itself is open (the game puts a chute behind it)
 }
 
 // ---------------------------------------------------------------------------
@@ -171,12 +170,7 @@ export function layout() {
     for (const o of [o0, o1]) {
       push(segBox(nm, 'poly', at(pad + o[0]), at(pad + o[1]), 0.5, 0, L.openZ[0]));
       push(segBox(nm, 'poly', at(pad + o[0]), at(pad + o[1]), 0.5, L.openZ[1], L.h));
-      push(segBox(nm + ' (chute opening)', 'hole', at(pad + o[0]), at(pad + o[1]), 0.2, L.openZ[0], L.openZ[1]));
-      // Shelf behind the opening (72 deg chute) — simplified as a tilted slab outside.
-      const c = at(pad + (o[0] + o[1]) / 2);
-      push({ type: 'box', name: nm + ' shelf', mat: 'alu', group: 'field',
-             c: [c[0] + nrm[0] * 9, c[1] + nrm[1] * 9, 36], size: [24, 1, 30],
-             rotZ: Math.atan2(dir[1], dir[0]) / D2R, tilt: 18 * (nrm[0] * dir[1] - nrm[1] * dir[0] > 0 ? 1 : -1) });
+      // the opening is open; the Unity game builds the chute behind it (LoadingStations)
     }
     push(segBox(nm + ' frame', 'alu', at(0), at(llen), 1.5, L.h - 1.5, L.h));
     for (const t of [0, llen]) push(box(nm + ' post', 'alu', [at(t)[0], at(t)[1], L.h / 2], [2, 2, L.h]));

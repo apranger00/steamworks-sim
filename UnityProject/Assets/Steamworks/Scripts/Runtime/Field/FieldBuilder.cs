@@ -301,7 +301,8 @@ namespace SteamworksSim.Field
         void BuildLogos(FieldFile data)
         {
             var tex = Resources.Load<Texture2D>("Textures/SteamworksLogo");
-            if (tex == null || data.items == null) return;
+            if (tex == null) { Debug.LogWarning("[Steamworks] Resources/Textures/SteamworksLogo not found: no airship logos."); return; }
+            if (data.items == null) return;
             Material mat = null;
             Transform root = null;
             foreach (var it in data.items)
@@ -339,6 +340,8 @@ namespace SteamworksSim.Field
                     mat.SetFloat("_Smoothness", 0.3f);
                     mat.SetFloat("_AlphaClip", 1f); mat.SetFloat("_Cutoff", 0.5f);
                     mat.EnableKeyword("_ALPHATEST_ON");
+                    mat.SetFloat("_Cull", 0f); // both sides, whatever the winding
+                    mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.AlphaTest;
                     root = new GameObject("Logos").transform;
                     root.SetParent(GeneratedRoot, false);
                 }
@@ -348,9 +351,10 @@ namespace SteamworksSim.Field
                 mesh.uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
                 var nrm = Units.ToUnity(new Vector3(outward.x, outward.y, 0f)).normalized;
                 mesh.normals = new[] { nrm, nrm, nrm, nrm };
-                // wound to face outward (Unity is left-handed: clockwise seen from the front)
+                // wound to face outward: Unity draws the side Cross(b - a, c - a) points to (this was backwards before,
+                // so the logo was culled from outside)
                 var tri = Vector3.Cross(mesh.vertices[1] - mesh.vertices[0], mesh.vertices[2] - mesh.vertices[0]);
-                mesh.triangles = Vector3.Dot(tri, nrm) < 0f ? new[] { 0, 1, 2, 0, 2, 3 } : new[] { 0, 2, 1, 0, 3, 2 };
+                mesh.triangles = Vector3.Dot(tri, nrm) > 0f ? new[] { 0, 1, 2, 0, 2, 3 } : new[] { 0, 2, 1, 0, 3, 2 };
                 mesh.RecalculateBounds();
                 var go = new GameObject("Logo (" + it.name + ")");
                 go.transform.SetParent(root, false);

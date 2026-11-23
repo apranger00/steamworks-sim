@@ -23,7 +23,7 @@ namespace SteamworksSim.Game
         /// <summary>For every robot: to take a GEAR straight from a chute its front must be within this many inches of
         /// the chute, and its front must cover at least this fraction of the chute's width, left to right.</summary>
         public const float GearReach = 8f, GearOverlap = 0.5f;
-        const float FuelPerSecond = 12f, GearCooldown = 0.6f;
+        const float FuelPerSecond = 12f, GearCooldown = 1.2f; // a GEAR takes about this long to slide down the chute
 
         public class Station
         {
@@ -68,7 +68,7 @@ namespace SteamworksSim.Game
                 BlueLane = new Station { alliance = "blue", lane = true, spec = t.lanes.blue };
             }
             else Debug.LogWarning("[Steamworks] targets.json has no loading lanes: re-export the field data (node tools/export_unity_data.mjs).");
-            if (mats != null) foreach (var s in All()) BuildStock(s, mats);
+            if (mats != null) foreach (var s in All()) { BuildStock(s, mats); for (int c = 0; c < s.Chutes; c++) BuildChute(s, c, mats); }
         }
 
         // ---------------------------------------------------------------- loading lane visuals
@@ -84,8 +84,9 @@ namespace SteamworksSim.Game
         {
             float sx = Mathf.Sign(s.spec.a[0]);
             int stacks = s.lane ? 1 : GearStacks, perStack = s.lane ? TeamsPerAlliance * PreloadGears : GearsPerStack, maxBoxes = s.lane ? 1 : MaxBoxes;
-            float[] stackY = s.lane ? new[] { s.spec.chutes[1] - 18f } : new[] { 135f, 150f, 165f };
-            float boxY = s.lane ? s.spec.chutes[1] + 4f : 150f;
+            float[] stackY = s.lane ? new[] { s.spec.chutes[1] - 22f } : new[] { 135f, 150f, 165f };
+            float boxY = s.lane ? s.spec.chutes[1] + 34f : 150f;
+            float stackX = s.lane ? 332f : 344f, boxX = s.lane ? 347f : 364f; // clear of the chutes
             var root = new GameObject($"{s.alliance.ToUpper()} {s.Label.ToLower()} stock").transform;
             root.SetParent(transform, false);
 
@@ -97,7 +98,7 @@ namespace SteamworksSim.Game
                 {
                     var g = new GameObject("Lane GEAR");
                     g.transform.SetParent(root, false);
-                    g.transform.SetPositionAndRotation(Units.ToUnity(sx * 332f, stackY[k], 1f + 2f * h), Quaternion.Euler(0f, 18f * h, 0f));
+                    g.transform.SetPositionAndRotation(Units.ToUnity(sx * stackX, stackY[k], 1f + 2f * h), Quaternion.Euler(0f, 18f * h, 0f));
                     g.AddComponent<MeshFilter>().sharedMesh = gearMesh;
                     g.AddComponent<MeshRenderer>().sharedMaterial = gearMat;
                     s.gearStack[k * perStack + h] = g;
@@ -118,7 +119,7 @@ namespace SteamworksSim.Game
             {
                 var box = new GameObject($"FUEL box {b + 1}").transform;
                 box.SetParent(root, false);
-                box.position = Units.ToUnity(sx * (347f + 20f * b), boxY, 0f);
+                box.position = Units.ToUnity(sx * (boxX + 20f * b), boxY, 0f);
                 void Slab(Vector3 c, Vector3 size)
                 {
                     var w = new GameObject("Bin");
@@ -151,6 +152,80 @@ namespace SteamworksSim.Game
                 s.boxes[b] = box.gameObject;
             }
             ShowLane(s);
+        }
+
+        // ---------------------------------------------------------------- chutes (manual figure 3-32)
+        /// <summary>Chute length (in) and slope (deg from horizontal: 72 deg off the vertical wall).</summary>
+        const float ChuteLen = 36f, ChuteSlope = 18f;
+        PhysicsMaterial chuteSurface;
+
+        /// <summary>Spec-frame directions of chute c: down the chute toward the field (`down`), and the plate's normal.</summary>
+        static void ChuteFrame(Station s, int c, out Vector3 bottom, out Vector3 up, out Vector3 normal, out Vector3 along)
+        {
+            var L = s.spec;
+            var inward = new Vector2(L.inward[0], L.inward[1]);
+            float a = ChuteSlope * Mathf.Deg2Rad;
+            bottom = new Vector3(L.chutes[2 * c], L.chutes[2 * c + 1], L.chuteZ0);            // plate top at the opening
+            up = new Vector3(-inward.x * Mathf.Cos(a), -inward.y * Mathf.Cos(a), Mathf.Sin(a)); // up the chute, away from the field
+            normal = new Vector3(inward.x * Mathf.Sin(a), inward.y * Mathf.Sin(a), Mathf.Cos(a));
+            along = new Vector3(-inward.y, inward.x, 0f);
+        }
+
+        /// <summary>
+        /// A chute behind the opening (manual figure 3-32): a 3 ft trough sloping up away from the field at 18 deg with
+        /// an alliance-coloured bottom plate, aluminium sides as tall as the opening, a cover over its upper half, an end
+        /// cap and two legs. The opening itself is open, so FUEL and GEARS are seen sliding down and out. The plate,
+        /// sides and cover collide (low friction, so GEARS slide).
+        /// </summary>
+        void BuildChute(Station s, int c, FieldMaterials mats)
+        {
+            ChuteFrame(s, c, out var b, out var up, out var n, out var al);
+            var L = s.spec;
+            float hw = L.chuteHalfW, h = L.chuteZ1 - L.chuteZ0;
+            var root = new GameObject($"{s.alliance.ToUpper()} {s.Label.ToLower()} chute {c + 1}").transform;
+            root.SetParent(transform, false);
+            if (chuteSurface == null)
+                chuteSurface = new PhysicsMaterial("Chute") { dynamicFriction = 0.06f, staticFriction = 0.08f, bounciness = 0.1f, frictionCombine = PhysicsMaterialCombine.Minimum };
+            var colour = mats.Get(s.alliance == "blue" ? "blue" : "red");
+            var alu = mats.Get("alu");
+            var rot = Quaternion.LookRotation(Units.ToUnity(up).normalized, Units.ToUnity(n).normalized);
+            void Plank(string name, Vector3 centre, Vector3 size, Material m, bool solid)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = name;
+                go.transform.SetParent(root, false);
+                go.transform.SetPositionAndRotation(Units.ToUnity(centre), rot);
+                go.transform.localScale = size * Units.Inch; // (across, thickness, along the chute)
+                go.GetComponent<MeshRenderer>().sharedMaterial = m;
+                var col = go.GetComponent<BoxCollider>();
+                if (solid) col.sharedMaterial = chuteSurface; else Destroy(col);
+            }
+            var mid = b + up * (ChuteLen / 2f);
+            Plank("Bottom plate", mid - n * 0.25f, new Vector3(2f * hw + 0.5f, 0.5f, ChuteLen), colour, true);
+            for (int k = -1; k <= 1; k += 2)
+                Plank("Side", mid + n * (h / 2f) + al * (k * (hw + 0.15f)), new Vector3(0.25f, h + 0.5f, ChuteLen), alu, true);
+            Plank("Cover", b + up * (ChuteLen * 0.75f) + n * (h + 0.15f), new Vector3(2f * hw + 0.5f, 0.25f, ChuteLen * 0.5f), alu, true);
+            Plank("End cap", b + up * (ChuteLen + 0.15f) + n * (h / 2f), new Vector3(2f * hw + 0.5f, h + 0.5f, 0.25f), alu, true);
+            // legs under the high end, down to the carpet
+            var top = b + up * (ChuteLen - 1f);
+            for (int k = -1; k <= 1; k += 2)
+            {
+                var leg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                leg.name = "Leg";
+                leg.transform.SetParent(root, false);
+                var foot = top + al * (k * (hw + 0.6f));
+                leg.transform.position = Units.ToUnity(foot.x, foot.y, foot.z / 2f);
+                leg.transform.localScale = new Vector3(1.25f, foot.z, 1.25f) * Units.Inch;
+                leg.GetComponent<MeshRenderer>().sharedMaterial = alu;
+                Destroy(leg.GetComponent<BoxCollider>());
+            }
+        }
+
+        /// <summary>A point on chute c's plate `fromMouth` in up the chute, `lateral` in across, `lift` in above the plate.</summary>
+        static Vector3 OnChute(Station s, int c, float fromMouth, float lateral, float lift)
+        {
+            ChuteFrame(s, c, out var b, out var up, out var n, out var al);
+            return b + up * fromMouth + al * lateral + n * lift;
         }
 
         static void ShowLane(Station s)
@@ -271,13 +346,16 @@ namespace SteamworksSim.Game
             if (r.TakeGearFromChute(L, chute, GearReach, GearOverlap)) return true; // straight into the gear slot
             // GEARS fit through the 7.5 in slot lying flat: it slides out of the opening onto the carpet, a little
             // differently each time (speed, direction and spot within about 15 %) so they don't stack up
-            var along = new Vector2(-inward.y, inward.x);
+            // the human player sets it in the chute; it slides down and out of the opening, a little differently each
+            // time (speed, direction and spot within about 15 %) so they don't land on top of each other
             float V() => 1f + ((float)rnd.NextDouble() * 2f - 1f) * DropVariance;
-            float speed = 35f * V(), side = ((float)rnd.NextDouble() * 2f - 1f) * DropVariance;
-            var dir = (inward + along * side).normalized;
-            var at = chute + along * (((float)rnd.NextDouble() * 2f - 1f) * DropVariance * 2f * Mathf.Max(0f, L.chuteHalfW - 5.5f) + side * 3f);
+            float side = ((float)rnd.NextDouble() * 2f - 1f) * DropVariance;
+            float lateral = ((float)rnd.NextDouble() * 2f - 1f) * DropVariance * 2f * Mathf.Max(0f, L.chuteHalfW - 5.5f);
+            ChuteFrame(s, c, out _, out var upC, out _, out var alC);
+            var at = OnChute(s, c, 14f * V(), lateral, 2.2f);
+            var vel = (-upC + alC * side).normalized * (30f * V());
             float yaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg + (float)rnd.NextDouble() * 36f;
-            gearPool.Spawn(new Vector3(at.x, at.y, L.chuteZ0 + 1.5f), new Vector3(dir.x, dir.y, 0f) * speed, yaw);
+            gearPool.Spawn(at, vel, yaw);
             return true;
         }
 
@@ -297,11 +375,12 @@ namespace SteamworksSim.Game
                     while (s.acc[c] >= 1f && s.pouring[c] > 0)
                     {
                         s.acc[c] -= 1f; s.pouring[c]--;
-                        var mouth = new Vector2(L.chutes[2 * c], L.chutes[2 * c + 1]) + inward * (FuelPool.RadiusIn + 1f)
-                                  + along * (((float)rnd.NextDouble() - 0.5f) * 2f * (L.chuteHalfW - FuelPool.RadiusIn));
-                        float z = Mathf.Lerp(L.chuteZ0 + FuelPool.RadiusIn, L.chuteZ1 - FuelPool.RadiusIn, (float)rnd.NextDouble());
-                        var v = inward * (25f + 20f * (float)rnd.NextDouble()) + along * (((float)rnd.NextDouble() - 0.5f) * 12f);
-                        fuel.Spawn(new Vector3(mouth.x, mouth.y, z), new Vector3(v.x, v.y, 0f));
+                        // set in the chute part way up and rolls down and out of the opening
+                        float lat = ((float)rnd.NextDouble() - 0.5f) * 2f * (L.chuteHalfW - FuelPool.RadiusIn - 0.4f);
+                        var at = OnChute(s, c, 12f + 10f * (float)rnd.NextDouble(), lat, FuelPool.RadiusIn + 0.1f);
+                        ChuteFrame(s, c, out _, out var upC, out _, out _);
+                        var v = -upC * (15f + 10f * (float)rnd.NextDouble()) + new Vector3(along.x, along.y, 0f) * (((float)rnd.NextDouble() - 0.5f) * 6f);
+                        fuel.Spawn(at, v);
                     }
                 }
             }
