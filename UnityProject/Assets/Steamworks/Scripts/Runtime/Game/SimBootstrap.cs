@@ -747,6 +747,20 @@ namespace SteamworksSim.Game
             float heading = Mathf.Repeat(90f - player.transform.eulerAngles.y, 360f);
             GUILayout.Label($"{current.name}  <color=#8e99a3>({alliance}, {StationName[station]})</color>", label);
             GUILayout.Label($"Position {spec.x:0}, {spec.y:0} in   Heading {heading:0}°", label);
+            {
+                // level check: the robot's tilt, and the height of whatever is under it (should be the carpet, 0 in)
+                var e = player.transform.eulerAngles;
+                float pitchT = Mathf.DeltaAngle(0f, e.x), rollT = Mathf.DeltaAngle(0f, e.z);
+                string under = "nothing";
+                var hits = Physics.RaycastAll(player.transform.position + Vector3.up * 2f, Vector3.down, 4f, ~0, QueryTriggerInteraction.Ignore);
+                float best = float.MaxValue;
+                foreach (var h in hits)
+                {
+                    if (h.rigidbody != null && h.rigidbody.gameObject == player) continue;
+                    if (h.distance < best) { best = h.distance; under = $"{h.collider.name} at {h.point.y / Units.Inch:0.0} in, slope {Vector3.Angle(h.normal, Vector3.up):0.0}°"; }
+                }
+                GUILayout.Label($"Level: tilt {pitchT:0.0}° / {rollT:0.0}°, under it {under}", label);
+            }
             if (playerMech != null)
             {
                 GUILayout.Label($"Shooter: {playerMech.ShooterStatus}", label);

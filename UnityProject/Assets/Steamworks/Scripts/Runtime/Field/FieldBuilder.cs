@@ -74,6 +74,14 @@ namespace SteamworksSim.Field
             Data = data;
             Materials = new FieldMaterials(litShader);
 
+            // everything else (robots, targets, ropes) works in world coordinates, so the field must sit at the origin,
+            // level and unscaled: a nudged or tilted Field object would put the carpet at an angle to the robots
+            if (!preview && (transform.position != Vector3.zero || transform.rotation != Quaternion.identity || transform.lossyScale != Vector3.one))
+            {
+                Debug.LogWarning($"[Steamworks] The Field object was at {transform.position}, rotated {transform.eulerAngles}, scale {transform.lossyScale}; it must be at the origin, level and unscaled. Reset for this run (fix it in the scene: Transform > Reset).");
+                transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                transform.localScale = Vector3.one;
+            }
             GeneratedRoot = new GameObject(RootName).transform;
             GeneratedRoot.SetParent(transform, false);
 
