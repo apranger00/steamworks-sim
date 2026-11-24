@@ -6,7 +6,7 @@
   "team": 1986,
   "teamName": "Team Titanium",
   "logo": "logo.png",
-  "description": "Team Titanium's 2017 robot, one of the best in the world that year. Built from photos (no CAD is public). A fast mecanum drive (14 ft/s) that strafes but is easy to push. A round tub with a star spinner (the indexer) feeds the double-flywheel shooter on the right side one ball at a time, so it makes about 95% of its shots within about 6 ft of the boiler, 5% fewer for every foot further out. FUEL comes from a chute (the green funnel over the front) or off the carpet: the intake sits under the gear mechanism on the front, and FUEL goes under it, then up the orange belts and into the hopper. GEARS from the chute only. Climbs with the winch on the back.",
+  "description": "Team Titanium's 2017 robot, one of the best in the world that year. Built from photos (no CAD is public). A fast mecanum drive (16 ft/s) that strafes but is easy to push. A round tub with a star spinner (the indexer) feeds the double-flywheel shooter on the right side one ball at a time, so it makes about 95% of its shots within about 6 ft of the boiler, 5% fewer for every foot further out. FUEL comes from a chute (the green funnel over the front) or off the carpet: the intake sits under the gear mechanism on the front, and FUEL goes under it, then up the orange belts and into the hopper. GEARS from the chute only. Climbs with the winch on the back.",
   "features": [
     "FUEL indexer (round tub with a star spinner): about 95% of shots go in within 6 ft of the boiler, 5% fewer for every foot further",
     "Mecanum drive: strafes sideways (Q / E, or the left stick sideways), but is easy to push"
@@ -28,13 +28,13 @@
   "mass": 110,
   "drivetrain": {
     "type": "mecanum",
-    "topSpeed": 14,
+    "topSpeed": 16,
     "strafeSpeed": 0.8,
-    "acceleration": 45,
+    "acceleration": 55,
     "traction": 0.9,
     "sideScrub": 0.45,
     "brake": 0.6,
-    "maxTurnRate": 300,
+    "maxTurnRate": 400,
     "trackWidth": 22.2,
     "wheelDiameter": 6,
     "wheelsPerSide": 2

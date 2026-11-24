@@ -445,7 +445,11 @@ namespace SteamworksSim.Game
             bool show = driveIn && State == AppState.RobotSelect;
             if (player != null)
             {
-                if (show) { player.name += " (old)"; PreviewDrive.Leave(player, PreviewExit); }
+                // only a robot parked on the showcase spot drives off; one still driving in (or anywhere else on the
+                // field) is just removed, so nothing goes racing across the background
+                var at = Units.ToSpec(player.transform.position);
+                bool parked = !PreviewDrive.Busy(player) && new Vector2(at.x, at.y).magnitude < 24f;
+                if (show && parked) { player.name += " (old)"; PreviewDrive.Leave(player, PreviewExit); }
                 else Destroy(player);
             }
             player = RobotFactory.Build(current, alliance, Mats, $"Player robot: {current.name}");
