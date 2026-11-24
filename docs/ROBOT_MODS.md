@@ -60,6 +60,7 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `intake.hopperBalls` | 0 | Sizes the open-top hopper: about this many FUEL, piled loosely, reach the rim. It then holds what physically fits (a ball whose centre would be above the rim rolls off) and the rest overflows |
 | `intake.gearFromChute` | true | The front gear slot takes a GEAR sliding out of a chute (robot facing the station, slot lined up with the chute) |
 | `intake.fuelFromFloor / gearFromFloor` | false / false | Front intake picks pieces up off the carpet while Intake is held. With an open-top hopper, FUEL goes in through a gap in the front bumper and rides a conveyor up into the hopper. A GEAR lying flat in front of the front bumper (in its opening, if it has one) goes into the gear slot, even one on the back |
+| `intake.floorWidth` | 0 | Width (in) of the floor intake's mouth and the gap in the front bumper; it takes a ball anywhere across it. 0 = automatic (frame width − 8, at most 20); at most frame width − 4 |
 | `climber.enabled / rate` | true / 12 | Winch speed in in/s |
 | `climber.back` | false | Climber on the back: setback and reach count from the back bumper |
 | `climber.setback / reachForward / reachLateral` | 3 / 10 / 12 | Where the rope is gripped and how close it must be to latch |

@@ -610,7 +610,8 @@ namespace SteamworksSim.Game
             if (def.intake.fuelFromFloor && enabledByMatch && intakeHeld && p.z <= FuelPool.RadiusIn + 2f && RideFree() >= 0)
             {
                 bool inMouth = RobotFactory.HasFloorIntake(def)
-                    ? lx >= hl + FuelPool.RadiusIn - 0.5f && lx <= HalfL + 1.5f && Mathf.Abs(ly) <= RobotFactory.IntakeGapHalf(def) - FuelPool.RadiusIn + 1f
+                    ? lx >= hl + FuelPool.RadiusIn - 0.5f && lx <= HalfL + 1.5f
+                      && Mathf.Abs(ly) <= RobotFactory.IntakeGapHalf(def) + (RobotFactory.WideIntake(def) ? 0.5f : 1f - FuelPool.RadiusIn)
                     : lx >= HalfL - 1f && lx <= HalfL + FuelPool.RadiusIn + 2f && Mathf.Abs(ly) <= HalfW - 3f;
                 if (inMouth)
                 {

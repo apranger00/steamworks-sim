@@ -137,6 +137,8 @@ namespace SteamworksSim.Robots
                                             // the rim; it then takes what physically fits and the rest overflows
         public bool gearFromChute = true;   // the front gear slot takes a GEAR sliding out of a chute
         public bool fuelFromFloor = false;  // front intake picks FUEL up off the carpet
+        public float floorWidth = 0f;       // in: width of the floor intake's mouth (and the gap in the front bumper);
+                                            // 0 = automatic (frame width - 8, at most 20). Up to frame width - 4
         public bool gearFromFloor = false;  // front intake picks GEARS up off the carpet
     }
 

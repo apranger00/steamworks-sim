@@ -192,8 +192,8 @@ cyl(B, 'white', (9.0, 7.6, hl - 4.0), (1, 0, 0), 1.3, 7.0, n=14)                
 # floor intake: white shaft with orange compliant wheels, under the gear mechanism in the bumper opening
 IR = 'Intake roller'
 ic = np.array([0, 3.2, hl + 2.2]); part(IR, ic)
-cyl(IR, 'white', ic, (1, 0, 0), 0.55, 20.0, n=10)
-for x in list(np.arange(-9.2, -2.0, 1.0)) + list(np.arange(2.2, 9.3, 1.0)):
+cyl(IR, 'white', ic, (1, 0, 0), 0.55, 25.0, n=10)          # full width (robot.json intake.floorWidth 25)
+for x in list(np.arange(-12.0, -1.0, 1.0)) + list(np.arange(1.5, 12.1, 1.0)):
     cyl(IR, 'orange' if int(round(x * 10)) % 20 < 10 else 'black', ic + np.array([x, 0, 0]), (1, 0, 0), 1.5, 0.6, n=10)
 CR = 'Conveyor roller 0'
 cc = np.array([0, 7.0, hl - 2.4]); part(CR, cc)

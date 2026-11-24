@@ -208,7 +208,11 @@ namespace SteamworksSim.Robots
         /// <summary>The robot has an open-top hopper and a floor intake for FUEL (in a gap in the front bumper).</summary>
         public static bool HasFloorIntake(RobotDefinition d) => d.intake != null && d.intake.fuelFromChute && d.intake.fuelFromFloor;
         /// <summary>Half the width (in) of the gap in the front bumper where the intake is.</summary>
-        public static float IntakeGapHalf(RobotDefinition d) => Mathf.Clamp(d.frame.width / 2f - 4f, 4f, 10f);
+        public static float IntakeGapHalf(RobotDefinition d) =>
+            d.intake != null && d.intake.floorWidth > 0f ? Mathf.Clamp(d.intake.floorWidth / 2f, 4f, d.frame.width / 2f - 2f)
+                                                         : Mathf.Clamp(d.frame.width / 2f - 4f, 4f, 10f);
+        /// <summary>A floor intake made wider than the automatic one: it takes a ball anywhere across its mouth.</summary>
+        public static bool WideIntake(RobotDefinition d) => d.intake != null && d.intake.floorWidth > 0f;
         /// <summary>Height (in) of the opening under the intake roller.</summary>
         public const float NotchTop = 8f;
 

@@ -89,6 +89,7 @@
     "hopperBalls": 70,
     "gearFromChute": true,
     "fuelFromFloor": true,
+    "floorWidth": 25,
     "gearFromFloor": false
   },
   "climber": {
