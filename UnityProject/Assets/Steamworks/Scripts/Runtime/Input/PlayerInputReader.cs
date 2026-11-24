@@ -42,7 +42,8 @@ namespace SteamworksSim.InputHandling
 
             float thr = GameControls.Throttle.ReadValue<float>();
             float turn = GameControls.Turn.ReadValue<float>() * KeyboardTurn;
-            bool keyboardActive = thr != 0f || turn != 0f;
+            float strafe = GameControls.Strafe.ReadValue<float>(); // right positive; only mecanum robots use it
+            bool keyboardActive = thr != 0f || turn != 0f || strafe != 0f;
 
             Vector2 ls = GameControls.LeftStick.ReadValue<Vector2>(), rs = GameControls.RightStick.ReadValue<Vector2>();
             bool padActive = false;
@@ -51,19 +52,20 @@ namespace SteamworksSim.InputHandling
                 case StickLayout.SingleStick:
                 {
                     float y = Shape(ls.y), x = -Shape(ls.x); // stick right = turn right = negative (left positive)
-                    if (y != 0f || x != 0f) { thr = y; turn = x; padActive = true; }
+                    float sx = Shape(rs.x);                  // mecanum: the right stick strafes
+                    if (y != 0f || x != 0f || sx != 0f) { thr = y; turn = x; strafe = sx; padActive = true; }
                     break;
                 }
                 case StickLayout.Tank:
                 {
-                    float l = Shape(ls.y), r = Shape(rs.y);
-                    if (l != 0f || r != 0f) { input.tank = true; input.left = l; input.right = r; padActive = true; }
+                    float l = Shape(ls.y), r = Shape(rs.y), sx = Shape((ls.x + rs.x) / 2f); // mecanum: both sticks sideways strafe
+                    if (l != 0f || r != 0f || sx != 0f) { input.tank = true; input.left = l; input.right = r; strafe = sx; padActive = true; }
                     break;
                 }
                 default:
                 {
-                    float y = Shape(ls.y), x = -Shape(rs.x);
-                    if (y != 0f || x != 0f) { thr = y; turn = x; padActive = true; }
+                    float y = Shape(ls.y), x = -Shape(rs.x), sx = Shape(ls.x); // mecanum: the left stick strafes
+                    if (y != 0f || x != 0f || sx != 0f) { thr = y; turn = x; strafe = sx; padActive = true; }
                     break;
                 }
             }
@@ -73,6 +75,7 @@ namespace SteamworksSim.InputHandling
             float scale = GameControls.Precision.IsPressed() ? PrecisionScale : 1f;
             input.throttle = Mathf.Clamp(thr, -1f, 1f) * scale;
             input.turn = Mathf.Clamp(turn, -1f, 1f) * scale;
+            input.strafe = Mathf.Clamp(strafe, -1f, 1f) * scale;
             input.left = Mathf.Clamp(input.left, -1f, 1f) * scale;
             input.right = Mathf.Clamp(input.right, -1f, 1f) * scale;
 

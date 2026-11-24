@@ -63,7 +63,8 @@ namespace SteamworksSim.Robots
     [Serializable]
     public class DrivetrainSpec
     {
-        public string type = "tank";        // tank (implemented); swerve, mecanum (planned)
+        public string type = "tank";        // tank or mecanum (strafes; robot-oriented controls); swerve planned
+        public float strafeSpeed = 0.8f;    // mecanum: sideways top speed as a fraction of topSpeed (roller slip)
         public float topSpeed = 12f;        // ft/s free speed
         public float acceleration = 50f;    // ft/s^2 from a stop; motor force fades to 0 at top speed
         public float traction = 1.1f;       // wheel-carpet friction coefficient (caps drive/pushing force)
@@ -89,6 +90,10 @@ namespace SteamworksSim.Robots
         public float entryAngle = 55f;      // deg below horizontal at the goal opening
         public float aimError = 0.6f;       // deg, 1 sigma, yaw and pitch
         public float speedError = 1.2f;     // percent, 1 sigma
+        // Optional make-rate model (0 = off: aimError / speedError decide every shot). Each shot goes in with this chance
+        // out to accurateRange ft (horizontal, shooter to goal centre), accuracyDrop less per ft beyond it, never under
+        // accuracyMin; a miss is thrown just wide of the opening. E.g. 0.95 / 6 / 0.05 / 0.1.
+        public float accuracy = 0f, accurateRange = 6f, accuracyDrop = 0.05f, accuracyMin = 0.1f;
         public int capacity = 0;            // FUEL the robot holds (shooter and dump share it); 0 = what its open-top
                                             // hopper physically holds (intake.hopperBalls), or unlimited without one
     }
@@ -140,7 +145,8 @@ namespace SteamworksSim.Robots
     {
         public bool enabled = true;
         public float rate = 12f;            // in/s winching up
-        public float setback = 3f;          // in behind the front bumper face where the rope is gripped
+        public bool back = false;           // climber on the back: setback and reach are from the back bumper
+        public float setback = 3f;          // in behind the front (or back) bumper face where the rope is gripped
         public float reachForward = 10f;    // in in front of the bumper where it can grab the rope
         public float reachLateral = 12f;    // in either side of the centre line
     }
@@ -177,7 +183,7 @@ namespace SteamworksSim.Robots
             if (d.frame == null || d.bumpers == null || d.drivetrain == null) { errors.Add("Missing frame, bumpers or drivetrain section."); return; }
             if (d.frame.length <= 0 || d.frame.width <= 0 || d.frame.height <= 0) errors.Add("Frame dimensions must be positive.");
             if (d.mass <= 0) errors.Add("Mass must be positive.");
-            if (d.drivetrain.type != "tank") errors.Add($"Drivetrain '{d.drivetrain.type}' is not available yet (supported: tank).");
+            if (d.drivetrain.type != "tank" && d.drivetrain.type != "mecanum") errors.Add($"Drivetrain '{d.drivetrain.type}' is not available yet (supported: tank, mecanum).");
             if (d.shooter != null && d.shooter.enabled && d.shooter.type != "turret") errors.Add($"Shooter type '{d.shooter.type}' is not available yet (supported: turret).");
             if (d.drivetrain.topSpeed <= 0 || d.drivetrain.acceleration <= 0 || d.drivetrain.traction <= 0) errors.Add("Drivetrain speed, acceleration and traction must be positive.");
 

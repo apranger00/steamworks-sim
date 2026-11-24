@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "id": "athena",
+  "name": "Athena",
+  "author": "Team Titanium 1986",
+  "team": 1986,
+  "teamName": "Team Titanium",
+  "logo": "logo.png",
+  "description": "Team Titanium's 2017 robot, one of the best in the world that year. Built from photos (no CAD is public). A fast mecanum drive (14 ft/s) that strafes but is easy to push. Her indexer feeds the turret one ball at a time, so it makes about 95% of its shots within about 6 ft of the boiler, 5% fewer for every foot further out. FUEL comes from a chute or off the carpet: the intake sits under the gear slot on the front, and FUEL goes under the gear mechanism, then up and into the hopper. GEARS from the chute only. Climbs at the back.",
+  "features": [
+    "FUEL indexer: about 95% of shots go in within 6 ft of the boiler, 5% fewer for every foot further",
+    "Mecanum drive: strafes sideways (Q / E, or the left stick sideways), but is easy to push"
+  ],
+  "accolades": [],
+  "version": "1.0",
+  "frame": {
+    "length": 27,
+    "width": 32,
+    "height": 23.5
+  },
+  "bumpers": {
+    "thickness": 3.25,
+    "bottom": 2,
+    "top": 7,
+    "frontGap": 0,
+    "numbers": true
+  },
+  "mass": 110,
+  "drivetrain": {
+    "type": "mecanum",
+    "topSpeed": 14,
+    "strafeSpeed": 0.8,
+    "acceleration": 45,
+    "traction": 0.9,
+    "sideScrub": 0.45,
+    "brake": 0.6,
+    "maxTurnRate": 300,
+    "trackWidth": 25.2,
+    "wheelDiameter": 6,
+    "wheelsPerSide": 2
+  },
+  "shooter": {
+    "enabled": true,
+    "type": "turret",
+    "rate": 10,
+    "exitHeight": 17,
+    "exitOffset": [-6.5, 9.5],
+    "maxExitSpeed": 40,
+    "minRange": 2.5,
+    "maxRange": 25,
+    "entryAngle": 55,
+    "aimError": 0.25,
+    "speedError": 0.5,
+    "accuracy": 0.95,
+    "accurateRange": 6,
+    "accuracyDrop": 0.05,
+    "accuracyMin": 0.1,
+    "capacity": 0
+  },
+  "lowGoalDump": {
+    "enabled": false,
+    "rate": 10,
+    "height": 22,
+    "speed": 5.83,
+    "width": 14
+  },
+  "gear": {
+    "enabled": true,
+    "back": false,
+    "slotOffset": 0,
+    "maxDistance": 4,
+    "maxLateral": 3.5,
+    "maxAngle": 20,
+    "slider": 0,
+    "holdInset": 4.5,
+    "holdHeight": 13,
+    "capacity": 1
+  },
+  "preload": {
+    "fuel": 10,
+    "gears": 1
+  },
+  "intake": {
+    "fuelFromChute": true,
+    "hopperDepth": 12,
+    "hopperBalls": 70,
+    "gearFromChute": true,
+    "fuelFromFloor": true,
+    "gearFromFloor": false
+  },
+  "climber": {
+    "enabled": true,
+    "back": true,
+    "rate": 12,
+    "setback": 3,
+    "reachForward": 10,
+    "reachLateral": 12
+  },
+  "model": {
+    "file": "model.json",
+    "scale": 1,
+    "offset": [0, 0, 0],
+    "rotation": [0, 0, 0]
+  }
+}

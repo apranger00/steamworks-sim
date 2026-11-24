@@ -171,7 +171,8 @@ namespace SteamworksSim.Game
             {
                 if (drive == null || !drive.enabled || !enabledByMatch) return false;
                 var i = drive.input;
-                return i.tank ? Mathf.Abs(i.left) + Mathf.Abs(i.right) > 0.25f : Mathf.Abs(i.throttle) + Mathf.Abs(i.turn) > 0.25f;
+                float strafe = drive.Mecanum ? Mathf.Abs(i.strafe) : 0f;
+                return i.tank ? Mathf.Abs(i.left) + Mathf.Abs(i.right) + strafe > 0.25f : Mathf.Abs(i.throttle) + Mathf.Abs(i.turn) + strafe > 0.25f;
             }
         }
         /// <summary>The driver is driving it toward that point (spec in): forward or backward, whichever faces it.</summary>
@@ -180,8 +181,10 @@ namespace SteamworksSim.Game
             if (!Driving) return false;
             var i = drive.input;
             float th = i.tank ? (i.left + i.right) / 2f : i.throttle;
-            if (Mathf.Abs(th) < 0.2f) return false;
-            return Vector2.Dot(Forward * Mathf.Sign(th), target - Center) > 0f;
+            float st = drive.Mecanum ? i.strafe : 0f;                // mecanum robots also push sideways
+            var push = Forward * th - Left * st;
+            if (push.magnitude < 0.2f) return false;
+            return Vector2.Dot(push, target - Center) > 0f;
         }
 
         /// <summary>Some part of its bumpers is in that alliance's LAUNCHPAD (wall to the launchpad line, tape included).</summary>
@@ -211,7 +214,8 @@ namespace SteamworksSim.Game
             climbing = Climb != ClimbPhase.None ? ClimbRope : null, climber = ClimberPoint(),
         };
 
-        Vector2 ClimberPoint() => Center + Forward * (HalfL - (def.climber != null ? def.climber.setback : 3f));
+        Vector2 ClimberPoint() => Center + Forward * GripFwd;
+        float ClimbSign => def.climber != null && def.climber.back ? -1f : 1f;
 
         /// <summary>For the rules: which of its own alliance's touchpads this robot's rope goes through.</summary>
         public int ClimbTouchpad => Climb != ClimbPhase.None && ClimbRope != null && ClimbRope.alliance == alliance ? ClimbRope.touchpad : -1;
@@ -414,7 +418,7 @@ namespace SteamworksSim.Game
             if (!solved) { reason = "No shot"; return null; }
             if (s.range < S.minRange * 12f) { reason = $"Too close ({s.range / 12f:0.0} ft)"; return null; }
             if (s.range > S.maxRange * 12f || s.speed > S.maxExitSpeed * 12f) { reason = $"Out of range ({s.range / 12f:0.0} ft)"; return null; }
-            reason = $"In range {s.range / 12f:0.0} ft";
+            reason = S.accuracy > 0f ? $"In range {s.range / 12f:0.0} ft ({MakeChance(s.range / 12f) * 100f:0}%)" : $"In range {s.range / 12f:0.0} ft";
             return s;
         }
 
@@ -433,6 +437,15 @@ namespace SteamworksSim.Game
             turret.localRotation = Quaternion.Slerp(turret.localRotation, Quaternion.Euler(0f, local, 0f), 0.25f);
         }
 
+        /// <summary>Chance a shot from `ft` feet goes in, with the shooter's make-rate model (shooter.accuracy).</summary>
+        public float MakeChance(float ft)
+        {
+            var S = def.shooter;
+            if (S == null || S.accuracy <= 0f) return 1f;
+            float p = S.accuracy - S.accuracyDrop * Mathf.Max(0f, ft - S.accurateRange);
+            return Mathf.Clamp(p, Mathf.Min(S.accuracyMin, S.accuracy), S.accuracy);
+        }
+
         float Gauss() => ((float)rnd.NextDouble() + (float)rnd.NextDouble() + (float)rnd.NextDouble() - 1.5f) * 2f; // ~N(0,1) within +-3
 
         bool FireHigh()
@@ -443,6 +456,16 @@ namespace SteamworksSim.Game
             float yaw = s.yaw + Gauss() * S.aimError * Mathf.Deg2Rad;
             float pitch = s.pitch + Gauss() * S.aimError * Mathf.Deg2Rad;
             float sp = s.speed * (1f + Gauss() * S.speedError / 100f);
+            if (S.accuracy > 0f && rnd.NextDouble() >= MakeChance(s.range / 12f))
+            {
+                // a miss: aim at a point just outside the goal's capture circle (3-10 in past it), in a random
+                // direction: sideways by turning the turret, long or short by changing the speed (range ~ speed^2)
+                var hg = targets.Of(alliance).highGoal;
+                float off = hg.capture + 3f + 7f * (float)rnd.NextDouble(), th = (float)rnd.NextDouble() * Mathf.PI * 2f;
+                float range = Mathf.Max(12f, s.range);
+                yaw += Mathf.Sin(th) * off / range;
+                sp *= Mathf.Sqrt(Mathf.Max(0.5f, 1f + Mathf.Cos(th) * off / range));
+            }
             float vh = sp * Mathf.Cos(pitch);
             // the turret leads for the robot's own motion, so the ball leaves the robot with exactly the solved velocity
             fuel.Spawn(s.p0, new Vector3(vh * Mathf.Cos(yaw), vh * Mathf.Sin(yaw), sp * Mathf.Sin(pitch)), body);
@@ -774,6 +797,7 @@ namespace SteamworksSim.Game
         {
             if (ropes == null || def.climber == null || !def.climber.enabled) return null;
             var b = AsBody();
+            b.fwd *= ClimbSign; // reach is measured out from the climber's end of the robot
             foreach (var R in ropes.ropes)
                 if (R.alliance == alliance && RopeSystem.InReach(R, b, def.climber.reachForward, def.climber.reachLateral)) return R;
             return null;
@@ -814,7 +838,7 @@ namespace SteamworksSim.Game
         const float SwingDamping = 0.12f, MaxSwing = 0.3f, PullPeriod = 0.45f;
 
         Vector2 YawFwd => new Vector2(Mathf.Sin(climbYaw * Mathf.Deg2Rad), Mathf.Cos(climbYaw * Mathf.Deg2Rad));
-        float GripFwd => HalfL - (def.climber != null ? def.climber.setback : 3f);
+        float GripFwd => ClimbSign * (HalfL - (def.climber != null ? def.climber.setback : 3f)); // signed: negative for a climber on the back
 
         void StepSwing(float dt, float ropeLen, bool pulling)
         {

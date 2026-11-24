@@ -30,7 +30,8 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `bumpers.frontGap` | 0 | Width (in) of an opening in the middle of the front bumper for a floor intake (a FUEL floor intake with an open-top hopper gets one anyway) |
 | `bumpers.numbers` | true | The team number in white on the bumpers (when `team` is set) |
 | `mass` | 140 | Including bumpers and battery |
-| `drivetrain.type` | `tank` | `tank` now; `swerve`, `mecanum` planned |
+| `drivetrain.type` | `tank` | `tank` or `mecanum` (strafes, robot-oriented: Q / E or a stick sideways; its rollers give way, so set `sideScrub` low); `swerve` planned |
+| `drivetrain.strafeSpeed` | 0.8 | Mecanum: sideways top speed as a fraction of `topSpeed` |
 | `drivetrain.topSpeed` | 12 | Free speed |
 | `drivetrain.acceleration` | 50 | From a stop; motor force fades to zero at top speed |
 | `drivetrain.traction` | 1.1 | Wheel-carpet friction; caps acceleration and pushing force |
@@ -45,6 +46,7 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `shooter.minRange / maxRange` | 2.5 / 25 | Feet from the goal centre |
 | `shooter.entryAngle` | 55 | How steeply shots drop into the goal |
 | `shooter.aimError / speedError` | 0.6 / 1.2 | Accuracy: degrees and percent, 1 sigma |
+| `shooter.accuracy / accurateRange / accuracyDrop / accuracyMin` | 0 / 6 / 0.05 / 0.1 | Optional make rate instead: each shot goes in with chance `accuracy` out to `accurateRange` ft (shooter to goal centre), `accuracyDrop` less per foot beyond, never below `accuracyMin`; misses land just outside the opening. 0 = off |
 | `shooter.capacity` | 0 | A hard FUEL limit (shooter and dump share it). 0 = what the open-top hopper physically holds (see `intake.hopperBalls`), or unlimited for a robot without one (testing) |
 | `lowGoalDump.enabled / rate / height / speed / width` | true / 10 / 22 / 5.83 / 14 | Dumping out of the front into the low goal |
 | `gear.enabled / back / slotOffset` | true / false / 0 | Gear slot on the front (or the back with `back: true`); offset to the robot's left of the centre line |
@@ -59,6 +61,7 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `intake.gearFromChute` | true | The front gear slot takes a GEAR sliding out of a chute (robot facing the station, slot lined up with the chute) |
 | `intake.fuelFromFloor / gearFromFloor` | false / false | Front intake picks pieces up off the carpet while Intake is held. With an open-top hopper, FUEL goes in through a gap in the front bumper and rides a conveyor up into the hopper. A GEAR lying flat in front of the front bumper (in its opening, if it has one) goes into the gear slot, even one on the back |
 | `climber.enabled / rate` | true / 12 | Winch speed in in/s |
+| `climber.back` | false | Climber on the back: setback and reach count from the back bumper |
 | `climber.setback / reachForward / reachLateral` | 3 / 10 / 12 | Where the rope is gripped and how close it must be to latch |
 | `model.file` | "" | `model.json` made with `tools/step_to_robot_model.py`; empty = generated blockout. The game always adds its own alliance bumpers |
 | `model.offset / rotation` | [0,0,0] / [0,0,0] | Nudges the model: offset [forward, left, up] in inches; rotation in degrees |
@@ -69,7 +72,7 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 
     python3 tools/step_to_robot_model.py robot.stp tools/robots/my-robot.json UnityProject/Assets/StreamingAssets/Robots/my-robot/model.json
 
-Each solid becomes its convex hull (plates, tubes, wheels and rollers look right; L brackets and channels come out filled in), coloured by name rules. The config says how the CAD sits in the robot (which CAD axis is up and which is forward, the footprint centre on the carpet), which parts to leave out (the CAD bumpers: the game draws its own in your alliance colour, with your number), the colours, and the moving parts. Parts named `Wheel L0`..`Wheel R2` spin with the drivetrain, `Intake roller` and `Conveyor roller 0..3` spin while intaking, and `Gear slider` moves sideways with `gear.slider`. `tools/robots/sir-belvidere.json` is a full example. Keep it under about 100,000 triangles.
+Each solid becomes its convex hull (plates, tubes, wheels and rollers look right; L brackets and channels come out filled in), coloured by name rules. The config says how the CAD sits in the robot (which CAD axis is up and which is forward, the footprint centre on the carpet), which parts to leave out (the CAD bumpers: the game draws its own in your alliance colour, with your number), the colours, and the moving parts. Parts named `Wheel L0`..`Wheel R2` spin with the drivetrain, `Intake roller` and `Conveyor roller 0..3` spin while intaking, `Gear slider` moves sideways with `gear.slider`, and `Turret yaw` turns to face the goal (build it shooting along +z, pivot on the turret axis). Without CAD, a model can be built from simple shapes in a short script: `tools/robots/athena_model.py` is an example. `tools/robots/sir-belvidere.json` is a full example. Keep it under about 100,000 triangles.
 
 ## Validation
 

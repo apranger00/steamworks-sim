@@ -12,7 +12,7 @@ namespace SteamworksSim.Robots
     /// tools/step_to_robot_model.py. Inches, x right, y up, z forward, origin on the carpet under the footprint centre.
     /// Each part is a GameObject at its pivot, so moving parts can be animated by name: "Wheel L0".."Wheel R2" (spun
     /// by the drivetrain), "Intake roller" and "Conveyor roller 0..3" (spun while intaking), "Gear slider" (moved
-    /// sideways to line the GEAR up with a peg).
+    /// sideways to line the GEAR up with a peg), "Turret yaw" (turned to face the goal; build it shooting along +z).
     /// </summary>
     public static class RobotModel
     {
@@ -72,7 +72,7 @@ namespace SteamworksSim.Robots
             {
                 var go = new GameObject(p.name);
                 // parts the game animates sit directly under Visual (found by name); the rest under Model
-                bool animated = p.name.StartsWith("Wheel ") || p.name.StartsWith("Intake roller") || p.name.StartsWith("Conveyor roller") || p.name == "Gear slider";
+                bool animated = p.name.StartsWith("Wheel ") || p.name.StartsWith("Intake roller") || p.name.StartsWith("Conveyor roller") || p.name == "Gear slider" || p.name == "Turret yaw";
                 go.transform.SetParent(animated ? parent : root, false);
                 var pv = p.pivot != null && p.pivot.Length >= 3 ? new Vector3(p.pivot[0], p.pivot[1], p.pivot[2]) * In : Vector3.zero;
                 go.transform.localPosition = root.localPosition + root.localRotation * pv;

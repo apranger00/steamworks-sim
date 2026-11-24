@@ -27,7 +27,9 @@ namespace SteamworksSim.Robots
 
         const float G = 9.81f, FtToM = 0.3048f;
         Rigidbody rb;
-        float stall, traction, sideScrub, brake, maxTurn, track;
+        float stall, traction, sideScrub, brake, maxTurn, track, strafeTop;
+        bool mecanum;
+        public bool Mecanum => mecanum;
 
         public void Configure(RobotDefinition d)
         {
@@ -40,6 +42,8 @@ namespace SteamworksSim.Robots
             brake = dt.brake;
             maxTurn = dt.maxTurnRate * Mathf.Deg2Rad;
             track = Mathf.Max(0.1f, dt.trackWidth * Units.Inch);
+            mecanum = dt.type == "mecanum";
+            strafeTop = TopSpeed * Mathf.Clamp(dt.strafeSpeed, 0.1f, 1f);
         }
 
         void Awake() { rb = GetComponent<Rigidbody>(); }
@@ -55,8 +59,17 @@ namespace SteamworksSim.Robots
             float vf = Vector3.Dot(v, fwd), vr = Vector3.Dot(v, right);
             float w = -rb.angularVelocity.y; // counter-clockwise seen from above is positive (left turn)
 
-            float tv = 0f, tw = 0f;
-            if (!idle)
+            float tv = 0f, tw = 0f, ts = 0f; // targets: forward and sideways speed (m/s), turn rate (rad/s)
+            if (!idle && mecanum && !input.tank)
+            {
+                // mecanum, robot-oriented: forward, strafe and turn share the wheels' speed (each wheel runs
+                // f +- s +- r), so together they never ask more than full speed of any wheel
+                float f = Mathf.Clamp(input.throttle, -1f, 1f), s = Mathf.Clamp(input.strafe, -1f, 1f), r = Mathf.Clamp(input.turn, -1f, 1f);
+                float sum = Mathf.Abs(f) + Mathf.Abs(s) + Mathf.Abs(r);
+                if (sum > 1f) { f /= sum; s /= sum; r /= sum; }
+                tv = f * TopSpeed; ts = s * strafeTop; tw = r * maxTurn;
+            }
+            else if (!idle)
             {
                 float half = track / 2f;
                 if (input.tank)
@@ -76,6 +89,8 @@ namespace SteamworksSim.Robots
                 if (m > TopSpeed) { L *= TopSpeed / m; R *= TopSpeed / m; tv = (L + R) / 2f; tw = (R - L) / (2f * half); }
             }
 
+            if (!idle && mecanum && input.tank) ts = Mathf.Clamp(input.strafe, -1f, 1f) * strafeTop;
+
             float tg = traction * G;
             float dv = tv - vf, lim;
             if (idle) lim = tg * brake;
@@ -84,7 +99,9 @@ namespace SteamworksSim.Robots
 
             float dvf = Mathf.Clamp(dv, -lim * dt, lim * dt);
             float side = tg * sideScrub * dt;
-            float dvr = Mathf.Clamp(-vr, -side, side);
+            // tank wheels resist sliding sideways; mecanum rollers drive sideways (toward the strafe target) but give
+            // way much more easily, so a mecanum robot is pushed around more
+            float dvr = mecanum && !idle ? Mathf.Clamp(ts - vr, -side, side) : Mathf.Clamp(-vr, -side, side);
             float angAccel = 2f * Mathf.Min(tg, stall) / track;
             float dw = Mathf.Clamp(tw - w, -angAccel * dt, angAccel * dt);
 

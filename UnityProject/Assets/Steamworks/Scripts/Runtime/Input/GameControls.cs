@@ -18,7 +18,7 @@ namespace SteamworksSim.InputHandling
         const string PrefsKey = "steamworks.bindings";
 
         public static InputActionAsset Asset { get; private set; }
-        public static InputAction Throttle, Turn, LeftStick, RightStick;
+        public static InputAction Throttle, Turn, Strafe, LeftStick, RightStick;
         public static InputAction Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause;
         public static InputAction Shoot, Intake, Dump, PlaceGear, Climb, ChuteFuel, ChuteGear;
 
@@ -48,13 +48,15 @@ namespace SteamworksSim.InputHandling
             Turn.AddCompositeBinding("1DAxis").With("Negative", "<Keyboard>/d", KeyboardGroup).With("Positive", "<Keyboard>/a", KeyboardGroup);
             Turn.AddCompositeBinding("1DAxis").With("Negative", "<Keyboard>/rightArrow", "Arrows").With("Positive", "<Keyboard>/leftArrow", "Arrows");
 
+            Strafe = map.AddAction("Strafe (mecanum)", InputActionType.Value, expectedControlLayout: "Axis");
+            Strafe.AddCompositeBinding("1DAxis").With("Negative", "<Keyboard>/q", KeyboardGroup).With("Positive", "<Keyboard>/e", KeyboardGroup);
             LeftStick = map.AddAction("Left stick", InputActionType.Value, "<Gamepad>/leftStick", expectedControlLayout: "Vector2");
             RightStick = map.AddAction("Right stick", InputActionType.Value, "<Gamepad>/rightStick", expectedControlLayout: "Vector2");
 
             Shoot = Button(map, "Shoot (high goal)", "<Keyboard>/space", "<Gamepad>/rightTrigger");
-            Intake = Button(map, "Intake FUEL (hold)", "<Keyboard>/q", "<Gamepad>/leftTrigger");
+            Intake = Button(map, "Intake (hold)", "<Keyboard>/x", "<Gamepad>/leftTrigger");
             Dump = Button(map, "Dump (low goal)", "<Keyboard>/z", "<Gamepad>/buttonNorth");
-            PlaceGear = Button(map, "Place GEAR", "<Keyboard>/e", "<Gamepad>/buttonSouth");
+            PlaceGear = Button(map, "Place GEAR", "<Keyboard>/leftCtrl", "<Gamepad>/buttonSouth");
             Climb = Button(map, "Climb (hold)", "<Keyboard>/t", "<Gamepad>/buttonWest");
             ChuteFuel = Button(map, "Loading station: FUEL", "<Keyboard>/f", "<Gamepad>/leftShoulder");
             ChuteGear = Button(map, "Loading station: GEAR", "<Keyboard>/g", "<Gamepad>/rightShoulder");
@@ -70,6 +72,8 @@ namespace SteamworksSim.InputHandling
             Entries.Add(new Entry { label = "Drive backward", action = Throttle, keyboardIndex = 1, driveDirection = 1 });
             Entries.Add(new Entry { label = "Turn left", action = Turn, keyboardIndex = 2, driveDirection = 2 });
             Entries.Add(new Entry { label = "Turn right", action = Turn, keyboardIndex = 1, driveDirection = 3 });
+            Entries.Add(new Entry { label = "Strafe left (mecanum)", action = Strafe, keyboardIndex = 1, driveDirection = 4 });
+            Entries.Add(new Entry { label = "Strafe right (mecanum)", action = Strafe, keyboardIndex = 2, driveDirection = 5 });
             foreach (var a in new[] { Shoot, Intake, Dump, PlaceGear, Climb, ChuteFuel, ChuteGear, Precision, NextCamera, FlipChase, ResetRobot, RestartMatch, Pause })
                 Entries.Add(new Entry { label = a == Precision ? "Precision (slow) driving" : a.name, action = a, keyboardIndex = 0, gamepadIndex = 1 });
 
@@ -119,11 +123,11 @@ namespace SteamworksSim.InputHandling
             switch (GameSettings.Layout)
             {
                 case StickLayout.SingleStick:
-                    return new[] { "Left stick up", "Left stick down", "Left stick left", "Left stick right" }[direction];
+                    return new[] { "Left stick up", "Left stick down", "Left stick left", "Left stick right", "Right stick left", "Right stick right" }[direction];
                 case StickLayout.Tank:
-                    return new[] { "Both sticks up", "Both sticks down", "Right stick up, left down", "Left stick up, right down" }[direction];
+                    return new[] { "Both sticks up", "Both sticks down", "Right stick up, left down", "Left stick up, right down", "Both sticks left", "Both sticks right" }[direction];
                 default:
-                    return new[] { "Left stick up", "Left stick down", "Right stick left", "Right stick right" }[direction];
+                    return new[] { "Left stick up", "Left stick down", "Right stick left", "Right stick right", "Left stick left", "Left stick right" }[direction];
             }
         }
 
