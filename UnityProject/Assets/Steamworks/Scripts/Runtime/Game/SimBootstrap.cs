@@ -754,10 +754,10 @@ namespace SteamworksSim.Game
                 string under = "nothing";
                 var hits = Physics.RaycastAll(player.transform.position + Vector3.up * 2f, Vector3.down, 4f, ~0, QueryTriggerInteraction.Ignore);
                 float best = float.MaxValue;
-                foreach (var h in hits)
+                foreach (var hit in hits)
                 {
-                    if (h.rigidbody != null && h.rigidbody.gameObject == player) continue;
-                    if (h.distance < best) { best = h.distance; under = $"{h.collider.name} at {h.point.y / Units.Inch:0.0} in, slope {Vector3.Angle(h.normal, Vector3.up):0.0}°"; }
+                    if (hit.rigidbody != null && hit.rigidbody.gameObject == player) continue;
+                    if (hit.distance < best) { best = hit.distance; under = $"{hit.collider.name} at {hit.point.y / Units.Inch:0.0} in, slope {Vector3.Angle(hit.normal, Vector3.up):0.0}°"; }
                 }
                 GUILayout.Label($"Level: tilt {pitchT:0.0}° / {rollT:0.0}°, under it {under}", label);
             }
