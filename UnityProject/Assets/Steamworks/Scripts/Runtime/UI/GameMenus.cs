@@ -27,7 +27,7 @@ namespace SteamworksSim.UI
 
         OptionRow robotRow, allianceRow, stationRow;
         Text robotInfo;
-        GameObject teamCard; RawImage teamLogo; Text teamText; AspectRatioFitter teamLogoFit;
+        GameObject teamCard; RawImage teamLogo; AspectRatioFitter teamLogoFit;
 
         public MenuPage Page { get; private set; } = MenuPage.None;
         public bool Rebinding => options != null && options.Rebinding;
@@ -196,7 +196,7 @@ namespace SteamworksSim.UI
             stationRow = Ui.Option(col, "Start position", stations, 1, i => { if (i < SimBootstrap.StationName.Length) sim.SetStation(i); else sim.UseCustomStart(); }, true, 52f, 210f);
             Ui.Button(col, "SET AUTO", () => sim.EnterSetAuto(), 56f, 26, false, true);
             Ui.Spacer(col, 6f);
-            robotInfo = Ui.Label(col, "", 21, Ui.TextColor, TextAnchor.UpperLeft);
+            robotInfo = Ui.Label(col, "", 20, Ui.TextColor, TextAnchor.UpperLeft);
             robotInfo.GetComponent<LayoutElement>().minHeight = 230f;
             Ui.Spacer(col, 6f);
             Ui.Button(col, "START MATCH", () => sim.StartMatchFromSelect(), 68f, 34, false, true);
@@ -204,88 +204,28 @@ namespace SteamworksSim.UI
             Ui.Button(col, "BACK", () => sim.ShowMainMenu(), 52f, 26, false, true);
             firstSelect[MenuPage.RobotSelect] = robotRow;
 
-            // the robot's team: logo and number + name, top right, clear of the panel and the robot
-            var card = Ui.Anchor(Ui.Rect("Team", page), new Vector2(1f, 1f), new Vector2(340f, 400f), new Vector2(-40f, -40f));
+            // the robot's team logo, top right, clear of the panel and the robot
+            var card = Ui.Anchor(Ui.Rect("Team", page), new Vector2(1f, 1f), new Vector2(320f, 320f), new Vector2(-40f, -40f));
             Ui.Round(card.gameObject.AddComponent<Image>(), 26f).color = Ui.Backdrop;
-            var logoArea = Ui.Anchor(Ui.Rect("Logo area", card), new Vector2(0.5f, 1f), new Vector2(280f, 280f), new Vector2(0f, -24f));
+            var logoArea = Ui.Anchor(Ui.Rect("Logo area", card), new Vector2(0.5f, 0.5f), new Vector2(280f, 280f), Vector2.zero);
             var logoBox = Ui.Rect("Logo", logoArea);
             teamLogo = logoBox.gameObject.AddComponent<RawImage>();
             teamLogo.raycastTarget = false;
             teamLogoFit = logoBox.gameObject.AddComponent<AspectRatioFitter>();
             teamLogoFit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            var nameRect = Ui.Anchor(Ui.Rect("Name", card), new Vector2(0.5f, 0f), new Vector2(320f, 84f), new Vector2(0f, 12f));
-            teamText = nameRect.gameObject.AddComponent<Text>();
-            teamText.font = Ui.TitleFont; teamText.fontSize = 44; teamText.color = Ui.Gold;
-            teamText.alignment = TextAnchor.MiddleCenter; teamText.raycastTarget = false;
-            teamText.horizontalOverflow = HorizontalWrapMode.Wrap; teamText.verticalOverflow = VerticalWrapMode.Overflow;
-            teamText.resizeTextForBestFit = true; teamText.resizeTextMinSize = 20; teamText.resizeTextMaxSize = 44;
             teamCard = card.gameObject;
             teamCard.SetActive(false);
         }
 
-        /// <summary>The team card: shown for a robot with a team number, with its logo if it has one.</summary>
+        /// <summary>The team card: the team's logo, for a robot that has one.</summary>
         void RefreshTeamCard(RobotDefinition d)
         {
             if (teamCard == null) return;
-            bool show = d != null && d.team > 0;
-            teamCard.SetActive(show);
-            if (!show) return;
             var logo = RobotModel.Logo(d);
+            teamCard.SetActive(logo != null);
+            if (logo == null) return;
             teamLogo.texture = logo;
-            teamLogo.gameObject.SetActive(logo != null);
-            if (logo != null) teamLogoFit.aspectRatio = logo.width / (float)Mathf.Max(1, logo.height);
-            teamText.text = string.IsNullOrEmpty(d.teamName) ? d.team.ToString() : $"{d.team} {d.teamName}";
-            var rt = (RectTransform)teamCard.transform;
-            rt.sizeDelta = new Vector2(340f, logo != null ? 400f : 110f);
-        }
-
-        // ---------------------------------------------------------------- SET AUTO overlay (bird's-eye view)
-        Text autoStatus;
-        float autoNotSavedAt = -100f;
-
-        void BuildSetAuto()
-        {
-            var page = NewPage(MenuPage.SetAuto, "Set auto");
-            var cancel = Ui.Button(page, "CANCEL", () => sim.CancelSetAuto(), 60f, 28, false, true);
-            Ui.Anchor(cancel.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(230f, 60f), new Vector2(24f, -24f));
-            var save = Ui.Button(page, "SAVE", () => { if (!sim.SaveAuto()) autoNotSavedAt = Time.unscaledTime; }, 60f, 28, false, true);
-            Ui.Anchor(save.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(230f, 60f), new Vector2(24f, -96f));
-            var reset = Ui.Button(page, "RESET", () => sim.ResetSetAuto(), 60f, 28, false, true);
-            Ui.Anchor(reset.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(200f, 60f), new Vector2(-24f, -24f));
-            var msg = Ui.Anchor(Ui.Rect("Message", page), new Vector2(0.5f, 1f), new Vector2(980f, 84f), new Vector2(0f, -24f));
-            msg.gameObject.AddComponent<Image>().color = Ui.Backdrop;
-            var t = Ui.Label(msg, "Drive around to set your starting position, but remember:\nyou can only save it if your robot is touching your ALLIANCE WALL!", 26, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Ui.Stretch(t.rectTransform, 8f);
-            var st = Ui.Anchor(Ui.Rect("Status", page), new Vector2(0.5f, 1f), new Vector2(640f, 46f), new Vector2(0f, -116f));
-            st.gameObject.AddComponent<Image>().color = Ui.Backdrop;
-            autoStatus = Ui.Label(st, "", 24, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
-            Ui.Stretch(autoStatus.rectTransform, 4f);
-            firstSelect[MenuPage.SetAuto] = save;
-        }
-
-        void UpdateSetAuto()
-        {
-            if (Page != MenuPage.SetAuto || autoStatus == null) return;
-            if (Time.unscaledTime - autoNotSavedAt < 2f)
-                autoStatus.text = "<color=#ff5a64>NOT SAVED: your robot must touch your alliance wall</color>";
-            else
-                autoStatus.text = sim.AutoStartValid ? "<color=#5fd35f>Touching your alliance wall: SAVE to keep it</color>"
-                                                     : "<color=#ffb020>Not touching your alliance wall</color>";
-        }
-
-        void RefreshRobotSelect()
-        {
-            var lib = sim.Library;
-            var names = new string[lib != null ? lib.robots.Count : 0];
-            for (int i = 0; i < names.Length; i++) names[i] = lib.robots[i].name;
-            int idx = lib != null ? lib.robots.IndexOf(sim.Current) : -1;
-            robotRow.SetValues(names.Length > 0 ? names : new[] { sim.Current != null ? sim.Current.name : "-" }, Mathf.Max(0, idx));
-            allianceRow.SetIndex(sim.alliance == "blue" ? 1 : 0);
-            var starts = new List<string>();
-            foreach (var n in SimBootstrap.StationName) starts.Add(char.ToUpper(n[0]) + n.Substring(1));
-            if (sim.HasSavedAuto || sim.CustomStart) starts.Add("Set with SET AUTO");
-            stationRow.SetValues(starts.ToArray(), sim.CustomStart ? starts.Count - 1 : sim.station);
-            RefreshRobotInfo();
+            teamLogoFit.aspectRatio = logo.width / (float)Mathf.Max(1, logo.height);
         }
 
         void RefreshRobotInfo()
@@ -293,21 +233,60 @@ namespace SteamworksSim.UI
             var d = sim.Current;
             RefreshTeamCard(d);
             if (d == null) { robotInfo.text = ""; return; }
+            const string Dim = "#8d96a0", Gap = "<size=9>\n</size>";
+            string Yes(string what) => $"•  {what}\n";
+            string No(string what) => $"<color={Dim}>•  {what}</color>\n";
+
+            // who
+            string s = $"<size=28><b>{d.name}</b></size>\n";
+            if (!string.IsNullOrEmpty(d.teamName)) s += d.teamName + "\n";
+            if (d.team > 0) s += $"FRC {d.team}\n";
+
+            // what it does
+            s += Gap;
+            bool gears = d.gear != null && d.gear.enabled;
+            s += gears ? Yes("Gear placement") : No("No gear placement");
+            s += gears && d.intake != null && d.intake.gearFromFloor ? Yes("Gear ground pick-up") : No("No gear ground pick-up");
+            var fuel = new List<string>();
+            if (d.shooter != null && d.shooter.enabled)
+                fuel.Add($"{(d.shooter.type == "turret" ? "Turret shooter" : "Fixed shooter")} ({d.shooter.rate:0.#} FUEL/s)");
+            if (d.lowGoalDump != null && d.lowGoalDump.enabled) fuel.Add($"Low goal dumper ({d.lowGoalDump.rate:0.#} FUEL/s)");
+            if (fuel.Count == 0) s += No("No FUEL scoring");
+            else
+            {
+                s += Yes(string.Join(", ", fuel));
+                bool ground = d.intake != null && d.intake.fuelFromFloor, top = d.intake != null && d.intake.fuelFromChute;
+                s += ground && top ? Yes("FUEL ground pick-up and top loading") : ground ? Yes("FUEL ground pick-up only")
+                     : top ? Yes("Top-loading FUEL only") : No("Preloaded FUEL only");
+            }
+            s += d.climber != null && d.climber.enabled ? Yes("Climber") : No("No climber");
+
+            // how big and how fast
+            s += Gap;
+            s += Yes($"{d.WidthWithBumpers:0.#} x {d.LengthWithBumpers:0.#} x {d.frame.height:0.#} in (with bumpers)");
+            s += Yes($"{d.mass:0} lb");
+            string dt = d.drivetrain.type == "tank" ? "tank drive" : d.drivetrain.type + " drive";
+            s += Yes($"{d.drivetrain.topSpeed:0.#} ft/s, {dt}");
+
+            // what makes it special, and what it won
+            if (d.features != null && d.features.Length > 0)
+            {
+                s += Gap;
+                foreach (var f in d.features) if (!string.IsNullOrEmpty(f)) s += Yes(f);
+            }
+            if (d.accolades != null && d.accolades.Length > 0)
+            {
+                s += Gap;
+                foreach (var a in d.accolades) if (!string.IsNullOrEmpty(a)) s += $"<color=#{ColorUtility.ToHtmlStringRGB(Ui.Gold)}>•  {a}</color>\n";
+            }
+
             var errors = new List<string>(); var warnings = new List<string>();
             RobotRules.Validate(d, errors, warnings);
-            string team = d.team > 0 ? $"  ·  Team {d.team}" : "";
-            string by = string.IsNullOrEmpty(d.author) ? "" : $"by {d.author}  ·  ";
-            string s =
-                $"<b>{d.name}</b>{team}\n" +
-                $"<color=#9aa3ad>{by}{(d.builtIn ? "built-in" : "mod")}  ·  v{d.version}</color>\n";
-            if (!string.IsNullOrEmpty(d.description)) s += d.description + "\n";
-            s += $"\n{d.WidthWithBumpers:0.#} x {d.LengthWithBumpers:0.#} x {d.frame.height:0.#} in with bumpers  ·  {d.mass:0} lb\n" +
-                 $"Top speed {d.drivetrain.topSpeed:0.#} ft/s  ·  {d.drivetrain.wheelsPerSide * 2} wheels, {d.drivetrain.wheelDiameter:0.#} in\n";
             if (errors.Count > 0) s += $"\n<color=#e0604c>Not legal: {string.Join("; ", errors)}</color>";
             else if (warnings.Count > 0) s += $"\n<color=#d9a514>{string.Join("; ", warnings)}</color>";
             var lib = sim.Library;
             if (lib != null && lib.problems.Count > 0) s += $"\n<color=#e0604c>{lib.problems.Count} robot file problem(s); see the Console.</color>";
-            robotInfo.text = s;
+            robotInfo.text = s.TrimEnd('\n');
         }
 
         // ---------------------------------------------------------------- multiplayer (placeholder)

@@ -7,6 +7,10 @@
   "teamName": "KING TeC",
   "logo": "logo.png",
   "description": "KING TeC's 2017 robot, from the team's CAD. A light, fast 6-wheel tank drive (80 lb, 16 ft/s) that is easy to push around. Its floor intake in the gap in the front bumper picks GEARS up off the carpet and carries them up into the gear box on the back, which also takes GEARS from a chute; a linear gear slider moves the GEAR sideways to line it up with the peg. A rope climber hangs at the front. No FUEL mechanisms.",
+  "features": [
+    "Linear gear slider: lines the GEAR up with the peg, up to 3 in each way"
+  ],
+  "accolades": [],
   "version": "1.0",
   "frame": {
     "length": 25,
@@ -75,7 +79,15 @@
   "model": {
     "file": "model.json",
     "scale": 1,
-    "offset": [0, 0, 0],
-    "rotation": [0, 0, 0]
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ]
   }
 }

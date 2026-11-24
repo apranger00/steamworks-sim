@@ -23,6 +23,8 @@ namespace SteamworksSim.Robots
         public int team = 0;
         public string teamName = "";  // e.g. "KING TeC"; shown with the logo in robot selection
         public string logo = "";      // team logo image in the robot's folder (PNG or JPG), e.g. "logo.png"
+        public string[] features = new string[0];  // special features, one line each (robot selection)
+        public string[] accolades = new string[0]; // that season's event wins and finalist finishes, one line each
         public string description = "";
         public string version = "1.0";
 

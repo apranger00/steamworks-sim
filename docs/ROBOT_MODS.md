@@ -21,7 +21,10 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `schema` | 1 | File format version |
 | `id` | folder name | Unique id; a mod with a built-in robot's id replaces it |
 | `name`, `author`, `team`, `description`, `version` | | Shown in robot selection |
-| `teamName`, `logo` | "" | Team card in robot selection: the logo (PNG or JPG in the robot's folder) with "`team` `teamName`" |
+| `teamName` | "" | Shown under the robot's name in robot selection, with "FRC `team`" |
+| `logo` | "" | Team logo (PNG or JPG in the robot's folder), shown top right in robot selection |
+| `features` | [] | Special features, one line each, listed in robot selection |
+| `accolades` | [] | That season's event wins and finalist finishes, one line each (robot selection) |
 | `frame.length / width / height` | 32 / 28 / 24 | Frame without bumpers; length is along the robot's forward direction |
 | `bumpers.thickness / bottom / top` | 3.25 / 2 / 7 | Bumper depth and height range above the carpet |
 | `bumpers.frontGap` | 0 | Width (in) of an opening in the middle of the front bumper for a floor intake (a FUEL floor intake with an open-top hopper gets one anyway) |

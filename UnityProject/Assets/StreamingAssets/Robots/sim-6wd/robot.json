@@ -5,6 +5,10 @@
   "author": "Steamworks Sim",
   "team": 0,
   "description": "The test robot from the browser prototype: 6-wheel tank drive, a roller intake in a gap in the front bumper that lifts FUEL up into an open-top hopper (it also fills from a chute or a field hopper, and overflows when full), a turret shooter in the back corner, a low-goal dump out of the front, a gear slot on the back that takes one GEAR from a chute, and a rope climber.",
+  "features": [
+    "Open-top hopper: watch it fill with FUEL, and overflow when it's full"
+  ],
+  "accolades": [],
   "version": "1.0",
   "frame": {
     "length": 32,
