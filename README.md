@@ -64,7 +64,7 @@ Default controls (rebindable):
 | **Restart match** (robot to start line, clock to 2:30, 3-2-1, go) | Enter | **Start** |
 | **Pause menu** | Esc | **Select** (View / Back) |
 | Back out of a menu | Esc | B |
-| Dummy opponent: next spot (midfield, its launchpad, its retrieval zone, against the guardrail, under its rope, off) | B | |
+| Dummy opponent (off by default): next spot (midfield, its launchpad, its retrieval zone, against the guardrail, under its rope, off) | B | |
 | Practice: reload robot files from disk | F5 | |
 
 Edit a `robot.json` while playing and press **F5** (or **Reload robot files** on the robot screen) to try the change immediately. Tick **Skip Menus** on the `Sim` object to jump straight into a match while testing.
@@ -75,7 +75,7 @@ In robot selection, **SET AUTO** shows a bird's-eye view of your end of the fiel
 
 ### Rules and violations
 
-The referees (`Violations.cs`) call FOULS (+5 to the other alliance) and TECH FOULS (+25) for G07 (touching an opponent on its own rope: it gets a free climb, +50), G11 (5-count on pins, with a pin-count bubble), G13 (contact while in the opponent's RETRIEVAL ZONE), G17 (more than 5 s in the opponent's KEY), G20 (touching an opponent's rope in the last 30 s) and A04 (entering the opponent's LAUNCHPAD in AUTO). Each call shows a VIOLATION card in the lower right. Robots can only shoot with part of their bumpers in their own LAUNCHPAD. Try them with the dummy opponent, which is on the field in every match; B moves it to the next spot for each rule.
+The referees (`Violations.cs`) call FOULS (+5 to the other alliance) and TECH FOULS (+25) for G07 (touching an opponent on its own rope: it gets a free climb, +50), G11 (5-count on pins, with a pin-count bubble), G13 (contact while in the opponent's RETRIEVAL ZONE), G17 (more than 5 s in the opponent's KEY), G20 (touching an opponent's rope in the last 30 s) and A04 (entering the opponent's LAUNCHPAD in AUTO). Each call shows a VIOLATION card in the lower right. Robots can only shoot with part of their bumpers in their own LAUNCHPAD. To try them, press B to bring out the dummy opponent (off by default); B moves it to the next spot for each rule.
 
 ### Match sounds
 

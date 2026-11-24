@@ -518,7 +518,7 @@ namespace SteamworksSim.Game
         // ---------------------------------------------------------------- dummy opponent (for trying the fouls)
         /// <summary>Where the dummy opponent stands. B cycles through them (and off).</summary>
         public enum DummySpot { Midfield, Launchpad, RetrievalZone, Guardrail, Rope, Off }
-        DummySpot dummySpot = DummySpot.Midfield;
+        DummySpot dummySpot = DummySpot.Off; // off unless B brings it back (user, 2026-11-24)
         static readonly string[] DummyNames =
         {
             "parked in midfield", "in its LAUNCHPAD beside its airship (A04)", "in its RETRIEVAL ZONE (G13)",
@@ -529,7 +529,7 @@ namespace SteamworksSim.Game
         void ToggleDefender()
         {
             dummySpot = (DummySpot)(((int)dummySpot + 1) % DummyNames.Length);
-            PlayerPrefs.SetInt(Prefs + "dummy", (int)dummySpot);
+            PlayerPrefs.SetInt(Prefs + "dummy2", (int)dummySpot);
             if (dummySpot == DummySpot.Off) { RemoveDummy(); Say("Dummy opponent removed"); return; }
             if (defender == null) CreateDummy();
             PlaceDefender();
@@ -540,7 +540,7 @@ namespace SteamworksSim.Game
 
         void EnsureDummy()
         {
-            dummySpot = (DummySpot)Mathf.Clamp(PlayerPrefs.GetInt(Prefs + "dummy", 0), 0, DummyNames.Length - 1);
+            dummySpot = (DummySpot)Mathf.Clamp(PlayerPrefs.GetInt(Prefs + "dummy2", (int)DummySpot.Off), 0, DummyNames.Length - 1);
             if (dummySpot == DummySpot.Off) { RemoveDummy(); return; }
             if (defender == null) CreateDummy();
         }

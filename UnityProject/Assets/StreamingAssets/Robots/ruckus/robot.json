@@ -34,7 +34,7 @@
     "traction": 1.1,
     "sideScrub": 0.85,
     "brake": 0.9,
-    "maxTurnRate": 320,
+    "maxTurnRate": 240,
     "trackWidth": 29.4,
     "wheelDiameter": 3.25,
     "wheelsPerSide": 3
@@ -44,7 +44,10 @@
     "type": "turret",
     "rate": 10,
     "exitHeight": 18.5,
-    "exitOffset": [-9.65, 9.75],
+    "exitOffset": [
+      -9.65,
+      9.75
+    ],
     "maxExitSpeed": 40,
     "minRange": 2.5,
     "maxRange": 25,
@@ -102,7 +105,15 @@
   "model": {
     "file": "model.json",
     "scale": 1,
-    "offset": [0, 0, 0],
-    "rotation": [0, 0, 0]
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ]
   }
 }
