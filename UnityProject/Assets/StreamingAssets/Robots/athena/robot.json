@@ -6,16 +6,16 @@
   "team": 1986,
   "teamName": "Team Titanium",
   "logo": "logo.png",
-  "description": "Team Titanium's 2017 robot, one of the best in the world that year. Built from photos (no CAD is public). A fast mecanum drive (14 ft/s) that strafes but is easy to push. Her indexer feeds the turret one ball at a time, so it makes about 95% of its shots within about 6 ft of the boiler, 5% fewer for every foot further out. FUEL comes from a chute or off the carpet: the intake sits under the gear slot on the front, and FUEL goes under the gear mechanism, then up and into the hopper. GEARS from the chute only. Climbs at the back.",
+  "description": "Team Titanium's 2017 robot, one of the best in the world that year. Built from photos (no CAD is public). A fast mecanum drive (14 ft/s) that strafes but is easy to push. A round tub with a star spinner (the indexer) feeds the double-flywheel shooter on the right side one ball at a time, so it makes about 95% of its shots within about 6 ft of the boiler, 5% fewer for every foot further out. FUEL comes from a chute (the green funnel over the front) or off the carpet: the intake sits under the gear mechanism on the front, and FUEL goes under it, then up the orange belts and into the hopper. GEARS from the chute only. Climbs with the winch on the back.",
   "features": [
-    "FUEL indexer: about 95% of shots go in within 6 ft of the boiler, 5% fewer for every foot further",
+    "FUEL indexer (round tub with a star spinner): about 95% of shots go in within 6 ft of the boiler, 5% fewer for every foot further",
     "Mecanum drive: strafes sideways (Q / E, or the left stick sideways), but is easy to push"
   ],
   "accolades": [],
   "version": "1.0",
   "frame": {
-    "length": 27,
-    "width": 32,
+    "length": 29,
+    "width": 29,
     "height": 23.5
   },
   "bumpers": {
@@ -35,7 +35,7 @@
     "sideScrub": 0.45,
     "brake": 0.6,
     "maxTurnRate": 300,
-    "trackWidth": 25.2,
+    "trackWidth": 22.2,
     "wheelDiameter": 6,
     "wheelsPerSide": 2
   },
@@ -43,8 +43,11 @@
     "enabled": true,
     "type": "turret",
     "rate": 10,
-    "exitHeight": 17,
-    "exitOffset": [-6.5, 9.5],
+    "exitHeight": 15,
+    "exitOffset": [
+      -4.5,
+      -12
+    ],
     "maxExitSpeed": 40,
     "minRange": 2.5,
     "maxRange": 25,
@@ -72,8 +75,8 @@
     "maxLateral": 3.5,
     "maxAngle": 20,
     "slider": 0,
-    "holdInset": 4.5,
-    "holdHeight": 13,
+    "holdInset": 4.25,
+    "holdHeight": 12.5,
     "capacity": 1
   },
   "preload": {
@@ -99,7 +102,15 @@
   "model": {
     "file": "model.json",
     "scale": 1,
-    "offset": [0, 0, 0],
-    "rotation": [0, 0, 0]
+    "offset": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0
+    ]
   }
 }

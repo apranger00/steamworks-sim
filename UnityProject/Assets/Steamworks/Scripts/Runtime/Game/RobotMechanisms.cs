@@ -235,6 +235,7 @@ namespace SteamworksSim.Game
             turret = visual.Find("Turret yaw");
             if (turret != null) { flywheel = turret.Find("Flywheel"); hood = turret.Find("Hood"); }
             intakeRoller = visual.Find("Intake roller");
+            indexer = visual.Find("Indexer");
             gearSlider = visual.Find("Gear slider");
             if (gearSlider != null) sliderHome = gearSlider.localPosition;
             var conv = new System.Collections.Generic.List<Transform>();
@@ -700,7 +701,7 @@ namespace SteamworksSim.Game
         }
 
         // ---- moving parts
-        Transform flywheel, hood, intakeRoller;
+        Transform flywheel, hood, intakeRoller, indexer;
         Transform[] conveyor;
         float spinIntake, spinFly, hoodTilt;
 
@@ -714,6 +715,7 @@ namespace SteamworksSim.Game
             if (intakeRoller != null) intakeRoller.Rotate(-spinIntake * deg, 0f, 0f, Space.Self);
             if (conveyor != null) foreach (var c in conveyor) c.Rotate(spinIntake * deg, 0f, 0f, Space.Self);
             if (flywheel != null) flywheel.Rotate(spinFly * 2.5f * deg, 0f, 0f, Space.Self); // back of the wheel moves up
+            if (indexer != null) indexer.Rotate(0f, spinFly * 0.6f * deg, 0f, Space.Self);      // feeds the shooter
             if (hood != null) hood.localRotation = Quaternion.Euler(hoodTilt, 0f, 0f);
             if (gearSlider != null) gearSlider.localPosition = new Vector3(sliderHome.x - SliderPos * In, sliderHome.y, sliderHome.z);
             if (heldGear != null && def.gear != null && def.gear.slider > 0f) heldGear.localPosition = HeldGearAt();
