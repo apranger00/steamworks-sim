@@ -748,6 +748,7 @@ namespace SteamworksSim.Game
                 var at = loading.ZoneOf(playerMech);
                 foreach (var st in new[] { loading.LaneOf(alliance), loading.Of(alliance) })
                     if (st != null) GUILayout.Label($"{st.Label}: {st.fuel} FUEL, {st.gears} GEARS{(st == at ? "  (in zone)" : "")}", label);
+                if (Time.time - playerMech.ChuteGearAt < 4f) GUILayout.Label($"Chute GEAR: {playerMech.ChuteGearStatus}", label);
             }
             GUILayout.Label($"Camera {cameraRig?.mode}{(cameraRig != null && cameraRig.chaseReversed && cameraRig.mode == RobotCameraRig.Mode.Chase ? " (front)" : "")}   Input {reader.LastSource}", label);
             if (!string.IsNullOrEmpty(message) && Time.unscaledTime - messageTime < 2.5f)

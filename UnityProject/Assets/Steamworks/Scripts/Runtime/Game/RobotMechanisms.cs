@@ -283,6 +283,25 @@ namespace SteamworksSim.Game
                     frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Maximum,
                 };
             }
+            // An indexer with pockets (model parts "Indexer/Pocket k"): the first FUEL sit in its pockets and go round
+            // with it; the rest of the load is the pile above
+            if (indexer != null && fuel != null)
+            {
+                var list = new System.Collections.Generic.List<GameObject>();
+                for (int k = 0; k < 16; k++)
+                {
+                    var pk = indexer.Find($"Pocket {k}");
+                    if (pk == null) break;
+                    var b = new GameObject("FUEL");
+                    b.transform.SetParent(pk, false);
+                    b.transform.localScale = Vector3.one * (2f * FuelPool.RadiusIn * In);
+                    b.AddComponent<MeshFilter>().sharedMesh = BallMesh;
+                    b.AddComponent<MeshRenderer>().sharedMaterial = fuel.BallMaterial;
+                    b.SetActive(false);
+                    list.Add(b);
+                }
+                pocketBalls = list.ToArray();
+            }
             // The GEAR it carries, standing in the gear slot (front or back)
             if (def.gear != null && def.gear.enabled)
             {
@@ -580,10 +599,16 @@ namespace SteamworksSim.Game
                 bool full = FuelCapacity > 0 && Fuel >= FuelCapacity && Climb == ClimbPhase.None;
                 if (fullCap.enabled != full) fullCap.enabled = full;
             }
+            int pockets = pocketBalls != null ? pocketBalls.Length : 0;
+            for (int k = 0; k < pockets; k++)
+            {
+                bool on = FuelCapacity <= 0 || k < Fuel;
+                if (pocketBalls[k].activeSelf != on) pocketBalls[k].SetActive(on);
+            }
             if (hopperBalls == null) return;
             int slots = hopperBalls.Length, n;
             if (FuelCapacity <= 0) n = slots;                                         // unlimited (testing): shown full
-            else if (FuelCapacity <= slots) n = Fuel;                                 // one ball per FUEL carried
+            else if (FuelCapacity <= slots) n = Mathf.Max(0, Fuel - pockets);         // one ball per FUEL carried
             else n = Mathf.CeilToInt(slots * Fuel / (float)FuelCapacity);             // big hoppers: scaled
             n = Mathf.Clamp(n, 0, slots);
             if (n == shownFuel) return;
@@ -705,6 +730,7 @@ namespace SteamworksSim.Game
 
         // ---- moving parts
         Transform flywheel, hood, intakeRoller, indexer;
+        GameObject[] pocketBalls;
         Transform[] conveyor;
         float spinIntake, spinFly, hoodTilt;
 
@@ -718,7 +744,8 @@ namespace SteamworksSim.Game
             if (intakeRoller != null) intakeRoller.Rotate(-spinIntake * deg, 0f, 0f, Space.Self);
             if (conveyor != null) foreach (var c in conveyor) c.Rotate(spinIntake * deg, 0f, 0f, Space.Self);
             if (flywheel != null) flywheel.Rotate(spinFly * 2.5f * deg, 0f, 0f, Space.Self); // back of the wheel moves up
-            if (indexer != null) indexer.Rotate(0f, spinFly * 0.6f * deg, 0f, Space.Self);      // feeds the shooter
+            // the indexer turns while shooting (feeding the shooter) and slowly while taking FUEL in (sorting it)
+            if (indexer != null) indexer.Rotate(0f, Mathf.Max(spinFly * 0.45f, Mathf.Abs(spinIntake) * 0.15f) * deg, 0f, Space.Self);
             if (hood != null) hood.localRotation = Quaternion.Euler(hoodTilt, 0f, 0f);
             if (gearSlider != null) gearSlider.localPosition = new Vector3(sliderHome.x - SliderPos * In, sliderHome.y, sliderHome.z);
             if (heldGear != null && def.gear != null && def.gear.slider > 0f) heldGear.localPosition = HeldGearAt();
@@ -765,20 +792,28 @@ namespace SteamworksSim.Game
         /// one, faces the station, has its front within `reach` in of the chute, and covers at least `overlap` of
         /// the chute's width with its front, left to right. Otherwise it drops on the carpet.
         /// </summary>
+        /// <summary>What happened at the last GEAR request from a chute (drive info panel), and when.</summary>
+        public string ChuteGearStatus { get; private set; } = "";
+        public float ChuteGearAt { get; private set; } = -100f;
+
         public bool TakeGearFromChute(LoadingSpec L, Vector2 chute, float reach, float overlap)
         {
-            if (def.intake == null || !def.intake.gearFromChute || def.gear == null || !def.gear.enabled || Climb != ClimbPhase.None) return false;
-            if (GearCapacity > 0 && Gears >= GearCapacity) return false;
+            ChuteGearAt = Time.time;
+            if (def.intake == null || !def.intake.gearFromChute || def.gear == null || !def.gear.enabled) { ChuteGearStatus = "this robot can't take GEARS from a chute"; return false; }
+            if (Climb != ClimbPhase.None) { ChuteGearStatus = "climbing"; return false; }
+            if (GearCapacity > 0 && Gears >= GearCapacity) { ChuteGearStatus = $"already carrying {Gears} GEAR{(Gears == 1 ? "" : "S")} (place it first)"; return false; }
             var inward = new Vector2(L.inward[0], L.inward[1]);
             var along = new Vector2(-inward.y, inward.x);
-            if (Vector2.Dot(GearDir, -inward) < Mathf.Cos(30f * Mathf.Deg2Rad)) return false; // the slot side faces the chute
+            float facing = Vector2.Angle(GearDir, -inward);
+            if (facing > 30f) { ChuteGearStatus = $"gear slot not facing the chute ({facing:0}° off, 30° max)"; return false; }
             Vector2 c = Center, f = GearDir * HalfL, l = Left * HalfW;
             float depth = Vector2.Dot(c + f - new Vector2(L.a[0], L.a[1]), inward);       // slot-side face to the station face
-            if (depth > reach) return false;
+            if (depth > reach) { ChuteGearStatus = $"gear slot {depth:0} in from the wall ({reach:0} in max)"; return false; }
             float s1 = Vector2.Dot(c + f + l - chute, along), s2 = Vector2.Dot(c + f - l - chute, along);
             float covered = Mathf.Min(Mathf.Max(s1, s2), L.chuteHalfW) - Mathf.Max(Mathf.Min(s1, s2), -L.chuteHalfW);
-            if (covered < overlap * 2f * L.chuteHalfW) return false;
+            if (covered < overlap * 2f * L.chuteHalfW) { ChuteGearStatus = $"not in front of the chute ({Mathf.Max(0f, covered) / (2f * L.chuteHalfW) * 100f:0}% covered, {overlap * 100f:0}% needed)"; return false; }
             if (GearCapacity > 0) Gears++;
+            ChuteGearStatus = "GEAR in the slot";
             return true;
         }
 

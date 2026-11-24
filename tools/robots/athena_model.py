@@ -136,19 +136,31 @@ for k in range(28):                                                             
                 pts.append(tc + np.array([r * math.cos(a), y, r * math.sin(a)]))
     add(B, 'aluminium', pts)
 IX = 'Indexer'
+# the spinner fills the tub: a green cone in the middle and eight points reaching nearly to the wall, with a pocket
+# between each pair of points that holds one FUEL; it turns and carries them round to the shooter (team video)
 part(IX, tc)
-tips, valleys = 8, []
+tips = 8
+cone_top, cone_r = 5.0, 3.2
 for k in range(tips):
     a = 2 * math.pi * k / tips
-    tip = np.array([7.6 * math.cos(a), 1.1, 7.6 * math.sin(a)])
-    v0 = np.array([4.3 * math.cos(a - math.pi / tips), 1.4, 4.3 * math.sin(a - math.pi / tips)])
-    v1 = np.array([4.3 * math.cos(a + math.pi / tips), 1.4, 4.3 * math.sin(a + math.pi / tips)])
-    centre = np.array([0, 2.6, 0])
-    add(IX, 'titanium green', [tc + p for p in (centre, v0, tip, v1)] + [tc + p - np.array([0, 0.25, 0]) for p in (v0, tip, v1)])
-    d = np.array([math.cos(a), 0, math.sin(a)])                                                # arm out to the wall
-    box_c = tc + d * 6.0 + np.array([0, 1.4, 0])
-    add(IX, 'titanium green', [box_c + d * s1 * 3.4 + np.array([-d[2], 0, d[0]]) * s2 * 0.2 + np.array([0, s3 * 0.35, 0])
-                               for s1 in (-1, 1) for s2 in (-1, 1) for s3 in (-1, 1)])
+    da = math.pi / tips
+    tip = np.array([9.1 * math.cos(a), 1.0, 9.1 * math.sin(a)])
+    v0 = np.array([5.6 * math.cos(a - da), 1.0, 5.6 * math.sin(a - da)])
+    v1 = np.array([5.6 * math.cos(a + da), 1.0, 5.6 * math.sin(a + da)])
+    c0 = np.array([cone_r * math.cos(a - da), 2.4, cone_r * math.sin(a - da)])
+    c1 = np.array([cone_r * math.cos(a + da), 2.4, cone_r * math.sin(a + da)])
+    # a point of the star, sloping down from the cone to its tip
+    add(IX, 'titanium green', [tc + p for p in (c0, c1, v0, tip, v1)] + [tc + p - np.array([0, 0.3, 0]) for p in (v0, tip, v1)])
+    # rib along the point, up to the wall
+    d = np.array([math.cos(a), 0, math.sin(a)]); n = np.array([-d[2], 0, d[0]])
+    add(IX, 'titanium green', [tc + d * r + n * w + np.array([0, y, 0]) for r in (cone_r, 9.4) for w in (-0.15, 0.15)
+                               for y in ((0.8, 2.6) if r == cone_r else (0.8, 1.6))])
+    # the cone: a slice from the rim of the cone up to its top
+    add(IX, 'titanium green', [tc + p for p in (c0, c1, np.array([0, cone_top, 0]))] + [tc + c0 - np.array([0, 0.3, 0]), tc + c1 - np.array([0, 0.3, 0])])
+    # pocket marker between this point and the next: where a FUEL rides (RobotMechanisms puts a ball here)
+    pa = a + da
+    part(f'{IX}/Pocket {k}', tc + np.array([7.0 * math.cos(pa), 1.0 + 2.5, 7.0 * math.sin(pa)]))
+cyl(IX, 'steel', tc + np.array([0, cone_top + 0.2, 0]), (0, 1, 0), 0.6, 0.5, n=12)              # hub
 
 # ------------------------------------------------------------------ front module (gear side)
 zf = hl + 0.05

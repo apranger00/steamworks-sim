@@ -87,6 +87,7 @@ namespace SteamworksSim.Robots
                     go.name = p.name.Substring(slash + 1);
                     if (host != null) go.transform.SetParent(host, true);
                 }
+                if (p.meshes == null || p.meshes.Length == 0) continue; // a marker (e.g. "Indexer/Pocket 0"): position only
                 if (!m.meshes.TryGetValue(p.name, out var mesh)) { mesh = MakeMesh(p); m.meshes[p.name] = mesh; }
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var mr = go.AddComponent<MeshRenderer>();
