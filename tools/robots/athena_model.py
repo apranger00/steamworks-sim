@@ -200,19 +200,20 @@ cc = np.array([0, 7.0, hl - 2.4]); part(CR, cc)
 cyl(CR, 'orange', cc, (1, 0, 0), 0.9, 13.0, n=12)
 
 # ------------------------------------------------------------------ shooter: double flywheel on a curved green arm
-# robot.json: shooter.exitOffset [-4.5, -12] (forward, left) and exitHeight 15 (the flywheel axle); the turret node
+# robot.json: shooter.exitOffset [-4.5, -12] (forward, left) and exitHeight 19.5 (the flywheel axle: the top of the
+# 8 in wheel is flush with the top of the hopper, 23.5 in); the turret node
 # sits 5 in under the axle and the shot leaves along its +z
 TY = 'Turret yaw'
-sc = np.array([12.0, 15.0 - 5.0, -4.5]); part(TY, sc)
+sc = np.array([12.0, 19.5 - 5.0, -4.5]); part(TY, sc)
 cyl(TY, 'titanium green', sc, (0, 1, 0), 3.2, 0.5, n=20)                                        # bearing plate
-arm = [(-5.5, 0.0), (4.5, 0.0), (5.5, 3.5), (4.0, 7.5), (1.0, 10.2), (-3.0, 10.5), (-6.0, 7.0)]
+arm = [(-5.5, 0.0), (4.5, 0.0), (5.5, 3.0), (4.0, 6.6), (1.0, 8.6), (-3.0, 8.8), (-6.0, 6.2)]
 flat(TY, 'titanium green', arm, sc + np.array([2.2, 0.2, 0]), (0, 0, 1), (0, 1, 0), t=0.3)        # outboard arm
 flat(TY, 'titanium green', arm, sc + np.array([-1.9, 0.2, 0]), (0, 0, 1), (0, 1, 0), t=0.25)      # inboard plate
-for k in range(6):                                                                              # clear hood over the top
-    a0 = math.radians(-10 + 20 * k); a1 = a0 + math.radians(20)
+for k in range(3):                                                                              # clear hood round the back
+    a0 = math.radians(-20 + 20 * k); a1 = a0 + math.radians(20)
     pts = [(-r * math.cos(a) - 0.5, 5.0 + r * math.sin(a)) for a in (a0, a1) for r in (6.3, 6.5)]
     flat(TY, 'polycarbonate', pts, sc + np.array([1.9, 0, 0]), (0, 0, 1), (0, 1, 0), t=3.8)
-box(TY, 'black', sc + np.array([2.7, 4.0, 3.5]), (0.6, 1.2, 3.0))                                 # handle-like bracket
+box(TY, 'black', sc + np.array([2.7, 3.0, 3.5]), (0.6, 1.2, 3.0))                                 # handle-like bracket
 cyl(TY, 'steel', sc + np.array([-2.6, 5.0, -0.5]), (1, 0, 0), 1.2, 2.5, n=12)                    # motor
 FW = 'Turret yaw/Flywheel'
 fc = sc + np.array([0, 5.0, -0.5]); part(FW, fc)

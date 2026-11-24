@@ -228,6 +228,55 @@ namespace SteamworksSim.UI
             teamLogoFit.aspectRatio = logo.width / (float)Mathf.Max(1, logo.height);
         }
 
+        // ---------------------------------------------------------------- SET AUTO overlay (bird's-eye view)
+        Text autoStatus;
+        float autoNotSavedAt = -100f;
+
+        void BuildSetAuto()
+        {
+            var page = NewPage(MenuPage.SetAuto, "Set auto");
+            var cancel = Ui.Button(page, "CANCEL", () => sim.CancelSetAuto(), 60f, 28, false, true);
+            Ui.Anchor(cancel.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(230f, 60f), new Vector2(24f, -24f));
+            var save = Ui.Button(page, "SAVE", () => { if (!sim.SaveAuto()) autoNotSavedAt = Time.unscaledTime; }, 60f, 28, false, true);
+            Ui.Anchor(save.GetComponent<RectTransform>(), new Vector2(0f, 1f), new Vector2(230f, 60f), new Vector2(24f, -96f));
+            var reset = Ui.Button(page, "RESET", () => sim.ResetSetAuto(), 60f, 28, false, true);
+            Ui.Anchor(reset.GetComponent<RectTransform>(), new Vector2(1f, 1f), new Vector2(200f, 60f), new Vector2(-24f, -24f));
+            var msg = Ui.Anchor(Ui.Rect("Message", page), new Vector2(0.5f, 1f), new Vector2(980f, 84f), new Vector2(0f, -24f));
+            msg.gameObject.AddComponent<Image>().color = Ui.Backdrop;
+            var t = Ui.Label(msg, "Drive around to set your starting position, but remember:\nyou can only save it if your robot is touching your ALLIANCE WALL!", 26, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Stretch(t.rectTransform, 8f);
+            var st = Ui.Anchor(Ui.Rect("Status", page), new Vector2(0.5f, 1f), new Vector2(640f, 46f), new Vector2(0f, -116f));
+            st.gameObject.AddComponent<Image>().color = Ui.Backdrop;
+            autoStatus = Ui.Label(st, "", 24, Ui.TextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Ui.Stretch(autoStatus.rectTransform, 4f);
+            firstSelect[MenuPage.SetAuto] = save;
+        }
+
+        void UpdateSetAuto()
+        {
+            if (Page != MenuPage.SetAuto || autoStatus == null) return;
+            if (Time.unscaledTime - autoNotSavedAt < 2f)
+                autoStatus.text = "<color=#ff5a64>NOT SAVED: your robot must touch your alliance wall</color>";
+            else
+                autoStatus.text = sim.AutoStartValid ? "<color=#5fd35f>Touching your alliance wall: SAVE to keep it</color>"
+                                                     : "<color=#ffb020>Not touching your alliance wall</color>";
+        }
+
+        void RefreshRobotSelect()
+        {
+            var lib = sim.Library;
+            var names = new string[lib != null ? lib.robots.Count : 0];
+            for (int i = 0; i < names.Length; i++) names[i] = lib.robots[i].name;
+            int idx = lib != null ? lib.robots.IndexOf(sim.Current) : -1;
+            robotRow.SetValues(names.Length > 0 ? names : new[] { sim.Current != null ? sim.Current.name : "-" }, Mathf.Max(0, idx));
+            allianceRow.SetIndex(sim.alliance == "blue" ? 1 : 0);
+            var starts = new List<string>();
+            foreach (var n in SimBootstrap.StationName) starts.Add(char.ToUpper(n[0]) + n.Substring(1));
+            if (sim.HasSavedAuto || sim.CustomStart) starts.Add("Set with SET AUTO");
+            stationRow.SetValues(starts.ToArray(), sim.CustomStart ? starts.Count - 1 : sim.station);
+            RefreshRobotInfo();
+        }
+
         void RefreshRobotInfo()
         {
             var d = sim.Current;

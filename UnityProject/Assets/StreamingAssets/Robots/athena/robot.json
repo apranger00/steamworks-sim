@@ -43,7 +43,7 @@
     "enabled": true,
     "type": "turret",
     "rate": 10,
-    "exitHeight": 15,
+    "exitHeight": 19.5,
     "exitOffset": [
       -4.5,
       -12
