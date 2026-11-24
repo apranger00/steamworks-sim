@@ -22,6 +22,18 @@ namespace SteamworksSim.Game
             d.Begin(false, spot, heading, duration, delay);
         }
 
+        /// <summary>Ends a drive-in at once (the match or SET AUTO is starting): the robot is a normal robot again.</summary>
+        public static void Stop(GameObject robot)
+        {
+            var d = robot != null ? robot.GetComponent<PreviewDrive>() : null;
+            if (d == null || d.leaving || d.stopped) return;
+            d.stopped = true;
+            if (d.rb != null) d.rb.isKinematic = false;
+            if (d.drive != null) d.drive.enabled = true;
+            Destroy(d);
+        }
+        bool stopped;
+
         /// <summary>True while a robot is still driving in.</summary>
         public static bool Busy(GameObject robot) { var d = robot != null ? robot.GetComponent<PreviewDrive>() : null; return d != null && !d.leaving; }
 
@@ -57,6 +69,7 @@ namespace SteamworksSim.Game
 
         void Update()
         {
+            if (stopped) return;
             t += Time.unscaledDeltaTime;
             float u = Mathf.Clamp01((t - delay) / duration);
             if (t < delay) return;

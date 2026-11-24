@@ -470,6 +470,8 @@ namespace SteamworksSim.Game
         void ResetPlayer()
         {
             if (player == null) return;
+            // still driving in from robot selection? stop that first, or it carries on to the showcase spot
+            if (State != AppState.RobotSelect) PreviewDrive.Stop(player);
             if (playerMech != null) playerMech.ResetState(); // off the rope, back on the carpet
             if (State == AppState.RobotSelect) Place(player, PreviewSpot.x, PreviewSpot.y, PreviewHeading);
             else PlaceStart();
