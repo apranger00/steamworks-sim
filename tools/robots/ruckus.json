@@ -1,0 +1,453 @@
+{
+  "comment": "Robonauts 118 'Ruckus' (2017), Pro/ENGINEER export 0000_ruckus_asm.stp (NASA JSC). CAD: Y up, front (gear wall, FUEL intake) toward +X, +Z is the robot's right; frame centre at x 0, z 0; carpet at y 0. No bumpers in the CAD (the game draws them).",
+  "axes": {
+    "right": "+z",
+    "up": "+y",
+    "forward": "+x"
+  },
+  "origin": [
+    0,
+    0,
+    0
+  ],
+  "minSize": 0.6,
+  "exclude": [
+    "*/BALL"
+  ],
+  "defaultMaterial": "aluminium",
+  "materials": [
+    {
+      "name": "aluminium",
+      "color": [
+        0.74,
+        0.76,
+        0.79,
+        1
+      ],
+      "metal": 0.8,
+      "smooth": 0.55
+    },
+    {
+      "name": "dark aluminium",
+      "color": [
+        0.32,
+        0.34,
+        0.37,
+        1
+      ],
+      "metal": 0.7,
+      "smooth": 0.5
+    },
+    {
+      "name": "polycarbonate",
+      "color": [
+        0.82,
+        0.9,
+        1.0,
+        0.3
+      ],
+      "metal": 0.0,
+      "smooth": 0.85
+    },
+    {
+      "name": "steel",
+      "color": [
+        0.55,
+        0.57,
+        0.6,
+        1
+      ],
+      "metal": 0.85,
+      "smooth": 0.6
+    },
+    {
+      "name": "motor",
+      "color": [
+        0.2,
+        0.21,
+        0.24,
+        1
+      ],
+      "metal": 0.6,
+      "smooth": 0.45
+    },
+    {
+      "name": "electronics",
+      "color": [
+        0.07,
+        0.07,
+        0.08,
+        1
+      ],
+      "metal": 0.1,
+      "smooth": 0.35
+    },
+    {
+      "name": "rubber",
+      "color": [
+        0.05,
+        0.05,
+        0.05,
+        1
+      ],
+      "metal": 0.0,
+      "smooth": 0.12
+    },
+    {
+      "name": "roller",
+      "color": [
+        0.16,
+        0.16,
+        0.17,
+        1
+      ],
+      "metal": 0.0,
+      "smooth": 0.3
+    },
+    {
+      "name": "delrin",
+      "color": [
+        0.93,
+        0.93,
+        0.9,
+        1
+      ],
+      "metal": 0.0,
+      "smooth": 0.45
+    },
+    {
+      "name": "robonauts yellow",
+      "color": [
+        0.95,
+        0.7,
+        0.12,
+        1
+      ],
+      "metal": 0.3,
+      "smooth": 0.5
+    },
+    {
+      "name": "air",
+      "color": [
+        0.85,
+        0.88,
+        0.92,
+        1
+      ],
+      "metal": 0.3,
+      "smooth": 0.7
+    }
+  ],
+  "colors": [
+    {
+      "match": [
+        "*/07_HOPPER_RIGHT_WALL",
+        "*/07_HOPPER_WALL_LEFT",
+        "*/07_TURRET_FRONT_WALL",
+        "*/07_TURRET_WALL_RIGHT_REVB",
+        "*/07_BACK_WALL_REVB",
+        "*/08_BALL_DEFLECTOR",
+        "*/05_WINCH_GUARD_PLASTIC",
+        "*/07_EPIC*SHEET*",
+        "*/07_PULLEY_SKIN_PLATE"
+      ],
+      "material": "polycarbonate"
+    },
+    {
+      "match": [
+        "*TREAD*",
+        "*BELT*",
+        "*BANEBOTS_WHEEL*",
+        "*ENERGY_CHAIN*",
+        "*FAIRLANE*"
+      ],
+      "material": "rubber"
+    },
+    {
+      "match": [
+        "*VERSADT_WHEEL*",
+        "*OMNI*",
+        "*217-4775*",
+        "*217-2584*"
+      ],
+      "material": "dark aluminium"
+    },
+    {
+      "match": [
+        "*SHAFT*",
+        "*AXLE*",
+        "*AXEL*",
+        "*STANDOFF*",
+        "*BOLT*",
+        "*SCREW*",
+        "*NUT*",
+        "*WASHER*",
+        "*COLLAR*",
+        "*BEARING*",
+        "*BUSHING*",
+        "*DOWEL*",
+        "*FASTEN*",
+        "*FASTNER*",
+        "*RETAINING*",
+        "*SPACER*",
+        "*PULLEY*",
+        "*GEAR_20DP*",
+        "*GEAR_48DP*",
+        "*GEAR_40T*",
+        "*VEX_GEAR*",
+        "*KAYDON*",
+        "*91251A*",
+        "*91253A*",
+        "*91255A*",
+        "*90631A*",
+        "*90630A*",
+        "*92562A*",
+        "*93306A*",
+        "*90670A*",
+        "*97633A*",
+        "*98164A*",
+        "*91259A*",
+        "*91502A*",
+        "*90128A*"
+      ],
+      "material": "steel"
+    },
+    {
+      "match": [
+        "*ROLLER*",
+        "*THUNDERHEX*",
+        "*WINCH_TUBE*",
+        "*WINCH_HUB*"
+      ],
+      "material": "roller"
+    },
+    {
+      "match": [
+        "*DELRIN*",
+        "*PLUG*"
+      ],
+      "material": "delrin"
+    },
+    {
+      "match": [
+        "*AIR_CYLINDE*",
+        "*PNUEMATIC*",
+        "*6498K*",
+        "*045-DPY*"
+      ],
+      "material": "air"
+    },
+    {
+      "match": [
+        "*06_ELECTRONICS*",
+        "*TALON*",
+        "*ROBORIO*",
+        "*RADIO*",
+        "*ODROID*",
+        "*ETHERNET*",
+        "*SPIKE*",
+        "*BREAKER*",
+        "*CTR_*",
+        "*CAMERA*",
+        "*ENCODER*",
+        "*SERVO*",
+        "*LIGHT*",
+        "*POT_*",
+        "*BATTERY*"
+      ],
+      "material": "electronics"
+    },
+    {
+      "match": [
+        "*775*",
+        "*CIM*",
+        "*BAG_MOTOR*",
+        "*VERSA_1STAGE*",
+        "*217-4100*",
+        "*MOTOR*"
+      ],
+      "material": "motor"
+    },
+    {
+      "match": [
+        "*SHOOTER_SIDE_PLATE*",
+        "*TURRET_NEW_TOP_DECK*",
+        "*TURRET_BASE_DECK*",
+        "*SPHINCTER_SIDE_PLATE*"
+      ],
+      "material": "robonauts yellow"
+    }
+  ],
+  "groups": [
+    {
+      "name": "Wheel R0",
+      "match": "*DRIVEPOD*",
+      "region": [
+        [
+          12,
+          -1,
+          9
+        ],
+        [
+          17,
+          5,
+          16
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 3.6,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel R1",
+      "match": "*DRIVEPOD*",
+      "region": [
+        [
+          12,
+          -1,
+          -7
+        ],
+        [
+          17,
+          5,
+          -2
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 3.6,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel R2",
+      "match": "*DRIVEPOD*",
+      "region": [
+        [
+          12,
+          -1,
+          -14
+        ],
+        [
+          17,
+          5,
+          -9
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 3.6,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel L0",
+      "match": "*DRIVEPOD*",
+      "region": [
+        [
+          -17,
+          -1,
+          9
+        ],
+        [
+          -12,
+          5,
+          16
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 3.6,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel L1",
+      "match": "*DRIVEPOD*",
+      "region": [
+        [
+          -17,
+          -1,
+          -7
+        ],
+        [
+          -12,
+          5,
+          -2
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 3.6,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Wheel L2",
+      "match": "*DRIVEPOD*",
+      "region": [
+        [
+          -17,
+          -1,
+          -14
+        ],
+        [
+          -12,
+          5,
+          -9
+        ]
+      ],
+      "roundOnly": true,
+      "maxDiameter": 3.6,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Turret yaw/Flywheel",
+      "match": "*0004_SHOOTER_ASM*FAIRLANE*",
+      "bakeYaw": -90,
+      "bakeAbout": [
+        -9.75,
+        12.4,
+        -9.65
+      ],
+      "pivot": "axisX"
+    },
+    {
+      "name": "Turret yaw",
+      "match": "*0004_SHOOTER_ASM*",
+      "bakeYaw": -90,
+      "bakeAbout": [
+        -9.75,
+        12.4,
+        -9.65
+      ],
+      "pivot": [
+        -9.75,
+        12.4,
+        -9.65
+      ]
+    },
+    {
+      "name": "Intake roller",
+      "match": "*02_0000_INTAKE_TOP*_BOTTOM*",
+      "roundOnly": true,
+      "maxDiameter": 2,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Conveyor roller 0",
+      "match": "*02_0000_INTAKE_TOP*_3RD*",
+      "roundOnly": true,
+      "maxDiameter": 2,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Conveyor roller 1",
+      "match": "*02_0000_INTAKE_TOP*ROLLER*_TOP*",
+      "roundOnly": true,
+      "maxDiameter": 2,
+      "pivot": "axisX"
+    },
+    {
+      "name": "Gear intake",
+      "match": "*08_FRONT_WALL_ASM*",
+      "pivot": [
+        0,
+        6.65,
+        13.55
+      ]
+    }
+  ]
+}

@@ -53,6 +53,8 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 | `gear.maxDistance / maxLateral / maxAngle` | 4 / 3.5 / 20 | How precisely you must line up on a peg |
 | `gear.slider` | 0 | A sideways gear slider: as the slot comes up to a peg, it carries the GEAR up to this many inches left or right to line it up (adds to `maxLateral`) |
 | `gear.holdInset / holdHeight` | 3.25 / 13 | Where the carried GEAR sits: inches in from the bumper face, and its centre's height |
+| `gear.holdWidth` | 0 | A wide gear mechanism: it carries the GEAR wherever across it the GEAR went in (floor or chute), and that spot must be lined up with the peg. 0 = always centred |
+| `gear.pickupFold` | 0 | Degrees a gear mechanism folds forward to the carpet to pick a GEAR up (model part `Gear intake`, hinged across the robot); it stands back up holding the GEAR |
 | `gear.capacity` | 0 | GEARS the robot holds; 0 = unlimited |
 | `preload.fuel / gears` | 10 / 1 | On board at the start of a match (2017 limits; capped by capacity). Whatever an alliance's robots don't preload goes to its loading lane (the opening in its own alliance wall) |
 | `intake.fuelFromChute` | true | Open-top hopper: FUEL falling from a loading-station chute onto the robot goes in |
@@ -73,7 +75,7 @@ Units: lengths in **inches**, speeds in **ft/s**, accelerations in **ft/s²**, a
 
     python3 tools/step_to_robot_model.py robot.stp tools/robots/my-robot.json UnityProject/Assets/StreamingAssets/Robots/my-robot/model.json
 
-Each solid becomes its convex hull (plates, tubes, wheels and rollers look right; L brackets and channels come out filled in), coloured by name rules. The config says how the CAD sits in the robot (which CAD axis is up and which is forward, the footprint centre on the carpet), which parts to leave out (the CAD bumpers: the game draws its own in your alliance colour, with your number), the colours, and the moving parts. Parts named `Wheel L0`..`Wheel R2` spin with the drivetrain, `Intake roller` and `Conveyor roller 0..3` spin while intaking, `Gear slider` moves sideways with `gear.slider`, `Indexer` turns while shooting (empty marker parts `Indexer/Pocket 0..` each carry one FUEL round with it), and `Turret yaw` turns to face the goal (build it shooting along +z, pivot on the turret axis). Without CAD, a model can be built from simple shapes in a short script: `tools/robots/athena_model.py` is an example. `tools/robots/sir-belvidere.json` is a full example. Keep it under about 100,000 triangles.
+Each solid becomes its convex hull (plates, tubes, wheels and rollers look right; L brackets and channels come out filled in), coloured by name rules. The config says how the CAD sits in the robot (which CAD axis is up and which is forward, the footprint centre on the carpet), which parts to leave out (the CAD bumpers: the game draws its own in your alliance colour, with your number), the colours, and the moving parts. Parts named `Wheel L0`..`Wheel R2` spin with the drivetrain, `Intake roller` and `Conveyor roller 0..3` spin while intaking, `Gear slider` moves sideways with `gear.slider`, `Indexer` turns while shooting (empty marker parts `Indexer/Pocket 0..` each carry one FUEL round with it), `Gear intake` folds with `gear.pickupFold`, and `Turret yaw` turns to face the goal (build it shooting along +z, pivot on the turret axis). Without CAD, a model can be built from simple shapes in a short script: `tools/robots/athena_model.py` is an example. `tools/robots/sir-belvidere.json` is a full example. Keep it under about 100,000 triangles.
 
 ## Validation
 
@@ -90,4 +92,4 @@ Robot files are small, so when you join a game your robot's definition is sent t
 
 ## Example
 
-The built-in robots in `UnityProject/Assets/StreamingAssets/Robots` are full examples: `sim-6wd` (Rookie Bot, the basic robot with no team), `sir-belvidere` (a model made from CAD, a gear slider, no FUEL) and `athena` (a model made from shapes, mecanum, a make-rate turret, an indexer with pockets). Copy one into `Mods/Robots/<your-id>/`, give it a new `id` and change what you like.
+The built-in robots in `UnityProject/Assets/StreamingAssets/Robots` are full examples: `sim-6wd` (Rookie Bot, the basic robot with no team), `sir-belvidere` (a model made from CAD, a gear slider, no FUEL) `athena` (a model made from shapes, mecanum, a make-rate turret, an indexer with pockets) and `ruckus` (CAD, a folding wide gear pick-up, a fast climber; its config `tools/robots/ruckus.json` turns the turret with `bakeYaw`). Copy one into `Mods/Robots/<your-id>/`, give it a new `id` and change what you like.

@@ -312,6 +312,14 @@ namespace SteamworksSim.Game
                 heldGear.gameObject.AddComponent<MeshFilter>().sharedMesh = FieldAnimator.GearMesh();
                 var fm = transform.Find("Visual/Gear marker") ?? transform.Find("Visual/Front marker");
                 heldGear.gameObject.AddComponent<MeshRenderer>().sharedMaterial = fm != null ? fm.GetComponent<MeshRenderer>().sharedMaterial : dark;
+                // a gear mechanism that folds: the GEAR rides on it
+                gearIntake = visual.Find("Gear intake");
+                if (gearIntake != null)
+                {
+                    gearIntakeHome = gearIntake.localRotation;
+                    heldGear.SetParent(gearIntake, true);
+                    heldHome = heldGear.localPosition;
+                }
             }
             // FUEL riding up the intake conveyor (visual; counted when it drops into the hopper)
             if (RobotFactory.HasFloorIntake(def) && fuel != null)
@@ -344,7 +352,7 @@ namespace SteamworksSim.Game
         public void ResetState()
         {
             Climb = ClimbPhase.None; ClimbRope = null; Lift = 0f;
-            shootT = dumpT = 0f; gearCooldown = 0f; SliderPos = 0f;
+            shootT = dumpT = 0f; gearCooldown = 0f; SliderPos = 0f; foldNow = 0f;
             if (rb != null) { rb.isKinematic = false; if (Climb == ClimbPhase.None) rb.constraints = savedConstraints; }
             if (drive != null) drive.enabled = true;
             var p = transform.position; p.y = 0f; transform.position = p;
@@ -360,6 +368,7 @@ namespace SteamworksSim.Game
             if (gearCooldown > 0f) gearCooldown -= dt;
             if (heldGear != null) heldGear.gameObject.SetActive(gearCooldown <= 0f && Climb == ClimbPhase.None && HasGear);
             StepRiders(dt);
+            StepGearFold(dt);
             ShowHopperFuel();
             Overflow();
 
@@ -539,7 +548,7 @@ namespace SteamworksSim.Game
                 if (score < bestScore)
                 {
                     bestScore = score; best = i;
-                    ok = ang <= G.maxAngle && lt <= G.maxLateral && Mathf.Abs(side) <= G.maxLateral + G.slider && d <= G.maxDistance && d >= -2f;
+                    ok = ang <= G.maxAngle && lt <= G.maxLateral && (G.slider <= 0f || Mathf.Abs(side) <= G.maxLateral + G.slider) && d <= G.maxDistance && d >= -2f;
                     dist = d; lat = lt; angle = ang; pegSide = side;
                 }
             }
@@ -748,7 +757,25 @@ namespace SteamworksSim.Game
             if (indexer != null) indexer.Rotate(0f, Mathf.Max(spinFly * 0.45f, Mathf.Abs(spinIntake) * 0.15f) * deg, 0f, Space.Self);
             if (hood != null) hood.localRotation = Quaternion.Euler(hoodTilt, 0f, 0f);
             if (gearSlider != null) gearSlider.localPosition = new Vector3(sliderHome.x - SliderPos * In, sliderHome.y, sliderHome.z);
-            if (heldGear != null && def.gear != null && def.gear.slider > 0f) heldGear.localPosition = HeldGearAt();
+            if (heldGear != null && def.gear != null && (def.gear.slider > 0f || def.gear.holdWidth > 0f))
+                heldGear.localPosition = gearIntake != null ? heldHome + Vector3.left * (SliderPos * In) : HeldGearAt();
+            if (gearIntake != null) gearIntake.localRotation = gearIntakeHome * Quaternion.Euler(foldNow, 0f, 0f);
+        }
+        Transform gearIntake; Quaternion gearIntakeHome; Vector3 heldHome;
+        float foldNow; // deg the gear mechanism is folded forward (0 = standing up)
+
+        /// <summary>How far (in) either way of centre a wide gear mechanism can carry the GEAR (gear.holdWidth).</summary>
+        float HoldRange => def.gear != null && def.gear.holdWidth > 0f ? Mathf.Max(0f, def.gear.holdWidth / 2f - 5.5f) : 0f;
+        bool Folds => gearIntake != null && def.gear != null && def.gear.pickupFold > 0f;
+
+        /// <summary>Gear pick-up that folds to the floor: down while Intake is held and there's room for a GEAR, back up
+        /// (with the GEAR) otherwise. About a third of a second each way.</summary>
+        void StepGearFold(float dt)
+        {
+            if (!Folds) return;
+            bool down = intakeHeld && enabledByMatch && Climb == ClimbPhase.None && def.intake != null && def.intake.gearFromFloor
+                        && (GearCapacity <= 0 || Gears < GearCapacity);
+            foldNow = Mathf.MoveTowards(foldNow, down ? def.gear.pickupFold : 0f, 320f * dt);
         }
         Transform gearSlider; Vector3 sliderHome;
 
@@ -781,10 +808,24 @@ namespace SteamworksSim.Game
             // the floor intake is on the front (in the bumper opening, if there is one); a GEAR lying flat goes in
             var d = new Vector2(p.x, p.y) - Center;
             float lx = Vector2.Dot(d, Forward), ly = Vector2.Dot(d, Left);
-            float gap = RobotDetail.FrontGapHalf(def), halfOpening = gap > 0f ? gap + 2f : 8f;
-            bool caught = p.z < 6f && lx >= HalfL - 4f && lx <= HalfL + 7f && Mathf.Abs(ly) <= halfOpening;
-            if (caught && GearCapacity > 0) Gears++;
-            return caught;
+            bool caught;
+            if (Folds)
+            {
+                // folded flat in front of the robot: a GEAR slides in anywhere across the mechanism
+                if (foldNow < def.gear.pickupFold * 0.85f) return false;
+                float half = def.gear.holdWidth > 0f ? def.gear.holdWidth / 2f : 8f;
+                caught = p.z < 6f && lx >= HalfL - 2f && lx <= HalfL + 12f && Mathf.Abs(ly - def.gear.slotOffset) <= half;
+            }
+            else
+            {
+                float gap = RobotDetail.FrontGapHalf(def), halfOpening = gap > 0f ? gap + 2f : 8f;
+                caught = p.z < 6f && lx >= HalfL - 4f && lx <= HalfL + 7f && Mathf.Abs(ly) <= halfOpening;
+            }
+            if (!caught) return false;
+            if (GearCapacity > 0) Gears++;
+            SliderPos = Mathf.Clamp(ly - def.gear.slotOffset, -HoldRange, HoldRange); // carried where it went in (0 if centred)
+            if (def.gear.slider > 0f) SliderPos = 0f;
+            return true;
         }
 
         /// <summary>
@@ -813,6 +854,7 @@ namespace SteamworksSim.Game
             float covered = Mathf.Min(Mathf.Max(s1, s2), L.chuteHalfW) - Mathf.Max(Mathf.Min(s1, s2), -L.chuteHalfW);
             if (covered < overlap * 2f * L.chuteHalfW) { ChuteGearStatus = $"not in front of the chute ({Mathf.Max(0f, covered) / (2f * L.chuteHalfW) * 100f:0}% covered, {overlap * 100f:0}% needed)"; return false; }
             if (GearCapacity > 0) Gears++;
+            if (HoldRange > 0f) SliderPos = Mathf.Clamp(Vector2.Dot(chute - (c + f), Left) - def.gear.slotOffset, -HoldRange, HoldRange);
             ChuteGearStatus = "GEAR in the slot";
             return true;
         }

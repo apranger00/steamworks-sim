@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "id": "ruckus",
+  "name": "Ruckus",
+  "author": "Robonauts 118",
+  "team": 118,
+  "teamName": "Robonauts",
+  "logo": "logo.png",
+  "description": "The Robonauts' 2017 robot, from the team's CAD. 110 lb, 16 ft/s tank drive. A turret on the back left (about 10 FUEL/s, about 60% of shots go in) fed from the hopper, which fills from a chute or the floor intake across the front. The front wall is the gear mechanism, about 75% of the robot's width: it folds flat to the carpet, a GEAR slides in anywhere across it, and it stands back up holding the GEAR where it went in, so that spot has to be lined up with the peg. Climbs at the back in about 2 seconds.",
+  "features": [
+    "Climber: up the rope in about 2 seconds",
+    "Gear mechanism 75% of the robot's width: picks a GEAR up anywhere across it and carries it there (line that spot up with the peg)",
+    "Gear pick-up folds flat to the carpet, then stands back up holding the GEAR"
+  ],
+  "accolades": [],
+  "version": "1.0",
+  "frame": {
+    "length": 29,
+    "width": 33.2,
+    "height": 23.9
+  },
+  "bumpers": {
+    "thickness": 3.25,
+    "bottom": 2,
+    "top": 7,
+    "frontGap": 0,
+    "numbers": true
+  },
+  "mass": 110,
+  "drivetrain": {
+    "type": "tank",
+    "topSpeed": 16,
+    "acceleration": 50,
+    "traction": 1.1,
+    "sideScrub": 0.85,
+    "brake": 0.9,
+    "maxTurnRate": 320,
+    "trackWidth": 29.4,
+    "wheelDiameter": 3.25,
+    "wheelsPerSide": 3
+  },
+  "shooter": {
+    "enabled": true,
+    "type": "turret",
+    "rate": 10,
+    "exitHeight": 18.5,
+    "exitOffset": [-9.65, 9.75],
+    "maxExitSpeed": 40,
+    "minRange": 2.5,
+    "maxRange": 25,
+    "entryAngle": 55,
+    "aimError": 0.25,
+    "speedError": 0.5,
+    "accuracy": 0.6,
+    "accurateRange": 40,
+    "accuracyDrop": 0,
+    "accuracyMin": 0.6,
+    "capacity": 0
+  },
+  "lowGoalDump": {
+    "enabled": false,
+    "rate": 10,
+    "height": 22,
+    "speed": 5.83,
+    "width": 14
+  },
+  "gear": {
+    "enabled": true,
+    "back": false,
+    "slotOffset": 0,
+    "maxDistance": 4,
+    "maxLateral": 3.5,
+    "maxAngle": 20,
+    "slider": 0,
+    "holdInset": 3.1,
+    "holdHeight": 14,
+    "holdWidth": 25,
+    "pickupFold": 105,
+    "capacity": 1
+  },
+  "preload": {
+    "fuel": 10,
+    "gears": 1
+  },
+  "intake": {
+    "fuelFromChute": true,
+    "hopperDepth": 12,
+    "hopperBalls": 60,
+    "gearFromChute": true,
+    "fuelFromFloor": true,
+    "floorWidth": 24,
+    "gearFromFloor": true
+  },
+  "climber": {
+    "enabled": true,
+    "back": true,
+    "rate": 18,
+    "setback": 4.75,
+    "reachForward": 10,
+    "reachLateral": 12
+  },
+  "model": {
+    "file": "model.json",
+    "scale": 1,
+    "offset": [0, 0, 0],
+    "rotation": [0, 0, 0]
+  }
+}

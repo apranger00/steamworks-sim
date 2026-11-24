@@ -121,6 +121,10 @@ namespace SteamworksSim.Robots
                                             // line it up with the peg (adds to maxLateral)
         public float holdInset = 3.25f;     // in from the bumper face to the centre of the GEAR it carries
         public float holdHeight = 13f;      // in above the carpet, centre of the GEAR it carries
+        public float holdWidth = 0f;        // in: a wide gear mechanism carries the GEAR wherever across it the GEAR went
+                                            // in (floor or chute), and it must be lined up with the peg there; 0 = centred
+        public float pickupFold = 0f;       // deg: a gear mechanism that folds forward flat to the floor to pick a GEAR up
+                                            // (model part "Gear intake", hinged across the robot) and stands back up
         public int capacity = 0;            // GEARS the robot holds; 0 = unlimited (testing)
     }
 

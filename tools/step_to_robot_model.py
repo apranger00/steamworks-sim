@@ -275,8 +275,13 @@ def main(step_path, cfg_path, out_path):
     print('skipped', dict(skipped))
     parts = []
     for gname, items in groups.items():
-        allW = np.vstack([w for _, w, _ in items])
         g = next((g for g in cfg.get('groups', []) if g['name'] == gname), {})
+        if 'bakeYaw' in g:
+            # turn the group about a vertical axis through bakeAbout (robot axes), e.g. so a turret faces forward at rest
+            a = math.radians(g['bakeYaw']); about = np.array(g['bakeAbout'], float)
+            Ry = np.array([[math.cos(a), 0, math.sin(a)], [0, 1, 0], [-math.sin(a), 0, math.cos(a)]])
+            items = [(mi, (W - about) @ Ry.T + about, F) for mi, W, F in items]
+        allW = np.vstack([w for _, w, _ in items])
         if g.get('pivot') == 'axisX':   # spins about the robot's right axis through the group's centre
             lo, hi = allW.min(0), allW.max(0); pivot = (lo + hi) / 2
         elif 'pivot' in g and isinstance(g['pivot'], list): pivot = np.array(g['pivot'], float)
