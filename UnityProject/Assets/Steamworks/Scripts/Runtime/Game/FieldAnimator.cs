@@ -17,8 +17,8 @@ namespace SteamworksSim.Game
         readonly Dictionary<string, Pad[]> pads = new Dictionary<string, Pad[]>();
         readonly Dictionary<string, Transform[]> pegGears = new Dictionary<string, Transform[]>();
         TargetsFile targets;
-        /// <summary>GEARS installed on the AIRSHIP, per alliance and ROTOR set: set 1 is the one GEAR on top of the
-        /// STEAM TANK (doesn't turn); sets 2-4 lie on the rail trays next to their ROTOR and turn with it, each the
+        /// <summary>GEARS installed on the AIRSHIP, per alliance and ROTOR set: set 1 is the one GEAR standing on top of
+        /// the STEAM TANK facing the driver stations (doesn't turn); sets 2-4 lie on the rail trays next to their ROTOR and turn with it, each the
         /// opposite way to its neighbour as a gear train would.</summary>
         readonly Dictionary<string, Transform[][]> setGears = new Dictionary<string, Transform[][]>();
         // AIRSHIP geometry (prototype field.js DIM.airship): rail at 79 in on a 101 in hexagon, STEAM TANK top 108.5 in,
@@ -101,8 +101,12 @@ namespace SteamworksSim.Game
                 go.SetActive(false);
                 return go.transform;
             }
-            // set 1: lying on top of the STEAM TANK, around the ROTOR 1 shaft
-            sets[0] = new[] { Make($"{AL} ROTOR 1 GEAR", new Vector3(c.x, c.y, TankTop + 1f), 0f) };
+            // set 1: standing upright on top of the STEAM TANK, near its edge, face toward the alliance's driver
+            // stations (manual figure 3-7); the red wall is at -X
+            float w = AL == "RED" ? -1f : 1f;
+            var g1 = Make($"{AL} ROTOR 1 GEAR", new Vector3(c.x + w * 7f, c.y, TankTop + 5.5f), 0f);
+            g1.rotation = Quaternion.FromToRotation(Vector3.up, Units.ToUnity(w, 0f, 0f).normalized);
+            sets[0] = new[] { g1 };
             float rr = RailFlat / Mathf.Sqrt(3f); // hexagon corner radius (corners at 30 + 60k deg)
             for (int k = 1; k < 4; k++)
             {
